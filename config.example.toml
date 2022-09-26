@@ -1,0 +1,11 @@
+[server]
+port=8080
+ecryption_key=""
+
+[LOG]
+debug=true
+
+[discord]
+client_id="997832741120913478"
+client_secret="H__XKbFbFaqERmPabhzvRmTOCifv2Jo1"
+redirect_uri="https://admin.solarmada.space/"

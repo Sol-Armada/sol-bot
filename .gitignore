@@ -1,0 +1,6 @@
+.vscode/
+bin/
+web/dist
+config.*
+!config.example.toml
+.env*
