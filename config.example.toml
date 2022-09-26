@@ -6,6 +6,6 @@ ecryption_key=""
 debug=true
 
 [discord]
-client_id="997832741120913478"
-client_secret="H__XKbFbFaqERmPabhzvRmTOCifv2Jo1"
-redirect_uri="https://admin.solarmada.space/"
+client_id="givenclientid"
+client_secret="supersecretapplicationcode"
+redirect_uri="https://redirect.website.here/"
