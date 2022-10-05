@@ -4,3 +4,4 @@ web/dist
 config.*
 !config.example.toml
 .env*
+*.exe

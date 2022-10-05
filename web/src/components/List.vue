@@ -25,10 +25,13 @@ function search(e) {
     clearTimeout(delayTimer)
     delayTimer = setTimeout(() => {
         const cards = document.querySelectorAll(".card")
+        console.log(cards)
         if (value != "") {
             cards.forEach(card => {
                 if (!card.dataset.nick.toUpperCase().includes(value)) {
                     card.classList.add("hidden")
+                } else {
+                    card.classList.remove("hidden")
                 }
             });
         } else {
