@@ -28,10 +28,10 @@ function search(e) {
         console.log(cards)
         if (value != "") {
             cards.forEach(card => {
-                if (!card.dataset.nick.toUpperCase().includes(value)) {
-                    card.classList.add("hidden")
-                } else {
+                if (card.dataset.nick.toUpperCase().includes(value)) {
                     card.classList.remove("hidden")
+                } else {
+                    card.classList.add("hidden")
                 }
             });
         } else {
@@ -76,6 +76,12 @@ function search(e) {
                     Ally
                 </button>
             </div>
+        </div>
+        <div class="card bot" v-for="i in 100">
+            <h2>test bot {{i}}</h2>
+            <hr>
+            <h3>Bot</h3>
+            <hr>
         </div>
     </div>
 </template>

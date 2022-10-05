@@ -7,7 +7,7 @@ defineProps({
 </script>
 
 <template>
-    <nav class="main-menu">
+    <nav>
         <ul class="admin">
             <li>
                 <img class="avatar" :src="`https://cdn.discordapp.com/avatars/${admin.id}/${admin.avatar}.png`" alt="">
@@ -42,12 +42,12 @@ defineProps({
 @import "../assets/variables.scss";
 @import "../assets/shadows.scss";
 
-.main-menu {
+nav {
     background: #212121;
-    position: absolute;
+    position: sticky;
     top: 0;
     bottom: 0;
-    height: 100%;
+    height: 100vh;
     left: 0;
     width: $nav-width;
     overflow: hidden;

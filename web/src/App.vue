@@ -15,7 +15,9 @@ function logout() {
 </script>
 
 <template>
-    <Nav v-if="admin" :admin="admin" :logout="logout" />
+    <div class="nav">
+        <Nav v-if="admin" :logout="logout" />
+    </div>
     <div class="content">
         <RouterView />
     </div>
