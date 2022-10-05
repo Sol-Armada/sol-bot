@@ -3,15 +3,16 @@ import { updateUser } from '../api';
 import { truncateString } from '../utils';
 
 const props = defineProps({
+    admin: Object,
     users: Array,
     updateUser: Function
 })
 
 const Ranks = {
-    0: { name: "Bot", minEvents: 102 },
-    1: { name: "Admiral", minEvents: 101 },
-    2: { name: "Commander", minEvents: 100 },
-    3: { name: "Lieutenant", minEvents: 99 },
+    0: { name: "Bot", minEvents: 0 },
+    1: { name: "Admiral", minEvents: 0 },
+    2: { name: "Commander", minEvents: 0 },
+    3: { name: "Lieutenant", minEvents: 0 },
     4: { name: "Specialist", minEvents: 20 },
     5: { name: "Technician", minEvents: 10 },
     6: { name: "Member", minEvents: 3 },
@@ -58,8 +59,8 @@ function search(e) {
                 <button class="material-symbols-outlined" v-if="Ranks[user.rank-1]"
                     v-on:click="user.events++; updateUser(user)">add</button>
             </div>
-            <div class="controls" v-if="user.rank != 0 && user.rank != 99">
-                <button class="promote" v-if="Ranks[user.rank-1] && user.events >= Ranks[user.rank-1].minEvents"
+            <div class="controls" v-if="user.rank != 0 && user.rank != 99 && admin.rank < user.rank && admin.id != user.id">
+                <button class="promote" v-if="Ranks[user.rank-1] && user.rank-1 != 0 && user.events >= Ranks[user.rank-1].minEvents"
                     v-on:click="user.rank--; updateUser(user)">
                     Promote
                 </button>
@@ -85,7 +86,7 @@ function search(e) {
     .card {
         opacity: 1;
         text-align: center;
-        border: 1px solid grey;
+        border: 2px solid grey;
         border-radius: 10px;
         width: 200px;
         height: 200px;

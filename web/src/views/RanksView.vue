@@ -28,5 +28,5 @@
 </script>
 
 <template>
-    <List :users="users" :update-user="updateUser"/>
+    <List :admin="admin" :users="users" :update-user="updateUser"/>
 </template>

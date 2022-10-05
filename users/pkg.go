@@ -138,6 +138,17 @@ func (a *Admin) Login(code string) error {
 		return err
 	}
 
+	store := GetStorage()
+	storedUser, err := store.GetUser(a.User.Id)
+	if err != nil {
+		return err
+	}
+
+	if storedUser != nil {
+		a.User = storedUser
+		return nil
+	}
+
 	return nil
 }
 

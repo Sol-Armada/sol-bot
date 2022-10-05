@@ -82,7 +82,7 @@ func (b *Bot) Monitor() {
 				Id:            member.User.ID,
 				Username:      member.User.Username,
 				Discriminator: member.User.Discriminator,
-				Avatar:        member.Avatar,
+				Avatar:        member.User.Avatar,
 				Rank:          rank,
 				Ally:          false,
 				Notes:         "",
@@ -94,6 +94,12 @@ func (b *Bot) Monitor() {
 					// change when a difference is found
 					if member.Nick != "" && su.Nick != member.Nick {
 						su.Nick = member.Nick
+						if err := su.Save(); err != nil {
+							log.WithError(err).Error("updating a user")
+						}
+					}
+					if member.User.Avatar != "" && su.Avatar != member.User.Avatar {
+						su.Avatar = member.User.Avatar
 						if err := su.Save(); err != nil {
 							log.WithError(err).Error("updating a user")
 						}

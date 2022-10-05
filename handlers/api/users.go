@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"reflect"
 	"strconv"
 
 	"github.com/apex/log"
@@ -112,10 +113,19 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rid, err := strconv.Atoi(params["rank"].(string))
-	if err != nil {
-		logger.WithError(err).Error("converting the rank id")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	var rid int
+	switch reflect.TypeOf(params["rank"]).Kind() {
+	case reflect.String:
+		rid, err = strconv.Atoi(params["rank"].(string))
+		if err != nil {
+			logger.WithError(err).Error("converting the rank id")
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+	case reflect.Float64:
+		rid = int(params["rank"].(float64))
+	default:
+		http.Error(w, "Invalid Request", http.StatusBadRequest)
 		return
 	}
 
