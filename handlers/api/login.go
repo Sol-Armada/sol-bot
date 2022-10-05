@@ -6,18 +6,11 @@ import (
 	"net/http"
 
 	"github.com/apex/log"
-	"github.com/sol-armada/admin/handlers"
+	"github.com/gorilla/mux"
 	"github.com/sol-armada/admin/users"
 )
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	handlers.SetupCorsResponse(&w, r)
-	// allow options to go through for cors
-	if r.Method == http.MethodOptions {
-		w.WriteHeader(http.StatusOK)
-		return
-	}
-
 	// make sure we are only getting post
 	if r.Method != http.MethodPost {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -40,7 +33,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create the user
-	user, err := users.New(body["code"].(string))
+	admin, err := users.NewAdmin(body["code"].(string))
 	if err != nil {
 		if err.Error() == "Unauthorized" {
 			http.Error(w, "Problem with getting this user from Discord: Unauthorized", http.StatusUnauthorized)
@@ -52,25 +45,40 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check the user is whitelisted
-	if !user.IsAdmin() {
+	// check the user is an admin
+	if !users.IsAdmin(admin.User.Id) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 
-	// store the user
-	user.Store()
+	// store the admin
+	admin.StoreAsAdmin()
 
-	// convert the user to json
-	userJson, err := user.ToJson()
+	// convert the admin to json
+	adminJson, err := json.Marshal(admin)
 	if err != nil {
 		log.WithError(err).Error("converting user to json")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	if _, err := fmt.Fprint(w, userJson); err != nil {
+	if _, err := fmt.Fprint(w, string(adminJson)); err != nil {
 		log.WithError(err).Error("sending login response")
+	}
+}
+
+func CheckLogin(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id := vars["id"]
+	if id == "" {
+		http.Error(w, "Bad Request", http.StatusBadRequest)
+		return
+	}
+
+	admin := users.GetAdmin(id)
+	if _, err := fmt.Fprint(w, admin.StillLoggedIn()); err != nil {
+		log.WithError(err).Error("check login return")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 	}
 }
 

@@ -1,7 +1,23 @@
 @import "./base.scss";
+@import "./variables.scss";
+@import "~material/material-components-web";
+@import "../assets/shadows.scss";
 
 #app {
   font-weight: normal;
+}
+
+.content {
+  grid-column-start: 2;
+  margin: 10px;
+}
+
+.content:only-child {
+  grid-column-start: 1;
+  grid-column-end: 3;
+  justify-self: center;
+  align-self: center;
+  text-align: center;
 }
 
 @media (hover: hover) {
@@ -13,8 +29,7 @@
 @media (min-width: 1024px) {
   #app {
     display: grid;
-    grid-template-rows: 1fr 10fr;
+    grid-template-columns: $nav-width 10fr;
     height: 100%;
-    padding: 10px;
   }
 }

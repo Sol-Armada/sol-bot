@@ -1,8 +1,9 @@
 import { ref } from 'vue'
 
-const user = ref()
+const admin = ref()
+const users = ref()
 const err = ref()
 
 export const useComposition = function() {
-    return { user, err }
+    return { admin, users, err }
 }

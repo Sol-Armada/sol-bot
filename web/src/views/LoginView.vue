@@ -10,15 +10,7 @@ const { user } = useComposition()
 
 onMounted(() => {
     const router = useRouter()
-    const { err, user } = useComposition()
-
-    var cookieUser = undefined
-    if (cookie.get("user") != undefined) {
-        cookieUser = JSON.parse(cookie.get("user"))
-    }
-    if (user.value == undefined && cookieUser) {
-        // router.push("/admin")
-    }
+    const { err, admin } = useComposition()
 
     if (userCode.value != undefined) {
         axios.post(`${import.meta.env.VITE_API_BASE_URL}/login`, {
@@ -27,34 +19,32 @@ onMounted(() => {
             headers: {
                 "Content-Type": "application/json"
             }
-        })
-            .then(resp => {
-                user.value = resp.data
-                setTimeout(() => {
-                    cookie.set("user", JSON.stringify(resp.data))
-                    router.push("/admin")
-                }, 2000)
-            })
-            .catch(error => {
-                if (error != undefined) {
-                    if (error.message.includes("401")) {
-                        err.value = 401
-                        router.push("/error")
-                    } else {
-                        console.log(error)
-                    }
+        }).then(resp => {
+            admin.value = resp.data.user
+            setTimeout(() => {
+                cookie.set("admin", JSON.stringify(resp.data.user))
+                router.push("/ranks")
+            }, 2000)
+        }).catch(error => {
+            if (error != undefined) {
+                if (error.message.includes("401")) {
+                    err.value = 401
+                    router.push("/error")
+                } else {
+                    console.log(error)
                 }
-            })
+            }
+        })
     } else {
         router.push("/")
-        console.log("don't ahve usercode")
+        console.log("no have usercode")
     }
 })
 </script>
 
 <template>
-    <div class="logging-in">
-        <h1 v-if="user">Welcome to Sol Armada Administration, {{user.username}}#{{user.discriminator}}</h1>
+    <div>
+        <h1 v-if="user">Welcome to Sol Armada Administration, {{admin.username}}#{{admin.discriminator}}</h1>
         <div class="lds-dual-ring" v-else></div>
     </div>
 </template>
@@ -62,6 +52,9 @@ onMounted(() => {
 <style>
 .logging-in {
     grid-row-start: 2;
+    justify-self: center;
+    align-self: center;
+    text-align: center;
 }
 
 .lds-dual-ring {

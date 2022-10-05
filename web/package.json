@@ -2,7 +2,7 @@
   "name": "web",
   "version": "0.0.0",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --port 3333",
     "build": "vite build",
     "preview": "vite preview --port 4173",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
@@ -21,6 +21,7 @@
     "axios": "^0.27.2",
     "eslint": "^8.22.0",
     "eslint-plugin-vue": "^9.3.0",
+    "material-components-web": "^14.0.0",
     "node-sass": "^7.0.3",
     "prettier": "^2.7.1",
     "sass": "^1.55.0",

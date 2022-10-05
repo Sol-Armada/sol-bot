@@ -1,117 +1,228 @@
 <script setup>
-import { onMounted } from 'vue';
+import { updateUser } from '../api';
+import { truncateString } from '../utils';
 
-defineProps({
+const props = defineProps({
     users: Array,
+    updateUser: Function
 })
 
-onMounted(() => {
-    let users = document.querySelectorAll(".columns .column .user")
-    let columns = document.querySelectorAll(".columns .column")
-    let ghost = document.createElement("div")
-    ghost.classList.add("user")
-    ghost.classList.add("ghost")
-
-    function handleDragStart(e) {
-        this.style.opacity = "0.4"
-
-        e.dataTransfer.effectAllowed = "move"
-        e.dataTransfer.setData("text/plain", e.target.dataset.id)
-    }
-    function handleDragEnd(e) {
-        this.style.opacity = "1"
-
-        users.forEach(function (user) {
-            user.classList.remove("over")
-        })
-    }
-    function handleDragOver(e) {
-        e.preventDefault()
-        return false
-    }
-    function handleDragEnter(e) {
-        this.appendChild(ghost)
-    }
-    function handleDragLeave(e) {
-        this.classList.remove("over")
-    }
-    function handleDrop(e) {
-        e.stopPropagation()
-        
-        ghost.remove()
-
-        var usersList = document.querySelectorAll(".user")
-        for (var i = 0; i < usersList.length; i++) {
-            var user = usersList[i]
-            if (user.dataset.id === e.dataTransfer.getData("text/plain")) {
-                this.appendChild(user)
-                break
-            }
+const Ranks = {
+    0: { name: "Bot", minEvents: 102 },
+    1: { name: "Admiral", minEvents: 101 },
+    2: { name: "Commander", minEvents: 100 },
+    3: { name: "Lieutenant", minEvents: 99 },
+    4: { name: "Specialist", minEvents: 20 },
+    5: { name: "Technician", minEvents: 10 },
+    6: { name: "Member", minEvents: 3 },
+    7: { name: "Recruit", minEvents: 0 },
+    99: { name: "Ally", minEvents: 0 }
+}
+var delayTimer
+function search(e) {
+    var value = e.srcElement.value.toUpperCase()
+    clearTimeout(delayTimer)
+    delayTimer = setTimeout(() => {
+        const cards = document.querySelectorAll(".card")
+        if (value != "") {
+            cards.forEach(card => {
+                if (!card.dataset.nick.toUpperCase().includes(value)) {
+                    card.classList.add("hidden")
+                }
+            });
+        } else {
+            cards.forEach(card => {
+                card.classList.remove("hidden")
+            });
         }
+    }, 250)
+}
 
-        return false
-    }
-
-    // add listeners
-    users.forEach(function (user) {
-        user.addEventListener("dragstart", handleDragStart)
-        user.addEventListener("dragend", handleDragEnd)
-    })
-    columns.forEach(function (column) {
-        column.addEventListener("dragover", handleDragOver)
-        column.addEventListener("dragenter", handleDragEnter)
-        column.addEventListener("dragleave", handleDragLeave)
-        column.addEventListener("drop", handleDrop)
-    })
-})
 </script>
 
 <template>
-    <div class="columns">
-        <div class="column">
-            <div class="title">Recruit</div>
-            <div class="user" draggable="true" v-for="user in users" :data-id="`${user}`">{{user}}</div>
-        </div>
-        <div class="column">
-            <div class="title">Member</div>
-        </div>
-        <div class="column">
-            <div class="title">Technician</div>
-        </div>
-        <div class="column">
-            <div class="title">Specialist</div>
+    <form onsubmit="event.preventDefault();" role="search">
+        <input id="search" type="search" placeholder="Search..." autofocus v-on:keyup="search" />
+    </form>
+    <div class="cards">
+        <div v-for="user in users" :class="'card ' + Ranks[user.rank].name.toLowerCase()" :id="user.id"
+            :data-nick="user.nick">
+            <h2>{{truncateString(user.nick, 14)}}</h2>
+            <hr>
+            <h3>{{Ranks[user.rank].name}}</h3>
+            <hr>
+            <h3 v-if="user.rank != 0 && user.rank != 99">Events</h3>
+            <div class="events" v-if="user.rank != 0 && user.rank != 99">
+                <button class="material-symbols-outlined" v-on:click="user.events--; updateUser(user)">remove</button>
+                <span class="count">{{user.events}}</span>
+                <button class="material-symbols-outlined" v-if="Ranks[user.rank-1]"
+                    v-on:click="user.events++; updateUser(user)">add</button>
+            </div>
+            <div class="controls" v-if="user.rank != 0 && user.rank != 99">
+                <button class="promote" v-if="Ranks[user.rank-1] && user.events >= Ranks[user.rank-1].minEvents"
+                    v-on:click="user.rank--; updateUser(user)">
+                    Promote
+                </button>
+                <button class="demote" v-if="user.rank != 0 && Ranks[user.rank+1]"
+                    v-on:click="user.rank++; updateUser(user)">
+                    Demote
+                </button>
+                <button class="ally" v-if="user.rank == 7"
+                    v-on:click="user.ally=true; user.rank = 99; updateUser(user)">
+                    Ally
+                </button>
+            </div>
         </div>
     </div>
 </template>
 
-<style>
-.columns {
-    grid-column-start: 2;
-    display: grid;
-    grid-template-columns: 1fr 1fr 1fr 1fr;
+<style lang="scss">
+.cards {
+    display: flex;
     gap: 10px;
-    height: 100%;
+    flex-wrap: wrap;
+
+    .card {
+        opacity: 1;
+        text-align: center;
+        border: 1px solid grey;
+        border-radius: 10px;
+        width: 200px;
+        height: 200px;
+
+        hr {
+            width: 80%;
+            margin: auto;
+        }
+
+        .events {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            align-items: center;
+
+            button {
+                background: transparent;
+                border: 2px solid var(--color-border);
+                border-radius: 10px;
+                padding: 4px;
+                margin: 0 10px;
+                cursor: pointer;
+                color: var(--color-text);
+
+                &:nth-child(odd) {
+                    cursor: pointer;
+                }
+            }
+        }
+
+        .controls {
+            position: absolute;
+            width: 100%;
+            bottom: 0;
+            padding: 5px;
+
+            .promote,
+            .demote,
+            .ally {
+                background: transparent;
+                border: 2px solid var(--color-border);
+                border-radius: 10px;
+                padding: 10px;
+                cursor: pointer;
+                color: var(--color-text)
+            }
+
+            .demote:not(:only-child) {
+                display: none;
+            }
+        }
+
+        &.hidden {
+            display: none;
+            opacity: 0;
+            transition: opacity 1s ease;
+        }
+
+        &.ally {
+            border-color: #e05b03;
+            hr {
+                border-color: #e05b03;
+            }
+        }
+
+        &.recruit {
+            border-color: #1cfac0;
+
+            hr {
+                border-color: #1cfac0;
+            }
+        }
+
+        &.member {
+            border-color: #ffc900;
+
+            hr {
+                border-color: #ffc900;
+            }
+        }
+
+        &.specialist {
+            border-color: #da5c5c;
+
+            hr {
+                border-color: #da5c5c;
+            }
+        }
+
+        &.technician {
+            border-color: #e69737;
+
+            hr {
+                border-color: #e69737;
+            }
+        }
+
+        &.lieutenant {
+            border-color: #5796ff;
+
+            hr {
+                border-color: #5796ff;
+            }
+        }
+
+        &.commander {
+            border-color: white;
+
+            hr {
+                border-color: white;
+            }
+        }
+
+        &.admiral {
+            border-color: #235cff;
+
+            hr {
+                border-color: #235cff;
+            }
+        }
+    }
 }
 
-.columns .column {
-    height: 100%;
+input {
+    height: 3rem;
+    border: 0;
+    color: var(--color-text);
+    font-size: 1.8rem;
+    margin-bottom: 10px;
 }
 
-.title {
-    padding: 10px;
-}
-
-.user {
-    margin: 10px;
-    color: white;
-    background-color: grey;
-    border-radius: .5em;
-    padding: 10px;
-    cursor: move;
-}
-
-.ghost {
-    border: 3px dotted white;
-    opacity: "0.8";
+input[type="search"] {
+    background: var(--color-background-soft);
+    padding: 0 1.6rem;
+    border-radius: .7rem;
+    appearance: none;
+    z-index: 1;
+    position: relative;
 }
 </style>

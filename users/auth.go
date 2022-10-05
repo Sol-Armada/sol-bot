@@ -2,36 +2,42 @@ package users
 
 import (
 	"encoding/json"
-	"errors"
+	"fmt"
+	"io/ioutil"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/apex/log"
+	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/config"
 )
 
 type UserAccess struct {
-	AccessToken  string `json:"access_token"`
-	ExpiresIn    int64  `json:"expires_in"`
-	RefreshToken string `json:"refresh_token"`
+	AccessToken  string    `json:"access_token"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	RefreshToken string    `json:"refresh_token"`
 }
 
 func authenticate(code string) (*UserAccess, error) {
-	log.WithField("code", code).Info("creating new user access")
+	logger := log.WithField("code", code)
+	logger.Info("creating new user access")
 
-	// TODO: repalce these values with config values
+	redirectUri := strings.TrimSuffix(config.GetString("DISCORD.REDIRECT_URI"), "/")
+	redirectUri = fmt.Sprintf("%s/login", redirectUri)
+
 	data := url.Values{}
 	data.Set("client_id", config.GetString("DISCORD.CLIENT_ID"))
 	data.Set("client_secret", config.GetString("DISCORD.CLIENT_SECRET"))
-	data.Set("redirect_uri", config.GetString("DISCORD.REDIRECT_URI"))
+	data.Set("redirect_uri", redirectUri)
 	data.Set("grant_type", "authorization_code")
 	data.Set("code", code)
 
-	log.WithFields(log.Fields{
+	logger.WithFields(log.Fields{
 		"client_id":     config.GetString("DISCORD.CLIENT_ID"),
 		"client_secret": config.GetString("DISCORD.CLIENT_SECRET"),
-		"redirect_uri":  config.GetString("DISCORD.REDIRECT_URI"),
+		"redirect_uri":  redirectUri,
 		"grant_type":    "authorization_code",
 		"code":          code,
 	}).Debug("sending auth request")
@@ -40,29 +46,43 @@ func authenticate(code string) (*UserAccess, error) {
 	if err != nil {
 		return nil, err
 	}
-
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	client := &http.Client{}
 
+	logger.Debug("req for authentication to discord")
+
+	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, err
 	}
 	defer resp.Body.Close()
 
-	log.WithField("code", resp.StatusCode).Debug("authentication status")
-
 	if resp.StatusCode == http.StatusUnauthorized {
-		log.WithField("status code", resp.StatusCode).Error("could not authorize")
+		logger.WithField("status code", resp.StatusCode).Error("could not authorize")
 		return nil, errors.New("could not authorize")
 	}
 
-	userAccess := &UserAccess{}
-	if err := json.NewDecoder(resp.Body).Decode(&userAccess); err != nil {
+	if resp.StatusCode == http.StatusBadRequest {
+		errorMessage, _ := ioutil.ReadAll(resp.Body)
+		logger.WithFields(log.Fields{
+			"status code": resp.StatusCode,
+			"message":     string(errorMessage),
+		}).Error("bad request sent to discord auth")
+		return nil, errors.New("internal server error")
+	}
+
+	access := map[string]interface{}{}
+	if err := json.NewDecoder(resp.Body).Decode(&access); err != nil {
 		return nil, err
 	}
 
-	log.WithField("user access", userAccess).Info("created new user access")
+	userAccess := &UserAccess{
+		AccessToken:  access["access_token"].(string),
+		ExpiresAt:    time.Now().Add(time.Duration(access["expires_in"].(float64)) * time.Second),
+		RefreshToken: access["refresh_token"].(string),
+	}
+
+	logger.WithField("user access", *userAccess).Info("created new user access")
 
 	return userAccess, nil
 }
