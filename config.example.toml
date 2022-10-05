@@ -1,11 +1,39 @@
+################################################################
+# admins | list | list of member ids that are allowed to login #
+################################################################
+admins=[]
+
+################################################################
+# server                                                       #
+# ------------------------------------------------------------ #
+# port          | int    | api server port. 8080 by default    #
+# ecryption_key | string | a key to encrypt cookies. if empty, #
+#                        | a random string will be used on     #
+#                        | every start up                      #
+################################################################
 [server]
 port=8080
 ecryption_key=""
 
+################################################################
+# log                                                          #
+# ------------------------------------------------------------ #
+# debug | bool | enable debug logs. false by default           #
+################################################################
 [LOG]
 debug=true
 
+################################################################
+# discord                                                      #
+# ------------------------------------------------------------ #
+# client_id     | string | discord application client id       #
+# client_secret | string | discrod application client secret   #
+# redirect_uri  | string | valid uri set on the discord        #
+#                        | application client                  #
+# guild_id      | string | guild id to use for this tool       #
+################################################################
 [discord]
 client_id="givenclientid"
 client_secret="supersecretapplicationcode"
 redirect_uri="https://redirect.website.here/"
+guild_id="guildid"
