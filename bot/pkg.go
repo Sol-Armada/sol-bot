@@ -93,15 +93,29 @@ func (b *Bot) Monitor() {
 				if member.User.ID == su.Id {
 					// change when a difference is found
 					if member.Nick != "" && su.Nick != member.Nick {
+						log.WithFields(log.Fields{
+							"member":      member,
+							"stored user": su,
+						}).Debug("updating a users nick")
 						su.Nick = member.Nick
 						if err := su.Save(); err != nil {
-							log.WithError(err).Error("updating a user")
+							log.WithFields(log.Fields{
+								"member":      member,
+								"stored user": su,
+							}).WithError(err).Error("updating a users nick")
 						}
 					}
 					if member.User.Avatar != "" && su.Avatar != member.User.Avatar {
+						log.WithFields(log.Fields{
+							"member":      member,
+							"stored user": su,
+						}).Debug("updating a users avatar")
 						su.Avatar = member.User.Avatar
 						if err := su.Save(); err != nil {
-							log.WithError(err).Error("updating a user")
+							log.WithFields(log.Fields{
+								"member":      member,
+								"stored user": su,
+							}).WithError(err).Error("updating a users avatar")
 						}
 					}
 					goto CONTINUE
