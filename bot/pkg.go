@@ -2,12 +2,14 @@ package bot
 
 import (
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/users"
 )
 
@@ -65,6 +67,7 @@ func (b *Bot) Monitor() {
 		storedUsers, err := store.GetUsers()
 		if err != nil {
 			log.WithError(err).Error("getting users for updating")
+			continue
 		}
 
 		for _, member := range m {
@@ -77,7 +80,7 @@ func (b *Bot) Monitor() {
 				rank = users.Bot
 			}
 
-			newUser := &users.User{
+			u := &users.User{
 				Nick:          nick,
 				Id:            member.User.ID,
 				Username:      member.User.Username,
@@ -85,49 +88,38 @@ func (b *Bot) Monitor() {
 				Avatar:        member.User.Avatar,
 				Rank:          rank,
 				Ally:          false,
+				PrimaryOrg:    "",
 				Notes:         "",
 				Events:        0,
+				RSIMember:     true,
 			}
+
+			// get the user's primary org, if the nickname is an RSI handle
+			reg := regexp.MustCompile(`\[(.*?)\] `)
+			trueNick := reg.ReplaceAllString(nick, "")
+			po, err := rsi.GetPrimaryOrg(trueNick)
+			if err != nil {
+				if !errors.Is(err, rsi.UserNotFound) {
+					log.WithError(err).Error("getting primary org")
+					continue
+				}
+				u.RSIMember = false
+			}
+			u.PrimaryOrg = po
 
 			for _, su := range storedUsers {
 				if member.User.ID == su.Id {
-					// change when a difference is found
-					if member.Nick != "" && su.Nick != member.Nick {
-						log.WithFields(log.Fields{
-							"member":      member,
-							"stored user": su,
-						}).Debug("updating a users nick")
-						su.Nick = member.Nick
-						if err := su.Save(); err != nil {
-							log.WithFields(log.Fields{
-								"member":      member,
-								"stored user": su,
-							}).WithError(err).Error("updating a users nick")
-						}
-					}
-					if member.User.Avatar != "" && su.Avatar != member.User.Avatar {
-						log.WithFields(log.Fields{
-							"member":      member,
-							"stored user": su,
-						}).Debug("updating a users avatar")
-						su.Avatar = member.User.Avatar
-						if err := su.Save(); err != nil {
-							log.WithFields(log.Fields{
-								"member":      member,
-								"stored user": su,
-							}).WithError(err).Error("updating a users avatar")
-						}
-					}
-					goto CONTINUE
+					u.Events = su.Events
+					u.Notes = su.Notes
+					u.Ally = su.Ally
+					u.Rank = su.Rank
+					break
 				}
 			}
 
-			if err := newUser.Save(); err != nil {
+			if err := u.Save(); err != nil {
 				log.WithError(err).Error("saving new user")
 			}
-
-		CONTINUE:
-			continue
 		}
 
 		time.Sleep(1 * time.Hour)

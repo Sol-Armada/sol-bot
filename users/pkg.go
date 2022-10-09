@@ -28,6 +28,8 @@ type User struct {
 	Ally          bool   `json:"ally"`
 	Notes         string `json:"notes"`
 	Events        int64  `json:"events"`
+	PrimaryOrg    string `json:"primary_org"`
+	RSIMember     bool   `json:"rsi_member"`
 }
 
 var Admins map[string]*Admin = map[string]*Admin{}
