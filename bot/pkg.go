@@ -57,16 +57,24 @@ func (b *Bot) Monitor() {
 	log.Debug("monitoring discord for users")
 	for {
 		log.Debug("checking users")
+		rateBucket := b.Ratelimiter.GetBucket("guild_member_check")
+		if rateBucket.Remaining == 0 {
+			log.Warn("hit a rate limit. relaxing until it goes away")
+			time.Sleep(b.Ratelimiter.GetWaitTime(rateBucket, 0))
+			continue
+		}
 
 		m, err := b.GetMembers()
 		if err != nil {
 			log.WithError(err).Error("bot getting members")
+			time.Sleep(10 * time.Minute)
 			continue
 		}
 		store := users.GetStorage()
 		storedUsers, err := store.GetUsers()
 		if err != nil {
 			log.WithError(err).Error("getting users for updating")
+			time.Sleep(10 * time.Minute)
 			continue
 		}
 
@@ -101,6 +109,7 @@ func (b *Bot) Monitor() {
 			if err != nil {
 				if !errors.Is(err, rsi.UserNotFound) {
 					log.WithError(err).Error("getting primary org")
+					time.Sleep(10 * time.Minute)
 					continue
 				}
 				u.RSIMember = false
@@ -122,7 +131,7 @@ func (b *Bot) Monitor() {
 			}
 		}
 
-		time.Sleep(1 * time.Hour)
+		time.Sleep(1 * time.Minute)
 	}
 }
 
