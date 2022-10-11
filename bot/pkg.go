@@ -56,7 +56,7 @@ func GetBot() (*Bot, error) {
 func (b *Bot) Monitor() {
 	log.Debug("monitoring discord for users")
 	for {
-		log.Debug("checking users")
+		// rate limit protection
 		rateBucket := b.Ratelimiter.GetBucket("guild_member_check")
 		if rateBucket.Remaining == 0 {
 			log.Warn("hit a rate limit. relaxing until it goes away")
@@ -64,75 +64,80 @@ func (b *Bot) Monitor() {
 			continue
 		}
 
-		m, err := b.GetMembers()
-		if err != nil {
-			log.WithError(err).Error("bot getting members")
-			time.Sleep(10 * time.Minute)
-			continue
-		}
-		store := users.GetStorage()
-		storedUsers, err := store.GetUsers()
-		if err != nil {
-			log.WithError(err).Error("getting users for updating")
-			time.Sleep(10 * time.Minute)
-			continue
-		}
-
-		for _, member := range m {
-			nick := member.User.Username
-			if member.Nick != "" {
-				nick = member.Nick
-			}
-			rank := users.Recruit
-			if member.User.Bot {
-				rank = users.Bot
-			}
-
-			u := &users.User{
-				Nick:          nick,
-				Id:            member.User.ID,
-				Username:      member.User.Username,
-				Discriminator: member.User.Discriminator,
-				Avatar:        member.User.Avatar,
-				Rank:          rank,
-				Ally:          false,
-				PrimaryOrg:    "",
-				Notes:         "",
-				Events:        0,
-				RSIMember:     true,
-			}
-
-			// get the user's primary org, if the nickname is an RSI handle
-			reg := regexp.MustCompile(`\[(.*?)\] `)
-			trueNick := reg.ReplaceAllString(nick, "")
-			po, err := rsi.GetPrimaryOrg(trueNick)
-			if err != nil {
-				if !errors.Is(err, rsi.UserNotFound) {
-					log.WithError(err).Error("getting primary org")
-					time.Sleep(10 * time.Minute)
-					continue
-				}
-				u.RSIMember = false
-			}
-			u.PrimaryOrg = po
-
-			for _, su := range storedUsers {
-				if member.User.ID == su.Id {
-					u.Events = su.Events
-					u.Notes = su.Notes
-					u.Ally = su.Ally
-					u.Rank = su.Rank
-					break
-				}
-			}
-
-			if err := u.Save(); err != nil {
-				log.WithError(err).Error("saving new user")
-			}
+		// actually do the members update
+		if err := b.UpdateMembers(); err != nil {
+			log.WithError(err).Error("getting and storing members")
 		}
 
 		time.Sleep(1 * time.Hour)
 	}
+}
+
+func (b *Bot) UpdateMembers() error {
+	log.Debug("checking users")
+
+	m, err := b.GetMembers()
+	if err != nil {
+		return errors.Wrap(err, "bot getting members")
+	}
+
+	storedUsers, err := users.GetStorage().GetUsers()
+	if err != nil {
+		return errors.Wrap(err, "getting users for updating")
+	}
+
+	for _, member := range m {
+		nick := member.User.Username
+		if member.Nick != "" {
+			nick = member.Nick
+		}
+		rank := users.Recruit
+		if member.User.Bot {
+			rank = users.Bot
+		}
+
+		u := &users.User{
+			Nick:          nick,
+			Id:            member.User.ID,
+			Username:      member.User.Username,
+			Discriminator: member.User.Discriminator,
+			Avatar:        member.User.Avatar,
+			Rank:          rank,
+			Ally:          false,
+			PrimaryOrg:    "",
+			Notes:         "",
+			Events:        0,
+			RSIMember:     true,
+		}
+
+		// get the user's primary org, if the nickname is an RSI handle
+		reg := regexp.MustCompile(`\[(.*?)\] `)
+		trueNick := reg.ReplaceAllString(nick, "")
+		po, err := rsi.GetPrimaryOrg(trueNick)
+		if err != nil {
+			if !errors.Is(err, rsi.UserNotFound) {
+				return errors.Wrap(err, "getting primary org")
+			}
+			u.RSIMember = false
+		}
+		u.PrimaryOrg = po
+
+		for _, su := range storedUsers {
+			if member.User.ID == su.Id {
+				u.Events = su.Events
+				u.Notes = su.Notes
+				u.Ally = su.Ally
+				u.Rank = su.Rank
+				break
+			}
+		}
+
+		if err := u.Save(); err != nil {
+			return errors.Wrap(err, "saving new user")
+		}
+	}
+
+	return nil
 }
 
 func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
