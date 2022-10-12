@@ -65,7 +65,10 @@ function search(e) {
       :key="user.id"
       :class="
         'card ' +
-        (user.primary_org == 'SOLARMADA' || user.rank == 0 || user.rank == 99
+        (user.primary_org == 'SOLARMADA' ||
+        user.rank == 0 ||
+        user.rank == 99 ||
+        user.primary_org == ''
           ? Ranks[user.rank].name.toLowerCase()
           : 'bad-org')
       "
