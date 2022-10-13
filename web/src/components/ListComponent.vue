@@ -1,9 +1,8 @@
 <script setup>
-import { onMounted } from "vue";
 import { updateUser } from "../api";
 import { truncateString } from "../utils";
 
-const props = defineProps({
+defineProps({
   admin: Object,
   users: Array,
   updateUser: Function,
@@ -20,10 +19,6 @@ const Ranks = {
   7: { name: "Recruit", minEvents: 0 },
   99: { name: "Ally", minEvents: 0 },
 };
-
-onMounted(() => {
-  console.log(props.users);
-});
 
 var delayTimer;
 function search(e) {
@@ -315,15 +310,24 @@ function search(e) {
   }
 }
 
-input {
+// input {
+//   height: 3rem;
+//   border: 0;
+//   color: var(--color-text);
+//   font-size: 1.8rem;
+//   margin-bottom: 10px;
+// }
+
+input[type="number"] {
+  width: 30%;
+}
+
+input[type="search"] {
   height: 3rem;
   border: 0;
   color: var(--color-text);
   font-size: 1.8rem;
   margin-bottom: 10px;
-}
-
-input[type="search"] {
   background: var(--color-background-soft);
   padding: 0 1.6rem;
   border-radius: 0.7rem;
