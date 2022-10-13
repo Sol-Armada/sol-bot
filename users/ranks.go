@@ -4,11 +4,12 @@ type Rank int
 
 const (
 	Bot Rank = iota
-	Administrator
+	Admiral
 	Commander
-	Officer
+	Lieutenant
 	Specialist
 	Technician
 	Member
 	Recruit
+	Ally
 )

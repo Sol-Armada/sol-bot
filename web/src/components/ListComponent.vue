@@ -61,9 +61,10 @@ function search(e) {
       :class="
         'card ' +
         (user.primary_org == 'SOLARMADA' ||
+        user.primary_org == '' ||
         user.rank == 0 ||
-        user.rank == 99 ||
-        user.primary_org == ''
+        user.rank >= 6 ||
+        user.rank == 99
           ? Ranks[user.rank].name.toLowerCase()
           : 'bad-org')
       "
@@ -74,7 +75,13 @@ function search(e) {
       <hr />
       <h3>{{ Ranks[user.rank].name }}</h3>
       <hr />
-      <h3 v-if="user.primary_org != '' && user.primary_org != 'SOLARMADA'">
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.rank <= 6
+        "
+      >
         <a
           :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
           target="_blank"
@@ -86,9 +93,7 @@ function search(e) {
       </h3>
       <div
         class="events"
-        v-if="
-          user.rank != 0 && user.rank != 99 && user.primary_org == 'SOLARMADA'
-        "
+        v-if="user.rsi_member && user.rank != 0 && user.rank != 99"
       >
         <h3>Events</h3>
         <div>
@@ -128,7 +133,8 @@ function search(e) {
           v-if="
             Ranks[user.rank - 1] &&
             user.rank - 1 != 0 &&
-            user.events >= Ranks[user.rank - 1].minEvents
+            user.events >= Ranks[user.rank - 1].minEvents &&
+            admin.rank >= 3
           "
           v-on:click="
             user.rank--;

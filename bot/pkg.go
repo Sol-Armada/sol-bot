@@ -87,13 +87,10 @@ func (b *Bot) UpdateMembers() error {
 	}
 
 	for _, member := range m {
+		time.Sleep(250 * time.Millisecond)
 		nick := member.User.Username
 		if member.Nick != "" {
 			nick = member.Nick
-		}
-		rank := users.Recruit
-		if member.User.Bot {
-			rank = users.Bot
 		}
 
 		u := &users.User{
@@ -102,7 +99,6 @@ func (b *Bot) UpdateMembers() error {
 			Username:      member.User.Username,
 			Discriminator: member.User.Discriminator,
 			Avatar:        member.User.Avatar,
-			Rank:          rank,
 			Ally:          false,
 			PrimaryOrg:    "",
 			Notes:         "",
@@ -113,13 +109,18 @@ func (b *Bot) UpdateMembers() error {
 		// get the user's primary org, if the nickname is an RSI handle
 		reg := regexp.MustCompile(`\[(.*?)\] `)
 		trueNick := reg.ReplaceAllString(nick, "")
-		po, err := rsi.GetPrimaryOrg(trueNick)
+		po, rank, err := rsi.GetOrgInfo(trueNick)
 		if err != nil {
 			if !errors.Is(err, rsi.UserNotFound) {
-				return errors.Wrap(err, "getting primary org")
+				return errors.Wrap(err, "getting rsi based rank")
 			}
+
 			u.RSIMember = false
 		}
+		if member.User.Bot {
+			rank = users.Bot
+		}
+		u.Rank = rank
 		u.PrimaryOrg = po
 
 		for _, su := range storedUsers {
@@ -127,7 +128,6 @@ func (b *Bot) UpdateMembers() error {
 				u.Events = su.Events
 				u.Notes = su.Notes
 				u.Ally = su.Ally
-				u.Rank = su.Rank
 				break
 			}
 		}
