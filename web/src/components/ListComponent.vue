@@ -122,6 +122,7 @@ function search(e) {
       <div
         class="controls"
         v-if="
+          false &&
           user.rank != 0 &&
           user.rank != 99 &&
           admin.rank < user.rank &&

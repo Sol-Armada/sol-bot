@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -20,6 +21,16 @@ type Bot struct {
 }
 
 var bot *Bot
+var interactionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+	"choice":       ChoiceButtonHandler,
+	"guest_friend": GuestFriendHandler,
+	"start_over":   StartOverHandler,
+}
+var modalHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+	"rsi_handle": RSIModalHandler,
+	"friend_of":  GuestFriendOfModalHandler,
+	"ally_org":   AllyOrgModalHandler,
+}
 
 func New() (*Bot, error) {
 	if bot == nil {
@@ -37,6 +48,40 @@ func New() (*Bot, error) {
 		if _, err := bot.Guild(config.GetString("DISCORD.GUILD_ID")); err != nil {
 			return nil, err
 		}
+
+		bot.Identify.Intents = discordgo.IntentGuildMembers
+
+		bot.AddHandler(JoinServerHandler)
+		bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			switch i.Type {
+			case discordgo.InteractionMessageComponent:
+				if h, ok := interactionHandlers[i.MessageComponentData().CustomID]; ok {
+					h(s, i)
+				}
+
+				cid := i.MessageComponentData().CustomID
+				if strings.HasPrefix(cid, "choice") {
+					interactionHandlers["choice"](s, i)
+				}
+				if strings.HasPrefix(cid, "start_over") {
+					interactionHandlers["start_over"](s, i)
+				}
+				if strings.HasPrefix(cid, "guest_friend") {
+					interactionHandlers["guest_friend"](s, i)
+				}
+			case discordgo.InteractionModalSubmit:
+				cid := i.ModalSubmitData().CustomID
+				if strings.HasPrefix(cid, "rsi_handle") {
+					modalHandlers["rsi_handle"](s, i)
+				}
+				if strings.HasPrefix(cid, "friend_of") {
+					modalHandlers["friend_of"](s, i)
+				}
+				if strings.HasPrefix(cid, "ally_org") {
+					modalHandlers["ally_org"](s, i)
+				}
+			}
+		})
 	}
 	return bot, nil
 }
@@ -136,6 +181,11 @@ func (b *Bot) UpdateMembers() error {
 			return errors.Wrap(err, "saving new user")
 		}
 	}
+
+	return nil
+}
+
+func (b *Bot) UpdateMember() error {
 
 	return nil
 }

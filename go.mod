@@ -24,6 +24,7 @@ require (
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect
+	github.com/lithammer/fuzzysearch v1.1.5 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
 	github.com/mattn/go-colorable v0.1.12 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
@@ -52,5 +53,6 @@ require (
 	github.com/gocolly/colly/v2 v2.1.0
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/spf13/viper v1.13.0
-	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
+	golang.org/x/exp v0.0.0-20221019170559-20944726eadf
+	golang.org/x/sys v0.0.0-20220722155257-8c9f86f7a55f // indirect
 )
