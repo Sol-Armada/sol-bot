@@ -5,6 +5,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
+	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/bot"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/server"
@@ -43,6 +44,16 @@ func main() {
 		log.WithError(err).Error("failed to start the bot")
 		return
 	}
+
+	// register commands
+	if _, err := b.ApplicationCommandCreate(config.GetString("DISCORD.CLIENT_ID"), config.GetString("DISCORD.GUILD_ID"), &discordgo.ApplicationCommand{
+		Name:        "attendance",
+		Description: "Get your Event Attendence count",
+	}); err != nil {
+		log.WithError(err).Error("failed creating attendance command")
+		return
+	}
+
 	defer b.Close()
 
 	go b.Monitor()

@@ -8,6 +8,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/users"
@@ -20,6 +21,9 @@ type Bot struct {
 }
 
 var bot *Bot
+var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+	"attendance": handlers.AttendanceCommandHandler,
+}
 
 func New() (*Bot, error) {
 	if bot == nil {
@@ -37,6 +41,17 @@ func New() (*Bot, error) {
 		if _, err := bot.Guild(config.GetString("DISCORD.GUILD_ID")); err != nil {
 			return nil, err
 		}
+
+		bot.Identify.Intents = discordgo.IntentGuildMembers
+
+		bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+			switch i.Type {
+			case discordgo.InteractionApplicationCommand:
+				if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+					h(s, i)
+				}
+			}
+		})
 	}
 	return bot, nil
 }
@@ -136,6 +151,11 @@ func (b *Bot) UpdateMembers() error {
 			return errors.Wrap(err, "saving new user")
 		}
 	}
+
+	return nil
+}
+
+func (b *Bot) UpdateMember() error {
 
 	return nil
 }
