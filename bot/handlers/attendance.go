@@ -3,6 +3,7 @@ package handlers
 import (
 	"fmt"
 
+	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/users"
 )
@@ -11,7 +12,7 @@ func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	storage := users.GetStorage()
 	user, err := storage.GetUser(i.Member.User.ID)
 	if err != nil {
-		panic(err)
+		log.WithError(err).Error("getting user from storage")
 	}
 
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -21,6 +22,6 @@ func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		panic(err)
+		log.WithError(err).Error("responding to attendance command interaction")
 	}
 }

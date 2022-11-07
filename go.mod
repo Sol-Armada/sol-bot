@@ -50,7 +50,7 @@ require (
 require (
 	github.com/apex/log v1.9.0
 	github.com/gocolly/colly/v2 v2.1.0
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/spf13/viper v1.13.0
 	golang.org/x/sys v0.0.0-20220520151302-bc2c85ada10a // indirect
 )

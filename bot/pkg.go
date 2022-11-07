@@ -3,6 +3,7 @@ package bot
 import (
 	"fmt"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -23,11 +24,15 @@ type Bot struct {
 var bot *Bot
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"attendance": handlers.AttendanceCommandHandler,
+	"event":      handlers.EventCommandHandler,
+}
+var interactionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+	"event": handlers.EventInteractionHandler,
 }
 
 func New() (*Bot, error) {
 	if bot == nil {
-		log.Info("starting new discord bot")
+		log.Info("creating new discord bot")
 		b, err := discordgo.New(fmt.Sprintf("Bot %s", config.GetString("DISCORD.BOT_TOKEN")))
 		if err != nil {
 			return nil, err
@@ -38,11 +43,11 @@ func New() (*Bot, error) {
 			b,
 		}
 
-		if _, err := bot.Guild(config.GetString("DISCORD.GUILD_ID")); err != nil {
+		if _, err := bot.Guild(bot.GuildId); err != nil {
 			return nil, err
 		}
 
-		bot.Identify.Intents = discordgo.IntentGuildMembers
+		bot.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates
 
 		bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			switch i.Type {
@@ -50,9 +55,19 @@ func New() (*Bot, error) {
 				if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
 					h(s, i)
 				}
+			case discordgo.InteractionMessageComponent:
+				id := strings.Split(i.MessageComponentData().CustomID, ":")[0]
+
+				if h, ok := interactionHandlers[id]; ok {
+					h(s, i)
+				}
 			}
 		})
+
+		// watch for voice connections and manage them accordingly
+		bot.AddHandler(handlers.OnVoiceJoin)
 	}
+
 	return bot, nil
 }
 

@@ -53,6 +53,33 @@ func main() {
 		log.WithError(err).Error("failed creating attendance command")
 		return
 	}
+	if _, err := b.ApplicationCommandCreate(config.GetString("DISCORD.CLIENT_ID"), config.GetString("DISCORD.GUILD_ID"), &discordgo.ApplicationCommand{
+		Name:        "event",
+		Description: "Event Actions",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "attendance",
+				Description: "Take attendance of an Event going on now",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			},
+		},
+	}); err != nil {
+		log.WithError(err).Error("failed creating attendance command")
+		return
+	}
+
+	channels, err := b.GuildChannels(config.GetString("DISCORD.GUILD_ID"))
+	if err != nil {
+		log.WithError(err).Error("getting active threads")
+		return
+	}
+
+	for _, channel := range channels {
+		if err := b.State.ChannelAdd(channel); err != nil {
+			log.WithError(err).Error("adding channel to state")
+			return
+		}
+	}
 
 	defer b.Close()
 
