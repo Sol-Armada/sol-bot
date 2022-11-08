@@ -83,7 +83,7 @@ func main() {
 
 	defer b.Close()
 
-	go b.Monitor()
+	// go b.Monitor()
 
 	if err := server.Run(); err != nil {
 		log.WithError(err).Error("failed to start the web server")

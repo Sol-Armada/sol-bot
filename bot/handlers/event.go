@@ -77,7 +77,9 @@ func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 		return
 	}
 
+	rows := []discordgo.ActionsRow{}
 	buttons := []discordgo.MessageComponent{}
+	rowIndex := 0
 	for _, vs := range g.VoiceStates {
 		label := vs.Member.User.Username
 		if vs.Member.Nick != "" {
@@ -88,6 +90,15 @@ func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 			CustomID: "event:attendance:toggle:" + vs.Member.User.ID,
 			Style:    discordgo.PrimaryButton,
 		})
+		if len(buttons) < 5 {
+			continue
+		}
+
+		rows = append(rows, discordgo.ActionsRow{
+			Components: buttons,
+		})
+		buttons = []discordgo.MessageComponent{}
+		rowIndex++
 	}
 
 	content := "Taking attendance..."
@@ -103,23 +114,22 @@ func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 	}); err != nil {
 		log.WithError(err).Error("responding to take attendance command interaction")
 	}
-
-	m, err := s.ChannelMessageSendComplex(attendanceChannel.ID, &discordgo.MessageSend{
-		Content: "Click any member to toggle their attendance.\n:blue_square: attended    :red_square: not attended",
+	rows = append(rows, discordgo.ActionsRow{
 		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: buttons,
-			},
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						Label:    "Submit",
-						Style:    discordgo.SuccessButton,
-						CustomID: "event:attendance:submit",
-					},
-				},
+			discordgo.Button{
+				Label:    "Submit",
+				Style:    discordgo.SuccessButton,
+				CustomID: "event:attendance:submit",
 			},
 		},
+	})
+	components := []discordgo.MessageComponent{}
+	for _, r := range rows {
+		components = append(components, r)
+	}
+	m, err := s.ChannelMessageSendComplex(attendanceChannel.ID, &discordgo.MessageSend{
+		Content:    "Click any member to toggle their attendance.\n:blue_square: attended    :red_square: not attended",
+		Components: components,
 	})
 	if err != nil {
 		log.WithError(err).Error("sending message to channel for attendance command")
@@ -159,18 +169,22 @@ func toggleAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 
 	memberButtonToToggle := i.MessageComponentData().CustomID
 
-	for index, component := range i.Message.Components[0].(*discordgo.ActionsRow).Components {
-		if component.Type() == discordgo.ButtonComponent {
-			c := component.(*discordgo.Button)
-			if c.CustomID == memberButtonToToggle {
-				if c.Style == discordgo.PrimaryButton {
-					c.Style = discordgo.DangerButton
-				} else {
-					c.Style = discordgo.PrimaryButton
-				}
+	for _, row := range i.Message.Components {
+		r := row.(*discordgo.ActionsRow)
 
-				i.Message.Components[0].(*discordgo.ActionsRow).Components[index] = c
-				break
+		for index, component := range r.Components {
+			if component.Type() == discordgo.ButtonComponent {
+				c := component.(*discordgo.Button)
+				if c.CustomID == memberButtonToToggle {
+					if c.Style == discordgo.PrimaryButton {
+						c.Style = discordgo.DangerButton
+					} else {
+						c.Style = discordgo.PrimaryButton
+					}
+
+					r.Components[index] = c
+					break
+				}
 			}
 		}
 	}
@@ -199,10 +213,13 @@ func submitAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 	}
 
 	attendies := ""
-	for _, button := range i.Message.Components[0].(*discordgo.ActionsRow).Components {
-		b := button.(*discordgo.Button)
-		if b.Style == discordgo.PrimaryButton {
-			attendies += b.Label + "\n"
+	for _, row := range i.Message.Components {
+		r := row.(*discordgo.ActionsRow)
+		for _, button := range r.Components {
+			b := button.(*discordgo.Button)
+			if b.Style == discordgo.PrimaryButton {
+				attendies += b.Label + "\n"
+			}
 		}
 	}
 	if _, err := s.ChannelMessageSendComplex(attendanceChannel.ID, &discordgo.MessageSend{
