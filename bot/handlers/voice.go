@@ -10,25 +10,33 @@ import (
 func OnVoiceJoin(s *discordgo.Session, i *discordgo.VoiceStateUpdate) {
 	// see if they need to be added to attendance
 	if activeEvent != nil && i.VoiceState.ChannelID != "" {
-		components := activeEvent.Components[0].(*discordgo.ActionsRow).Components
-		// if they are already in the list, we don't need to do anything
-		for _, component := range components {
-			if strings.Contains(component.(*discordgo.Button).CustomID, i.UserID) {
-				return
+		for index, row := range activeEvent.Components {
+			components := row.(*discordgo.ActionsRow).Components
+			// if this row is full, just skip
+			if len(components) >= 5 {
+				continue
 			}
-		}
 
-		label := i.VoiceState.Member.User.Username
-		if i.VoiceState.Member.Nick != "" {
-			label = i.VoiceState.Member.Nick
-		}
-		components = append(components, discordgo.Button{
-			Label:    label,
-			CustomID: "event:attendance:toggle:" + i.VoiceState.Member.User.ID,
-			Style:    discordgo.PrimaryButton,
-		})
+			// if they are already in the list, we don't need to do anything
+			for _, component := range components {
+				if strings.Contains(component.(*discordgo.Button).CustomID, i.UserID) {
+					return
+				}
+			}
 
-		activeEvent.Components[0].(*discordgo.ActionsRow).Components = components
+			label := i.VoiceState.Member.User.Username
+			if i.VoiceState.Member.Nick != "" {
+				label = i.VoiceState.Member.Nick
+			}
+			components = append(components, discordgo.Button{
+				Label:    label,
+				CustomID: "event:attendance:toggle:" + i.VoiceState.Member.User.ID,
+				Style:    discordgo.PrimaryButton,
+			})
+
+			activeEvent.Components[index].(*discordgo.ActionsRow).Components = components
+			break
+		}
 
 		messageEdit := discordgo.NewMessageEdit(activeEvent.ChannelID, activeEvent.ID)
 		messageEdit.Components = activeEvent.Components
