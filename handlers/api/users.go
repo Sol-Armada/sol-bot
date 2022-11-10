@@ -8,7 +8,9 @@ import (
 	"strconv"
 
 	"github.com/apex/log"
+	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/request"
+	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 )
 
@@ -16,6 +18,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "GetUsers",
 	})
+	logger.Debug("getting users")
 
 	// make sure we are only getting get
 	if r.Method != http.MethodGet {
@@ -23,23 +26,27 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u, err := users.GetUsers()
+	storedUsers := []users.User{}
+	cur, err := stores.Storage.GetUsers()
+	if err != nil {
+		logger.WithError(err).Error("getting users")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	if err := cur.All(r.Context(), &storedUsers); err != nil {
+		logger.WithError(err).Error("getting users from collection")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	jsonUsers, err := json.Marshal(storedUsers)
 	if err != nil {
 		logger.WithError(err).Error("getting users")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
 
-	usersJson, err := json.Marshal(u)
-	if err != nil {
-		logger.WithError(err).Error("getting users")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	usersJsons := string(usersJson)
-
-	if _, err := fmt.Fprint(w, usersJsons); err != nil {
+	if _, err := fmt.Fprint(w, string(jsonUsers)); err != nil {
 		logger.WithError(err).Error("converting users to json")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -129,7 +136,7 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.Rank = users.Rank(rid)
+	user.Rank = ranks.Rank(rid)
 
 	if err := user.Save(); err != nil {
 		logger.WithError(err).Error("updating user")

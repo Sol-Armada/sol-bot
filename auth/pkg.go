@@ -1,4 +1,4 @@
-package users
+package auth
 
 import (
 	"encoding/json"
@@ -20,7 +20,7 @@ type UserAccess struct {
 	RefreshToken string    `json:"refresh_token"`
 }
 
-func authenticate(code string) (*UserAccess, error) {
+func Authenticate(code string) (*UserAccess, error) {
 	logger := log.WithField("code", code)
 	logger.Info("creating new user access")
 

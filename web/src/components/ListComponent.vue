@@ -26,9 +26,9 @@ function search(e) {
   clearTimeout(delayTimer);
   delayTimer = setTimeout(() => {
     const cards = document.querySelectorAll(".card");
-    console.log(cards);
     if (value != "") {
       cards.forEach((card) => {
+        console.log(card.dataset)
         if (card.dataset.nick.toUpperCase().includes(value)) {
           card.classList.remove("hidden");
         } else {
@@ -69,9 +69,9 @@ function search(e) {
           : 'bad-org')
       "
       :id="user.id"
-      :data-nick="user.nick"
+      :data-nick="user.name"
     >
-      <h2>{{ truncateString(user.nick, 14) }}</h2>
+      <h2>{{ truncateString(user.name, 14) }}</h2>
       <hr />
       <h3>{{ Ranks[user.rank].name }}</h3>
       <hr />

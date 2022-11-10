@@ -1,8 +1,8 @@
 package bot
 
 import (
+	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -11,14 +11,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
+	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 )
 
 type Bot struct {
 	GuildId string
 
-	*discordgo.Session
+	s *discordgo.Session
 }
 
 var bot *Bot
@@ -43,13 +45,14 @@ func New() (*Bot, error) {
 			b,
 		}
 
-		if _, err := bot.Guild(bot.GuildId); err != nil {
+		if _, err := bot.s.Guild(bot.GuildId); err != nil {
 			return nil, err
 		}
 
-		bot.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates
+		bot.s.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates
 
-		bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		// command and interaction hanlders
+		bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			switch i.Type {
 			case discordgo.InteractionApplicationCommand:
 				if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
@@ -65,7 +68,7 @@ func New() (*Bot, error) {
 		})
 
 		// watch for voice connections and manage them accordingly
-		bot.AddHandler(handlers.OnVoiceJoin)
+		bot.s.AddHandler(handlers.OnVoiceJoin)
 	}
 
 	return bot, nil
@@ -83,14 +86,66 @@ func GetBot() (*Bot, error) {
 	return bot, nil
 }
 
+func (b *Bot) Open() error {
+	if err := b.s.Open(); err != nil {
+		return errors.Wrap(err, "failed to start the bot")
+	}
+
+	// register commands
+	if _, err := b.s.ApplicationCommandCreate(config.GetString("DISCORD.CLIENT_ID"), config.GetString("DISCORD.GUILD_ID"), &discordgo.ApplicationCommand{
+		Name:        "attendance",
+		Description: "Get your Event Attendence count",
+	}); err != nil {
+		return errors.Wrap(err, "failed creating attendance command")
+	}
+
+	if _, err := b.s.ApplicationCommandCreate(config.GetString("DISCORD.CLIENT_ID"), config.GetString("DISCORD.GUILD_ID"), &discordgo.ApplicationCommand{
+		Name:        "event",
+		Description: "Event Actions",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "attendance",
+				Description: "Take attendance of an Event going on now",
+				Type:        discordgo.ApplicationCommandOptionSubCommand,
+			},
+		},
+	}); err != nil {
+		return errors.Wrap(err, "failed creating event command")
+	}
+
+	// channels, err := b.GuildChannels(config.GetString("DISCORD.GUILD_ID"))
+	// if err != nil {
+	// 	log.WithError(err).Error("getting active threads")
+	// 	return
+	// }
+
+	// for _, channel := range channels {
+	// 	if err := b.State.ChannelAdd(channel); err != nil {
+	// 		log.WithError(err).Error("adding channel to state")
+	// 		return
+	// 	}
+	// }
+	return nil
+}
+
+func (b *Bot) Close() error {
+	return b.s.Close()
+}
+
 func (b *Bot) Monitor() {
 	log.Debug("monitoring discord for users")
 	for {
+		if stores.Storage == nil {
+			log.Debug("storage not setup, waiting a bit")
+			time.Sleep(10 * time.Second)
+			continue
+		}
+
 		// rate limit protection
-		rateBucket := b.Ratelimiter.GetBucket("guild_member_check")
+		rateBucket := b.s.Ratelimiter.GetBucket("guild_member_check")
 		if rateBucket.Remaining == 0 {
 			log.Warn("hit a rate limit. relaxing until it goes away")
-			time.Sleep(b.Ratelimiter.GetWaitTime(rateBucket, 0))
+			time.Sleep(b.s.Ratelimiter.GetWaitTime(rateBucket, 0))
 			continue
 		}
 
@@ -99,7 +154,7 @@ func (b *Bot) Monitor() {
 			log.WithError(err).Error("getting and storing members")
 		}
 
-		time.Sleep(1 * time.Hour)
+		time.Sleep(15 * time.Minute)
 	}
 }
 
@@ -111,35 +166,22 @@ func (b *Bot) UpdateMembers() error {
 		return errors.Wrap(err, "bot getting members")
 	}
 
-	storedUsers, err := users.GetStorage().GetUsers()
+	storedUsers := []users.User{}
+	cur, err := stores.Storage.GetUsers()
 	if err != nil {
 		return errors.Wrap(err, "getting users for updating")
+	}
+	if err := cur.All(context.Background(), &storedUsers); err != nil {
+		return errors.Wrap(err, "getting users from collection for update")
 	}
 
 	for _, member := range m {
 		time.Sleep(250 * time.Millisecond)
-		nick := member.User.Username
-		if member.Nick != "" {
-			nick = member.Nick
-		}
 
-		u := &users.User{
-			Nick:          nick,
-			Id:            member.User.ID,
-			Username:      member.User.Username,
-			Discriminator: member.User.Discriminator,
-			Avatar:        member.User.Avatar,
-			Ally:          false,
-			PrimaryOrg:    "",
-			Notes:         "",
-			Events:        0,
-			RSIMember:     true,
-		}
+		u := users.New(member)
 
 		// get the user's primary org, if the nickname is an RSI handle
-		reg := regexp.MustCompile(`\[(.*?)\] `)
-		trueNick := reg.ReplaceAllString(nick, "")
-		po, rank, err := rsi.GetOrgInfo(trueNick)
+		po, rank, err := rsi.GetOrgInfo(u.GetTrueNick())
 		if err != nil {
 			if !errors.Is(err, rsi.UserNotFound) {
 				return errors.Wrap(err, "getting rsi based rank")
@@ -148,13 +190,13 @@ func (b *Bot) UpdateMembers() error {
 			u.RSIMember = false
 		}
 		if member.User.Bot {
-			rank = users.Bot
+			rank = ranks.Bot
 		}
 		u.Rank = rank
 		u.PrimaryOrg = po
 
 		for _, su := range storedUsers {
-			if member.User.ID == su.Id {
+			if member.User.ID == su.Discord.User.ID {
 				u.Events = su.Events
 				u.Notes = su.Notes
 				u.Ally = su.Ally
@@ -171,12 +213,11 @@ func (b *Bot) UpdateMembers() error {
 }
 
 func (b *Bot) UpdateMember() error {
-
 	return nil
 }
 
 func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
-	members, err := bot.GuildMembers(b.GuildId, "", 1000)
+	members, err := b.s.GuildMembers(b.GuildId, "", 1000)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting guild members")
 	}
@@ -185,7 +226,7 @@ func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
 }
 
 func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
-	member, err := bot.GuildMember(b.GuildId, id)
+	member, err := b.s.GuildMember(b.GuildId, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting guild member")
 	}

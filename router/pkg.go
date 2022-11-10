@@ -7,6 +7,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sol-armada/admin/handlers"
 	"github.com/sol-armada/admin/handlers/api"
+	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 	"github.com/sol-armada/admin/web"
 )
@@ -69,14 +70,17 @@ func isAdmin(next http.Handler) http.Handler {
 		if userId == "" {
 			userId = r.Header.Get("x-user-id")
 		}
-
 		if userId == "" {
 			http.Error(w, "Bad Request", http.StatusBadRequest)
 			return
 		}
 
-		admin := users.GetAdmin(userId)
-		if admin == nil {
+		storedUsers := &users.User{}
+		if err := stores.Storage.GetUser(userId).Decode(&storedUsers); err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		if !storedUsers.IsAdmin() {
 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
 			return
 		}
