@@ -77,6 +77,26 @@ func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 		return
 	}
 
+	// this is for testing purposes only
+	// g.VoiceStates = []*discordgo.VoiceState{}
+	// for i := 0; i < 20; i++ {
+	// 	chars := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0987654321")
+	// 	randomString := make([]rune, 20)
+	// 	for i := range randomString {
+	// 		randomString[i] = chars[rand.Intn(len(chars))]
+	// 	}
+
+	// 	g.VoiceStates = append(g.VoiceStates, &discordgo.VoiceState{
+	// 		Member: &discordgo.Member{
+	// 			User: &discordgo.User{
+	// 				ID:       fmt.Sprint(rand.Intn(999999999)),
+	// 				Username: string(randomString),
+	// 			},
+	// 			Nick: "",
+	// 		},
+	// 	})
+	// }
+
 	rows := []discordgo.ActionsRow{}
 	buttons := []discordgo.MessageComponent{}
 	rowIndex := 0
@@ -84,6 +104,9 @@ func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 		label := vs.Member.User.Username
 		if vs.Member.Nick != "" {
 			label = vs.Member.Nick
+		}
+		if len(label) >= 20 {
+			label = label[:17] + "..."
 		}
 		buttons = append(buttons, discordgo.Button{
 			Label:    label,
