@@ -196,7 +196,7 @@ func (b *Bot) UpdateMembers() error {
 		u.PrimaryOrg = po
 
 		for _, su := range storedUsers {
-			if member.User.ID == su.Discord.User.ID {
+			if member.User.ID == su.ID {
 				u.Events = su.Events
 				u.Notes = su.Notes
 				u.Ally = su.Ally
