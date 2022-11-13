@@ -8,6 +8,8 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 )
 
@@ -18,46 +20,29 @@ var eventSubCommands = map[string]func(*discordgo.Session, *discordgo.Interactio
 var activeEvent *discordgo.Message
 
 func EventCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	storage := users.GetStorage()
-	user, err := storage.GetUser(i.User.ID)
-	if err != nil {
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Internal server error... >_<; Try again later",
-			},
-		}); err != nil {
-			log.WithError(err).Error("responding to event command interaction")
-		}
+	// get the user
+	storage := stores.Storage
+	userResault := storage.GetUser(i.User.ID)
+	user := &users.User{}
+	if err := userResault.Decode(user); err != nil {
+		errorResponse(s, i.Interaction, "Internal server error... >_<; Try again later")
+		return
 	}
 
-	if user.Rank > users.Lieutenant {
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "You do not have permission to use this command",
-			},
-		}); err != nil {
-			log.WithError(err).Error("responding to event command interaction")
-		}
+	// check for permission
+	if user.Rank > ranks.Lieutenant {
+		errorResponse(s, i.Interaction, "You do not have permission to use this command")
+		return
 	}
 
+	// send to the sub command
 	if handler, ok := eventSubCommands[i.ApplicationCommandData().Options[0].Name]; ok {
 		handler(s, i.Interaction)
 		return
 	}
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "That sub command doesn't exist. Not sure how you even got here. Good job.",
-		},
-	}); err != nil {
-		log.WithError(err).Error("responding to event command interaction")
-	}
+	// somehow they used a sub command that doesn't exist
+	errorResponse(s, i.Interaction, "That sub command doesn't exist. Not sure how you even got here. Good job.")
 }
 
 func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
@@ -284,4 +269,16 @@ func submitAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 	}
 
 	activeEvent = nil
+}
+
+func errorResponse(s *discordgo.Session, i *discordgo.Interaction, message string) {
+	if err := s.InteractionRespond(i, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: message,
+		},
+	}); err != nil {
+		log.WithError(err).Error("responding to event command interaction")
+	}
 }
