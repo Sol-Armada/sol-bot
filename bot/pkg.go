@@ -170,6 +170,12 @@ func (b *Bot) Monitor() {
 
 		// actually do the members update
 		if err := updateMembers(m, storedUsers); err != nil {
+			if strings.Contains(err.Error(), "Forbidden") {
+				log.Warn("we hit the limit with RSI's website. let's wait and try again...")
+				time.Sleep(30 * time.Minute)
+				continue
+			}
+
 			log.WithError(err).Error("updating members")
 			return
 		}
@@ -180,7 +186,7 @@ func (b *Bot) Monitor() {
 			return
 		}
 
-		time.Sleep(15 * time.Minute)
+		time.Sleep(30 * time.Minute)
 	}
 }
 
@@ -210,7 +216,7 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 	log.Debug("checking users")
 
 	for _, member := range m {
-		time.Sleep(250 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 
 		u := users.New(member)
 

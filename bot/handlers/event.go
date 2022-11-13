@@ -22,7 +22,7 @@ var activeEvent *discordgo.Message
 func EventCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// get the user
 	storage := stores.Storage
-	userResault := storage.GetUser(i.User.ID)
+	userResault := storage.GetUser(i.Member.User.ID)
 	user := &users.User{}
 	if err := userResault.Decode(user); err != nil {
 		errorResponse(s, i.Interaction, "Internal server error... >_<; Try again later")
