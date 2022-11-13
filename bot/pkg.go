@@ -171,7 +171,6 @@ func (b *Bot) UpdateMembers() error {
 }
 
 func (b *Bot) UpdateMember() error {
-
 	return nil
 }
 

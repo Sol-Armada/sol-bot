@@ -8,6 +8,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/users"
 )
 
 var eventSubCommands = map[string]func(*discordgo.Session, *discordgo.Interaction){
@@ -17,6 +18,32 @@ var eventSubCommands = map[string]func(*discordgo.Session, *discordgo.Interactio
 var activeEvent *discordgo.Message
 
 func EventCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	storage := users.GetStorage()
+	user, err := storage.GetUser(i.User.ID)
+	if err != nil {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "Internal server error... >_<; Try again later",
+			},
+		}); err != nil {
+			log.WithError(err).Error("responding to event command interaction")
+		}
+	}
+
+	if user.Rank > users.Lieutenant {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "You do not have permission to use this command",
+			},
+		}); err != nil {
+			log.WithError(err).Error("responding to event command interaction")
+		}
+	}
+
 	if handler, ok := eventSubCommands[i.ApplicationCommandData().Options[0].Name]; ok {
 		handler(s, i.Interaction)
 		return
