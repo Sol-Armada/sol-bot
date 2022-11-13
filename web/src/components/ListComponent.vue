@@ -28,7 +28,6 @@ function search(e) {
     const cards = document.querySelectorAll(".card");
     if (value != "") {
       cards.forEach((card) => {
-        console.log(card.dataset)
         if (card.dataset.nick.toUpperCase().includes(value)) {
           card.classList.remove("hidden");
         } else {
@@ -128,7 +127,7 @@ function search(e) {
           admin.id != user.id
         "
       >
-        <button
+        <!-- <button
           class="promote"
           v-if="
             Ranks[user.rank - 1] &&
@@ -152,7 +151,7 @@ function search(e) {
           "
         >
           Demote
-        </button>
+        </button> -->
         <button
           class="ally"
           v-if="user.rank == 7"

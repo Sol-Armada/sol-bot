@@ -72,10 +72,18 @@ func (s *Store) SaveUsers(u map[string]interface{}) error {
 }
 
 func (s *Store) GetUser(id string) *mongo.SingleResult {
-	filter := bson.D{{"_id", id}}
+	filter := bson.D{{Key: "_id", Value: id}}
 	return s.users.FindOne(s.ctx, filter)
 }
 
 func (s *Store) GetUsers() (*mongo.Cursor, error) {
 	return s.users.Find(s.ctx, bson.M{})
+}
+
+func (s *Store) DeleteUser(id string) error {
+	filter := bson.D{{Key: "_id", Value: id}}
+	if _, err := s.users.DeleteOne(s.ctx, filter); err != nil {
+		return errors.Wrap(err, "deleting a user")
+	}
+	return nil
 }

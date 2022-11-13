@@ -149,31 +149,43 @@ func (b *Bot) Monitor() {
 			continue
 		}
 
+		// get the discord members
+		m, err := b.GetMembers()
+		if err != nil {
+			log.WithError(err).Error("bot getting members")
+			return
+		}
+
+		// get the stored members
+		storedUsers := []*users.User{}
+		cur, err := stores.Storage.GetUsers()
+		if err != nil {
+			log.WithError(err).Error("getting users for updating")
+			return
+		}
+		if err := cur.All(context.Background(), storedUsers); err != nil {
+			log.WithError(err).Error("getting users from collection for update")
+			return
+		}
+
 		// actually do the members update
-		if err := b.UpdateMembers(); err != nil {
-			log.WithError(err).Error("getting and storing members")
+		if err := b.UpdateMembers(m, storedUsers); err != nil {
+			log.WithError(err).Error("updating members")
+			return
+		}
+
+		// do some cleaning
+		if err := b.CleanMembers(m, storedUsers); err != nil {
+			log.WithError(err).Error("cleaning up the members")
+			return
 		}
 
 		time.Sleep(15 * time.Minute)
 	}
 }
 
-func (b *Bot) UpdateMembers() error {
+func (b *Bot) UpdateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 	log.Debug("checking users")
-
-	m, err := b.GetMembers()
-	if err != nil {
-		return errors.Wrap(err, "bot getting members")
-	}
-
-	storedUsers := []users.User{}
-	cur, err := stores.Storage.GetUsers()
-	if err != nil {
-		return errors.Wrap(err, "getting users for updating")
-	}
-	if err := cur.All(context.Background(), &storedUsers); err != nil {
-		return errors.Wrap(err, "getting users from collection for update")
-	}
 
 	for _, member := range m {
 		time.Sleep(250 * time.Millisecond)
@@ -232,4 +244,22 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 	}
 
 	return member, nil
+}
+
+func (b *Bot) CleanMembers(m []*discordgo.Member, storedUsers []*users.User) error {
+	for _, user := range storedUsers {
+		for _, member := range m {
+			if user.ID == member.User.ID {
+				goto CONTINUE
+			}
+		}
+
+		if err := stores.Storage.DeleteUser(user.ID); err != nil {
+			return errors.Wrap(err, "cleaning members")
+		}
+	CONTINUE:
+		continue
+	}
+
+	return nil
 }
