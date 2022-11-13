@@ -8,6 +8,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/users"
 )
 
 var eventSubCommands = map[string]func(*discordgo.Session, *discordgo.Interaction){
@@ -17,6 +18,32 @@ var eventSubCommands = map[string]func(*discordgo.Session, *discordgo.Interactio
 var activeEvent *discordgo.Message
 
 func EventCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	storage := users.GetStorage()
+	user, err := storage.GetUser(i.User.ID)
+	if err != nil {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "Internal server error... >_<; Try again later",
+			},
+		}); err != nil {
+			log.WithError(err).Error("responding to event command interaction")
+		}
+	}
+
+	if user.Rank > users.Lieutenant {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "You do not have permission to use this command",
+			},
+		}); err != nil {
+			log.WithError(err).Error("responding to event command interaction")
+		}
+	}
+
 	if handler, ok := eventSubCommands[i.ApplicationCommandData().Options[0].Name]; ok {
 		handler(s, i.Interaction)
 		return
@@ -77,6 +104,26 @@ func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 		return
 	}
 
+	// this is for testing purposes only
+	// g.VoiceStates = []*discordgo.VoiceState{}
+	// for i := 0; i < 20; i++ {
+	// 	chars := []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0987654321")
+	// 	randomString := make([]rune, 20)
+	// 	for i := range randomString {
+	// 		randomString[i] = chars[rand.Intn(len(chars))]
+	// 	}
+
+	// 	g.VoiceStates = append(g.VoiceStates, &discordgo.VoiceState{
+	// 		Member: &discordgo.Member{
+	// 			User: &discordgo.User{
+	// 				ID:       fmt.Sprint(rand.Intn(999999999)),
+	// 				Username: string(randomString),
+	// 			},
+	// 			Nick: "",
+	// 		},
+	// 	})
+	// }
+
 	rows := []discordgo.ActionsRow{}
 	buttons := []discordgo.MessageComponent{}
 	rowIndex := 0
@@ -84,6 +131,9 @@ func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 		label := vs.Member.User.Username
 		if vs.Member.Nick != "" {
 			label = vs.Member.Nick
+		}
+		if len(label) >= 20 {
+			label = label[:17] + "..."
 		}
 		buttons = append(buttons, discordgo.Button{
 			Label:    label,
