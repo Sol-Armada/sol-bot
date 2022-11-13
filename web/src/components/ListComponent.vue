@@ -166,7 +166,7 @@ function search(e) {
         </button> -->
         <button
           class="ally"
-          v-if="user.rank == 7"
+          v-if="user.rank == 7 && user.primary_org != 'REDACTED'"
           v-on:click="
             user.ally = true;
             user.rank = 99;
