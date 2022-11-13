@@ -163,7 +163,7 @@ func (b *Bot) Monitor() {
 			log.WithError(err).Error("getting users for updating")
 			return
 		}
-		if err := cur.All(context.Background(), storedUsers); err != nil {
+		if err := cur.All(context.Background(), &storedUsers); err != nil {
 			log.WithError(err).Error("getting users from collection for update")
 			return
 		}
@@ -254,6 +254,7 @@ func (b *Bot) CleanMembers(m []*discordgo.Member, storedUsers []*users.User) err
 			}
 		}
 
+		log.WithField("user", user).Info("deleting user")
 		if err := stores.Storage.DeleteUser(user.ID); err != nil {
 			return errors.Wrap(err, "cleaning members")
 		}
