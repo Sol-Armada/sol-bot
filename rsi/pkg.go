@@ -34,6 +34,10 @@ func GetOrgInfo(username string) (string, ranks.Rank, error) {
 		po = e.Text
 	})
 
+	c.OnXML(`//div[contains(@class, "main-org")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
+		po = "REDACTED"
+	})
+
 	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", username)); err != nil {
 		if err.Error() == "Not Found" {
 			return po, ranks.Recruit, UserNotFound
@@ -42,7 +46,7 @@ func GetOrgInfo(username string) (string, ranks.Rank, error) {
 		return po, ranks.Recruit, err
 	}
 
-	if po != config.GetString("rsi_org_sid") {
+	if po != config.GetString("rsi_org_sid") || po == "REDACTED" {
 		rank = ranks.Recruit
 	}
 
