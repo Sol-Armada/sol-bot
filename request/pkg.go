@@ -7,6 +7,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 )
 
@@ -16,7 +17,12 @@ func GetUser(r *http.Request) (*users.User, error) {
 		return nil, errors.New("missing user id")
 	}
 
-	return users.GetUser(vars["id"])
+	storedUser := &users.User{}
+	if err := stores.Storage.GetUser(vars["id"]).Decode(&storedUser); err != nil {
+		return nil, errors.Wrap(err, "getting user from request")
+	}
+
+	return storedUser, nil
 }
 
 func GetBody(r *http.Request) (map[string]interface{}, error) {
