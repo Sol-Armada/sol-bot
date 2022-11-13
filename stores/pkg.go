@@ -54,14 +54,16 @@ func (s *Store) Disconnect() {
 }
 
 func (s *Store) SaveUser(id string, u interface{}) error {
+	log.WithField("id", id).Debug("saving user")
 	opts := options.Replace().SetUpsert(true)
-	if _, err := s.users.ReplaceOne(s.ctx, bson.D{{"_id", id}}, u, opts); err != nil {
+	if _, err := s.users.ReplaceOne(s.ctx, bson.D{{Key: "_id", Value: id}}, u, opts); err != nil {
 		return errors.Wrap(err, "saving user")
 	}
 	return nil
 }
 
 func (s *Store) SaveUsers(u map[string]interface{}) error {
+	log.WithField("count", len(u)).Info("saving users")
 	for id, user := range u {
 		if err := s.SaveUser(id, user); err != nil {
 			return errors.Wrap(err, "saving users")
