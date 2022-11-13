@@ -169,13 +169,13 @@ func (b *Bot) Monitor() {
 		}
 
 		// actually do the members update
-		if err := b.UpdateMembers(m, storedUsers); err != nil {
+		if err := updateMembers(m, storedUsers); err != nil {
 			log.WithError(err).Error("updating members")
 			return
 		}
 
 		// do some cleaning
-		if err := b.CleanMembers(m, storedUsers); err != nil {
+		if err := cleanMembers(m, storedUsers); err != nil {
 			log.WithError(err).Error("cleaning up the members")
 			return
 		}
@@ -184,7 +184,29 @@ func (b *Bot) Monitor() {
 	}
 }
 
-func (b *Bot) UpdateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
+func (b *Bot) UpdateMember() error {
+	return nil
+}
+
+func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
+	members, err := b.s.GuildMembers(b.GuildId, "", 1000)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting guild members")
+	}
+
+	return members, nil
+}
+
+func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
+	member, err := b.s.GuildMember(b.GuildId, id)
+	if err != nil {
+		return nil, errors.Wrap(err, "getting guild member")
+	}
+
+	return member, nil
+}
+
+func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 	log.Debug("checking users")
 
 	for _, member := range m {
@@ -224,29 +246,7 @@ func (b *Bot) UpdateMembers(m []*discordgo.Member, storedUsers []*users.User) er
 	return nil
 }
 
-func (b *Bot) UpdateMember() error {
-	return nil
-}
-
-func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
-	members, err := b.s.GuildMembers(b.GuildId, "", 1000)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting guild members")
-	}
-
-	return members, nil
-}
-
-func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
-	member, err := b.s.GuildMember(b.GuildId, id)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting guild member")
-	}
-
-	return member, nil
-}
-
-func (b *Bot) CleanMembers(m []*discordgo.Member, storedUsers []*users.User) error {
+func cleanMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 	for _, user := range storedUsers {
 		for _, member := range m {
 			if user.ID == member.User.ID {
