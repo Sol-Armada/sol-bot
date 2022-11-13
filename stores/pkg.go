@@ -54,10 +54,6 @@ func (s *Store) Disconnect() {
 }
 
 func (s *Store) SaveUser(id string, u interface{}) error {
-	// userJson, err := json.Marshal(u)
-	// if err != nil {
-	// 	return errors.Wrap(err, "marshaling user for saving")
-	// }
 	opts := options.Replace().SetUpsert(true)
 	if _, err := s.users.ReplaceOne(s.ctx, bson.D{{"_id", id}}, u, opts); err != nil {
 		return errors.Wrap(err, "saving user")
