@@ -13,7 +13,8 @@ const (
 	Technician
 	Member
 	Recruit
-	Ally
+	Guest
+	Ally = 99
 )
 
 func GetRankByName(name string) Rank {
@@ -32,6 +33,8 @@ func GetRankByName(name string) Rank {
 		return Member
 	case "RECRUIT":
 		return Recruit
+	case "GUEST":
+		return Guest
 	case "BOT":
 		return Bot
 	default:
@@ -54,6 +57,6 @@ func GetRankByRSIRankName(name string) Rank {
 	case "INITIATE":
 		return Member
 	default:
-		return Recruit
+		return Guest
 	}
 }

@@ -7,11 +7,9 @@ import (
 
 	"github.com/apex/log"
 	"github.com/gorilla/mux"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
-	"golang.org/x/exp/slices"
 )
 
 func Login(w http.ResponseWriter, r *http.Request) {
@@ -54,9 +52,9 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
-	admins := config.GetStringSlice("ADMINS")
-	// check the user is an admin
-	if !slices.Contains(admins, u.ID) {
+
+	// check the user is allowed
+	if !u.IsAdmin() {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}

@@ -220,6 +220,19 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 
 		u := users.New(member)
 
+		for _, su := range storedUsers {
+			if member.User.ID == su.ID {
+				u.Events = su.Events
+				u.Notes = su.Notes
+				u.Ally = su.Ally
+				break
+			}
+		}
+
+		if u.Ally {
+			continue
+		}
+
 		// get the user's primary org, if the nickname is an RSI handle
 		po, rank, err := rsi.GetOrgInfo(u.GetTrueNick())
 		if err != nil {
@@ -235,11 +248,9 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 		u.Rank = rank
 		u.PrimaryOrg = po
 
-		for _, su := range storedUsers {
-			if member.User.ID == su.ID {
-				u.Events = su.Events
-				u.Notes = su.Notes
-				u.Ally = su.Ally
+		for _, a := range config.GetStringSlice("allies") {
+			if strings.EqualFold(u.PrimaryOrg, a) {
+				u.Rank = ranks.Ally
 				break
 			}
 		}

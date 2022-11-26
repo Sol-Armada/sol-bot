@@ -12,10 +12,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/auth"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
-	"golang.org/x/exp/slices"
 )
 
 type User struct {
@@ -83,7 +81,7 @@ func (u *User) UpdateEventCount(count int64) error {
 func (u *User) IsAdmin() bool {
 	logger := log.WithField("id", u.Discord.User.ID)
 	logger.Debug("checking if admin")
-	if slices.Contains(config.GetStringSlice("ADMINS"), u.Discord.User.ID) {
+	if u.Rank <= ranks.Lieutenant {
 		return true
 	}
 	logger.Debug("is NOT admin")
