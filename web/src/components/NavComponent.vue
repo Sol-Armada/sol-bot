@@ -12,7 +12,7 @@ defineProps({
       <li>
         <img
           class="avatar"
-          :src="`https://cdn.discordapp.com/avatars/${admin.id}/${admin.avatar}.png`"
+          :src="`https://cdn.discordapp.com/avatars/${admin.id}/${admin.discord.user.avatar}.png`"
           alt=""
         />
       </li>

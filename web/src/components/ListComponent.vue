@@ -26,7 +26,6 @@ function search(e) {
   clearTimeout(delayTimer);
   delayTimer = setTimeout(() => {
     const cards = document.querySelectorAll(".card");
-    console.log(cards);
     if (value != "") {
       cards.forEach((card) => {
         if (card.dataset.nick.toUpperCase().includes(value)) {
@@ -60,25 +59,31 @@ function search(e) {
       :key="user.id"
       :class="
         'card ' +
-        (user.primary_org == 'SOLARMADA' ||
-        user.primary_org == '' ||
-        user.rank == 0 ||
-        user.rank >= 6 ||
-        user.rank == 99
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED'
           ? Ranks[user.rank].name.toLowerCase()
-          : 'bad-org')
+          : 'bad-org ')
       "
       :id="user.id"
-      :data-nick="user.nick"
+      :data-nick="user.name"
     >
-      <h2>{{ truncateString(user.nick, 14) }}</h2>
-      <hr />
-      <h3>{{ Ranks[user.rank].name }}</h3>
-      <hr />
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+      <h3 v-if="user.primary_org != 'REDACTED'">
+        {{ Ranks[user.rank].name }}
+        <hr />
+      </h3>
       <h3
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
           user.rank <= 6
         "
       >
@@ -88,12 +93,18 @@ function search(e) {
           >{{ user.primary_org }}</a
         >
       </h3>
+      <h3 v-if="user.primary_org == 'REDACTED'">REDACTED ORG</h3>
       <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
         Not on RSI
       </h3>
       <div
         class="events"
-        v-if="user.rsi_member && user.rank != 0 && user.rank != 99"
+        v-if="
+          user.rsi_member &&
+          user.rank != 0 &&
+          user.rank != 99 &&
+          user.primary_org != 'REDACTED'
+        "
       >
         <h3>Events</h3>
         <div>
@@ -129,7 +140,7 @@ function search(e) {
           admin.id != user.id
         "
       >
-        <button
+        <!-- <button
           class="promote"
           v-if="
             Ranks[user.rank - 1] &&
@@ -153,10 +164,10 @@ function search(e) {
           "
         >
           Demote
-        </button>
+        </button> -->
         <button
           class="ally"
-          v-if="user.rank == 7"
+          v-if="user.rank == 7 && user.primary_org != 'REDACTED'"
           v-on:click="
             user.ally = true;
             user.rank = 99;

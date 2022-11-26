@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/apex/log"
@@ -8,7 +9,7 @@ import (
 	"github.com/sol-armada/admin/bot"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/server"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/stores"
 )
 
 func main() {
@@ -26,10 +27,9 @@ func main() {
 		log.Debug("debug mode on")
 	}
 
-	users.GetStorage()
-	if err := users.LoadAdmins(); err != nil {
-		log.WithError(err).Error("failed to load admins")
-		return
+	// setup storage
+	if _, err := stores.New(context.Background()); err != nil {
+		log.WithError(err).Error("failed to setup storage")
 	}
 
 	// start up the bot
@@ -47,6 +47,7 @@ func main() {
 
 	go b.Monitor()
 
+	// start the web server now that everything is running
 	if err := server.Run(); err != nil {
 		log.WithError(err).Error("failed to start the web server")
 		return

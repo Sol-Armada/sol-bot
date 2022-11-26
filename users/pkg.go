@@ -5,72 +5,72 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
+	"regexp"
 	"time"
 
 	"github.com/apex/log"
+	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/auth"
+	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/stores"
 )
 
-type Admin struct {
-	User   *User       `json:"user"`
-	Access *UserAccess `json:"access"`
-}
-
 type User struct {
-	Id            string `json:"id"`
-	Username      string `json:"username"`
-	Nick          string `json:"nick"`
-	Discriminator string `json:"discriminator"`
-	Avatar        string `json:"avatar"`
-	Rank          Rank   `json:"rank"`
-	Ally          bool   `json:"ally"`
-	Notes         string `json:"notes"`
-	Events        int64  `json:"events"`
-	PrimaryOrg    string `json:"primary_org"`
-	RSIMember     bool   `json:"rsi_member"`
+	ID         string            `json:"id" bson:"_id"`
+	Name       string            `json:"name" bson:"name"`
+	Rank       ranks.Rank        `json:"rank" bson:"rank"`
+	Ally       bool              `json:"ally" bson:"ally"`
+	Notes      string            `json:"notes" bson:"notes"`
+	Events     int64             `json:"events" bson:"events"`
+	PrimaryOrg string            `json:"primary_org" bson:"primary_org"`
+	RSIMember  bool              `json:"rsi_member" bson:"rsi_member"`
+	Discord    *discordgo.Member `json:"discord" bson:"discord"`
+
+	Access *auth.UserAccess `json:"access" bson:"access"`
 }
 
-var Admins map[string]*Admin = map[string]*Admin{}
-
-func LoadAdmins() error {
-	log.Debug("loading admins")
-
-	admins, err := storage.GetAdmins()
-	if err != nil {
-		return errors.Wrap(err, "get admins for loading")
+func New(m *discordgo.Member) *User {
+	name := m.User.Username
+	if m.Nick != "" {
+		name = m.Nick
+	}
+	u := &User{
+		ID:         m.User.ID,
+		Name:       name,
+		Rank:       ranks.Recruit,
+		Ally:       false,
+		PrimaryOrg: "",
+		Notes:      "",
+		Events:     0,
+		RSIMember:  true,
+		Discord:    m,
 	}
 
-	Admins = admins
-	return nil
+	return u
 }
 
-func NewAdmin(code string) (*Admin, error) {
-	log.WithField("code", code).Debug("creating new admin")
-
-	admin := &Admin{}
-
-	if err := admin.Login(code); err != nil {
-		return nil, err
+func (u *User) GetTrueNick() string {
+	reg := regexp.MustCompile(`\[(.*?)\] `)
+	if u.Discord.Nick != "" {
+		return reg.ReplaceAllString(u.Discord.Nick, "")
 	}
 
-	log.WithField("user", admin).Debug("successfully logged in")
-
-	return admin, nil
-}
-
-func GetAdmin(id string) *Admin {
-	if admin, ok := Admins[id]; ok {
-		return admin
-	}
-
-	return nil
+	return u.Discord.User.Username
 }
 
 func (u *User) Save() error {
-	log.WithField("user", u).Debug("saving user")
-	return storage.SaveUser(u)
+	log.WithField("user", u.ToJson()).Debug("saving user")
+	return stores.Storage.SaveUser(u.ID, u)
+}
+
+func (u *User) Load() error {
+	log.WithField("user", u.ToJson()).Debug("loading user")
+	if err := stores.Storage.GetUser(u.Discord.User.ID).Decode(u); err != nil {
+		return errors.Wrap(err, "getting stored user for loading")
+	}
+
+	return nil
 }
 
 func (u *User) UpdateEventCount(count int64) error {
@@ -78,37 +78,24 @@ func (u *User) UpdateEventCount(count int64) error {
 	return u.Save()
 }
 
-func (a *Admin) StoreAsAdmin() {
-	Admins[a.User.Id] = a
-
-	if err := storage.SaveAdmin(a); err != nil {
-		log.WithError(err).Error("storing admin")
-	}
-}
-
-func IsAdmin(id string) bool {
-	logger := log.WithField("id", id)
+func (u *User) IsAdmin() bool {
+	logger := log.WithField("id", u.Discord.User.ID)
 	logger.Debug("checking if admin")
-	whiteList := config.GetIntSlice("ADMINS")
-	for _, uid := range whiteList {
-		if id == strconv.Itoa(uid) {
-			logger.Debug("is admin")
-			return true
-		}
+	if u.Rank <= ranks.Lieutenant {
+		return true
 	}
-
 	logger.Debug("is NOT admin")
 	return false
 }
 
-func (a *Admin) Login(code string) error {
+func (u *User) Login(code string) error {
 	log.WithField("access code", code).Debug("logging in")
-	userAccess, err := authenticate(code)
+	userAccess, err := auth.Authenticate(code)
 	if err != nil {
 		return err
 	}
 
-	a.Access = userAccess
+	u.Access = userAccess
 
 	req, err := http.NewRequest("GET", "https://discord.com/api/v10/users/@me", nil)
 	if err != nil {
@@ -136,43 +123,48 @@ func (a *Admin) Login(code string) error {
 		return errors.New("Internal Error")
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(&a.User); err != nil {
+	loggedInUser := discordgo.User{}
+	if err := json.NewDecoder(resp.Body).Decode(&loggedInUser); err != nil {
 		return err
 	}
 
-	store := GetStorage()
-	storedUser, err := store.GetUser(a.User.Id)
-	if err != nil {
-		return err
+	// id, ok := loggedInUser["id"].(string)
+	// if !ok {
+	// 	return errors.New("logged in user did not have an ID")
+	// }
+
+	storedUser := &User{}
+	if err := stores.Storage.GetUser(loggedInUser.ID).Decode(&storedUser); err != nil {
+		return errors.Wrap(err, "getting stored user")
 	}
 
 	if storedUser != nil {
-		a.User = storedUser
-		return nil
+		u.Update(storedUser)
 	}
 
 	return nil
 }
 
-func (a *Admin) StillLoggedIn() bool {
-	return time.Until(a.Access.ExpiresAt) > 0
+func (u *User) StillLoggedIn() bool {
+	return time.Until(u.Access.ExpiresAt) > 0
 }
 
-func GetUsers() ([]*User, error) {
-	log.Debug("getting users")
-	cachedUsers, err := storage.GetUsers()
+func (u *User) ToJson() string {
+	jsonUser, err := json.Marshal(u)
 	if err != nil {
-		return nil, err
+		log.WithError(err).WithField("user", u).Error("user to json")
+		return ""
 	}
-
-	return cachedUsers, nil
+	return string(jsonUser)
 }
 
-func GetUser(id string) (*User, error) {
-	cachedUser, err := storage.GetUser(id)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting cached user")
-	}
-
-	return cachedUser, nil
+func (u *User) Update(ui *User) {
+	u.ID = ui.ID
+	u.Name = ui.Name
+	u.Rank = ui.Rank
+	u.Ally = ui.Ally
+	u.Notes = ui.Notes
+	u.Events = ui.Events
+	u.PrimaryOrg = ui.PrimaryOrg
+	u.Discord = ui.Discord
 }

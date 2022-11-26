@@ -8,7 +8,7 @@ import (
 	"github.com/apex/log"
 	"github.com/gocolly/colly/v2"
 	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/utils"
 )
 
@@ -16,10 +16,10 @@ var (
 	UserNotFound error = errors.New("user was not found")
 )
 
-func GetOrgInfo(username string) (string, users.Rank, error) {
+func GetOrgInfo(username string) (string, ranks.Rank, error) {
 	c := colly.NewCollector()
 
-	rank := users.Recruit
+	rank := ranks.Recruit
 	var po string
 	var err error
 	c.OnResponse(func(r *colly.Response) {
@@ -29,36 +29,27 @@ func GetOrgInfo(username string) (string, users.Rank, error) {
 	})
 
 	c.OnXML(`//div[contains(@class, "main-org")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		switch e.Text {
-		case "Director":
-			rank = users.Admiral
-		case "Commander":
-			rank = users.Commander
-		case "Lieutenant":
-			rank = users.Lieutenant
-		case "Chief":
-			rank = users.Specialist
-		case "Specialist":
-			rank = users.Technician
-		case "Initiate":
-			rank = users.Member
-		}
+		rank = ranks.GetRankByRSIRankName(e.Text)
 	})
 
 	c.OnXML(`//div[contains(@class, "main-org")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
 		po = e.Text
 	})
 
+	c.OnXML(`//div[contains(@class, "main-org")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
+		po = "REDACTED"
+	})
+
 	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", username)); err != nil {
 		if err.Error() == "Not Found" {
-			return po, users.Recruit, UserNotFound
+			return po, ranks.Recruit, UserNotFound
 		}
 
-		return po, users.Recruit, err
+		return po, ranks.Recruit, err
 	}
 
-	if po != config.GetString("rsi_org_sid") {
-		rank = users.Recruit
+	if po != config.GetString("rsi_org_sid") || po == "REDACTED" {
+		rank = ranks.Recruit
 	}
 
 	log.WithFields(log.Fields{

@@ -44,3 +44,11 @@ client_id="givenclientid"
 client_secret="supersecretapplicationcode"
 redirect_uri="https://redirect.website.here/"
 guild_id="guildid"
+
+################################################################
+# discord.channels                                             #
+# ------------------------------------------------------------ #
+# attendance | string | the channel id to use for attendance   #
+################################################################
+[discord.channels]
+attendance=""
