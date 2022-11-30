@@ -7,6 +7,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/lithammer/fuzzysearch v1.1.5
 	go.mongodb.org/mongo-driver v1.11.0
+	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
 )
 
 require (

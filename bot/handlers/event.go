@@ -270,15 +270,3 @@ func submitAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 
 	activeEvent = nil
 }
-
-func errorResponse(s *discordgo.Session, i *discordgo.Interaction, message string) {
-	if err := s.InteractionRespond(i, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: message,
-		},
-	}); err != nil {
-		log.WithError(err).Error("responding to event command interaction")
-	}
-}

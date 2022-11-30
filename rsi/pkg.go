@@ -16,11 +16,12 @@ var (
 	UserNotFound error = errors.New("user was not found")
 )
 
-func GetOrgInfo(username string) (string, ranks.Rank, error) {
+func GetOrgInfo(username string) (string, []string, ranks.Rank, error) {
 	c := colly.NewCollector()
 
-	rank := ranks.Recruit
+	rank := ranks.Guest
 	var po string
+	var affiliatedOrgs []string
 	var err error
 	c.OnResponse(func(r *colly.Response) {
 		if r.StatusCode == 404 {
@@ -28,28 +29,32 @@ func GetOrgInfo(username string) (string, ranks.Rank, error) {
 		}
 	})
 
-	c.OnXML(`//div[contains(@class, "main-org")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
+	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
 		rank = ranks.GetRankByRSIRankName(e.Text)
 	})
 
-	c.OnXML(`//div[contains(@class, "main-org")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
+	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
 		po = e.Text
 	})
 
-	c.OnXML(`//div[contains(@class, "main-org")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
+	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
+		affiliatedOrgs = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
+	})
+
+	c.OnXML(`//div[contains(@class, "org main")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
 		po = "REDACTED"
 	})
 
-	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", username)); err != nil {
+	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", username)); err != nil {
 		if err.Error() == "Not Found" {
-			return po, ranks.Recruit, UserNotFound
+			return po, affiliatedOrgs, ranks.Guest, UserNotFound
 		}
 
-		return po, ranks.Recruit, err
+		return po, affiliatedOrgs, ranks.Guest, err
 	}
 
 	if po != config.GetString("rsi_org_sid") || po == "REDACTED" {
-		rank = ranks.Recruit
+		rank = ranks.Guest
 	}
 
 	log.WithFields(log.Fields{
@@ -58,7 +63,7 @@ func GetOrgInfo(username string) (string, ranks.Rank, error) {
 		"primary org": po,
 	}).Debug("rsi info")
 
-	return po, rank, err
+	return po, affiliatedOrgs, rank, err
 }
 
 func IsAllyOrg(org string) bool {

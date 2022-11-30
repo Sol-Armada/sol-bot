@@ -14,7 +14,7 @@ const (
 	Member
 	Recruit
 	Guest
-	Ally = 99
+	Ally Rank = 99
 )
 
 func GetRankByName(name string) Rank {

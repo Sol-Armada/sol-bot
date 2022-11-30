@@ -3,7 +3,6 @@ package bot
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"strings"
 	"time"
 
@@ -16,6 +15,7 @@ import (
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
+	"golang.org/x/exp/slices"
 )
 
 type Bot struct {
@@ -26,18 +26,20 @@ type Bot struct {
 
 var bot *Bot
 var interactionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"choice":       ChoiceButtonHandler,
-	"guest_friend": GuestFriendHandler,
-	"start_over":   StartOverHandler,
-	"event": handlers.EventInteractionHandler,
+	"choice":       handlers.ChoiceButtonHandler,
+	"guest_friend": handlers.GuestFriendHandler,
+	"start_over":   handlers.StartOverHandler,
+	"event":        handlers.EventInteractionHandler,
 }
 var modalHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"rsi_handle": RSIModalHandler,
-	"friend_of":  GuestFriendOfModalHandler,
-	"ally_org":   AllyOrgModalHandler,
+	"rsi_handle": handlers.RSIModalHandler,
+	"friend_of":  handlers.GuestFriendOfModalHandler,
+	"ally_org":   handlers.AllyOrgModalHandler,
+}
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"attendance": handlers.AttendanceCommandHandler,
 	"event":      handlers.EventCommandHandler,
+	"onboarding": handlers.OnboardingCommandHandler,
 }
 
 func New() (*Bot, error) {
@@ -59,38 +61,28 @@ func New() (*Bot, error) {
 
 		bot.s.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates
 
-		bot.AddHandler(JoinServerHandler)
-		bot.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			switch i.Type {
 			case discordgo.InteractionMessageComponent:
-				// if h, ok := interactionHandlers[i.MessageComponentData().CustomID]; ok {
-				// 	h(s, i)
-				// }
-
-				id := strings.Split(i.MessageComponentData().CustomID, ":")[0]
-				if h, ok := interactionHandlers[id]; ok {
-					h(s, i)
-				}
-
-				cid := i.MessageComponentData().CustomID
-				if strings.HasPrefix(cid, "choice") {
+				id := i.MessageComponentData().CustomID
+				if strings.HasPrefix(id, "choice") {
 					interactionHandlers["choice"](s, i)
 				}
-				if strings.HasPrefix(cid, "start_over") {
+				if strings.HasPrefix(id, "start_over") {
 					interactionHandlers["start_over"](s, i)
 				}
-				if strings.HasPrefix(cid, "guest_friend") {
+				if strings.HasPrefix(id, "guest_friend") {
 					interactionHandlers["guest_friend"](s, i)
 				}
 			case discordgo.InteractionModalSubmit:
-				cid := i.ModalSubmitData().CustomID
-				if strings.HasPrefix(cid, "rsi_handle") {
+				id := i.ModalSubmitData().CustomID
+				if strings.HasPrefix(id, "rsi_handle") {
 					modalHandlers["rsi_handle"](s, i)
 				}
-				if strings.HasPrefix(cid, "friend_of") {
+				if strings.HasPrefix(id, "friend_of") {
 					modalHandlers["friend_of"](s, i)
 				}
-				if strings.HasPrefix(cid, "ally_org") {
+				if strings.HasPrefix(id, "ally_org") {
 					modalHandlers["ally_org"](s, i)
 				}
 			case discordgo.InteractionApplicationCommand:
@@ -100,20 +92,10 @@ func New() (*Bot, error) {
 			}
 		})
 
-		// command and interaction hanlders
-		bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			switch i.Type {
-			case discordgo.InteractionMessageComponent:
-				id := strings.Split(i.MessageComponentData().CustomID, ":")[0]
-
-				if h, ok := interactionHandlers[id]; ok {
-					h(s, i)
-				}
-			}
-		})
-
 		// watch for voice connections and manage them accordingly
 		bot.s.AddHandler(handlers.OnVoiceJoin)
+		// watch for server join
+		// bot.s.AddHandler(handlers.JoinServerHandler)
 	}
 
 	return bot, nil
@@ -136,15 +118,18 @@ func (b *Bot) Open() error {
 		return errors.Wrap(err, "failed to start the bot")
 	}
 
+	cid := config.GetString("DISCORD.CLIENT_ID")
+	gid := config.GetString("DISCORD.GUILD_ID")
+
 	// register commands
-	if _, err := b.s.ApplicationCommandCreate(config.GetString("DISCORD.CLIENT_ID"), config.GetString("DISCORD.GUILD_ID"), &discordgo.ApplicationCommand{
+	if _, err := b.s.ApplicationCommandCreate(cid, gid, &discordgo.ApplicationCommand{
 		Name:        "attendance",
 		Description: "Get your Event Attendence count",
 	}); err != nil {
 		return errors.Wrap(err, "failed creating attendance command")
 	}
 
-	if _, err := b.s.ApplicationCommandCreate(config.GetString("DISCORD.CLIENT_ID"), config.GetString("DISCORD.GUILD_ID"), &discordgo.ApplicationCommand{
+	if _, err := b.s.ApplicationCommandCreate(cid, gid, &discordgo.ApplicationCommand{
 		Name:        "event",
 		Description: "Event Actions",
 		Options: []*discordgo.ApplicationCommandOption{
@@ -158,18 +143,23 @@ func (b *Bot) Open() error {
 		return errors.Wrap(err, "failed creating event command")
 	}
 
-	// channels, err := b.GuildChannels(config.GetString("DISCORD.GUILD_ID"))
-	// if err != nil {
-	// 	log.WithError(err).Error("getting active threads")
-	// 	return
-	// }
+	if _, err := b.s.ApplicationCommandCreate(cid, gid, &discordgo.ApplicationCommand{
+		Name:        "onboarding",
+		Description: "Start onboarding process for someone",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:         "single-autcomplete",
+				Description:  "the member to onboard",
+				Type:         discordgo.ApplicationCommandOptionMentionable,
+				Required:     true,
+				Autocomplete: true,
+			},
+		},
+	}); err != nil {
+		return errors.Wrap(err, "failed creating oboarding command")
+	}
 
-	// for _, channel := range channels {
-	// 	if err := b.State.ChannelAdd(channel); err != nil {
-	// 		log.WithError(err).Error("adding channel to state")
-	// 		return
-	// 	}
-	// }
 	return nil
 }
 
@@ -269,17 +259,13 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 			if member.User.ID == su.ID {
 				u.Events = su.Events
 				u.Notes = su.Notes
-				u.Ally = su.Ally
 				break
 			}
 		}
 
-		if u.Ally {
-			continue
-		}
-
 		// get the user's primary org, if the nickname is an RSI handle
-		po, rank, err := rsi.GetOrgInfo(u.GetTrueNick())
+		trueNick := u.GetTrueNick()
+		po, ao, rank, err := rsi.GetOrgInfo(trueNick)
 		if err != nil {
 			if !errors.Is(err, rsi.UserNotFound) {
 				return errors.Wrap(err, "getting rsi based rank")
@@ -293,6 +279,14 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 		u.Rank = rank
 		u.PrimaryOrg = po
 
+		for _, affiliatedOrg := range ao {
+			if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
+				u.BadAffiliation = true
+				u.Rank = ranks.Guest
+				break
+			}
+		}
+
 		for _, a := range config.GetStringSlice("allies") {
 			if strings.EqualFold(u.PrimaryOrg, a) {
 				u.Rank = ranks.Ally
@@ -303,20 +297,6 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 		if err := u.Save(); err != nil {
 			return errors.Wrap(err, "saving new user")
 		}
-	}
-
-	return nil
-}
-
-func (b *Bot) UpdateMember() error {
-
-	return nil
-}
-
-func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
-	members, err := bot.GuildMembers(b.GuildId, "", 1000)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting guild members")	
 	}
 
 	return nil

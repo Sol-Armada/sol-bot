@@ -17,15 +17,15 @@ import (
 )
 
 type User struct {
-	ID         string            `json:"id" bson:"_id"`
-	Name       string            `json:"name" bson:"name"`
-	Rank       ranks.Rank        `json:"rank" bson:"rank"`
-	Ally       bool              `json:"ally" bson:"ally"`
-	Notes      string            `json:"notes" bson:"notes"`
-	Events     int64             `json:"events" bson:"events"`
-	PrimaryOrg string            `json:"primary_org" bson:"primary_org"`
-	RSIMember  bool              `json:"rsi_member" bson:"rsi_member"`
-	Discord    *discordgo.Member `json:"discord" bson:"discord"`
+	ID             string            `json:"id" bson:"_id"`
+	Name           string            `json:"name" bson:"name"`
+	Rank           ranks.Rank        `json:"rank" bson:"rank"`
+	Notes          string            `json:"notes" bson:"notes"`
+	Events         int64             `json:"events" bson:"events"`
+	PrimaryOrg     string            `json:"primary_org" bson:"primary_org"`
+	RSIMember      bool              `json:"rsi_member" bson:"rsi_member"`
+	BadAffiliation bool              `json:"bad_affiliation" bson:"bad_affiliation"`
+	Discord        *discordgo.Member `json:"discord" bson:"discord"`
 
 	Access *auth.UserAccess `json:"access" bson:"access"`
 }
@@ -38,8 +38,7 @@ func New(m *discordgo.Member) *User {
 	u := &User{
 		ID:         m.User.ID,
 		Name:       name,
-		Rank:       ranks.Recruit,
-		Ally:       false,
+		Rank:       ranks.Guest,
 		PrimaryOrg: "",
 		Notes:      "",
 		Events:     0,
@@ -51,12 +50,15 @@ func New(m *discordgo.Member) *User {
 }
 
 func (u *User) GetTrueNick() string {
-	reg := regexp.MustCompile(`\[(.*?)\] `)
+	trueNick := u.Discord.User.Username
+	regRank := regexp.MustCompile(`\[(.*?)\] `)
+	regAlly := regexp.MustCompile(`\{(.*?)\} `)
 	if u.Discord.Nick != "" {
-		return reg.ReplaceAllString(u.Discord.Nick, "")
+		trueNick = regRank.ReplaceAllString(u.Discord.Nick, "")
+		trueNick = regAlly.ReplaceAllString(trueNick, "")
 	}
 
-	return u.Discord.User.Username
+	return trueNick
 }
 
 func (u *User) Save() error {
@@ -162,7 +164,6 @@ func (u *User) Update(ui *User) {
 	u.ID = ui.ID
 	u.Name = ui.Name
 	u.Rank = ui.Rank
-	u.Ally = ui.Ally
 	u.Notes = ui.Notes
 	u.Events = ui.Events
 	u.PrimaryOrg = ui.PrimaryOrg
