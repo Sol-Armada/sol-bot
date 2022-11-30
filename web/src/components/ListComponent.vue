@@ -1,44 +1,121 @@
 <script setup>
+import { computed } from "vue";
 import { updateUser } from "../api";
 import { truncateString } from "../utils";
 
-defineProps({
+const Ranks = {
+  0: { name: "Bot" },
+  1: { name: "Admiral" },
+  2: { name: "Commander" },
+  3: { name: "Lieutenant" },
+  4: { name: "Specialist" },
+  5: { name: "Technician" },
+  6: { name: "Member" },
+  7: { name: "Recruit" },
+  8: { name: "Guest" },
+  99: { name: "Ally" },
+};
+
+const props = defineProps({
   admin: Object,
   users: Array,
   updateUser: Function,
 });
+const bots = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 0);
+  }
 
-const Ranks = {
-  0: { name: "Bot", minEvents: 0 },
-  1: { name: "Admiral", minEvents: 0 },
-  2: { name: "Commander", minEvents: 0 },
-  3: { name: "Lieutenant", minEvents: 0 },
-  4: { name: "Specialist", minEvents: 20 },
-  5: { name: "Technician", minEvents: 10 },
-  6: { name: "Member", minEvents: 3 },
-  7: { name: "Recruit", minEvents: 0 },
-  99: { name: "Ally", minEvents: 0 },
-};
+  return [];
+});
+const admirals = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 1);
+  }
+
+  return [];
+});
+const commanders = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 2);
+  }
+
+  return [];
+});
+const lieutenants = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 3);
+  }
+
+  return [];
+});
+const specialists = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 4);
+  }
+
+  return [];
+});
+const technicians = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 5);
+  }
+
+  return [];
+});
+const members = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 6);
+  }
+
+  return [];
+});
+const recruits = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 7);
+  }
+
+  return [];
+});
+const guests = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 8);
+  }
+
+  return [];
+});
+const allies = computed(() => {
+  if (props.users != undefined) {
+    return props.users.filter((u) => u.rank == 99);
+  }
+
+  return [];
+});
 
 var delayTimer;
 function search(e) {
   var value = e.srcElement.value.toUpperCase();
   clearTimeout(delayTimer);
   delayTimer = setTimeout(() => {
-    const cards = document.querySelectorAll(".card");
-    if (value != "") {
-      cards.forEach((card) => {
-        if (card.dataset.nick.toUpperCase().includes(value)) {
-          card.classList.remove("hidden");
+    const cardLists = document.querySelectorAll(".cards");
+    cardLists.forEach((cl) => {
+      cl.classList.add("hidden");
+      const cards = cl.querySelectorAll(".card");
+      cards.forEach((c) => {
+        if (value != "") {
+          if (c.dataset.nick.toUpperCase().includes(value)) {
+            c.classList.remove("hidden");
+          } else {
+            c.classList.add("hidden");
+          }
         } else {
-          card.classList.add("hidden");
+          c.classList.remove("hidden");
+        }
+        if (!c.classList.contains("hidden")) {
+          cl.classList.remove("hidden");
         }
       });
-    } else {
-      cards.forEach((card) => {
-        card.classList.remove("hidden");
-      });
-    }
+    });
   }, 250);
 }
 </script>
@@ -53,9 +130,13 @@ function search(e) {
       v-on:keyup="search"
     />
   </form>
-  <div class="cards">
+  <div class="cards" v-if="admirals.length > 0">
+    <h1>
+      admirals
+      <hr />
+    </h1>
     <div
-      v-for="user in users"
+      v-for="user in admirals"
       :key="user.id"
       :class="
         'card ' +
@@ -64,7 +145,8 @@ function search(e) {
           user.rank == 0 ||
           user.rank >= 6 ||
           user.rank == 99) &&
-        user.primary_org != 'REDACTED'
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
           ? Ranks[user.rank].name.toLowerCase()
           : 'bad-org ')
       "
@@ -75,10 +157,7 @@ function search(e) {
         {{ truncateString(user.name, 14) }}
         <hr />
       </h2>
-      <h3 v-if="user.primary_org != 'REDACTED'">
-        {{ Ranks[user.rank].name }}
-        <hr />
-      </h3>
+
       <h3
         v-if="
           user.primary_org != '' &&
@@ -93,17 +172,23 @@ function search(e) {
           >{{ user.primary_org }}</a
         >
       </h3>
-      <h3 v-if="user.primary_org == 'REDACTED'">REDACTED ORG</h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
       <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
         Not on RSI
       </h3>
       <div
         class="events"
         v-if="
-          user.rsi_member &&
           user.rank != 0 &&
-          user.rank != 99 &&
-          user.primary_org != 'REDACTED'
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
         "
       >
         <h3>Events</h3>
@@ -130,52 +215,788 @@ function search(e) {
           </button>
         </div>
       </div>
-      <div
-        class="controls"
+    </div>
+  </div>
+  <div class="cards" v-if="commanders.length > 0">
+    <h1>
+      commanders
+      <hr />
+    </h1>
+    <div
+      v-for="user in commanders"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
         v-if="
-          false &&
-          user.rank != 0 &&
-          user.rank != 99 &&
-          admin.rank < user.rank &&
-          admin.id != user.id
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
         "
       >
-        <!-- <button
-          class="promote"
-          v-if="
-            Ranks[user.rank - 1] &&
-            user.rank - 1 != 0 &&
-            user.events >= Ranks[user.rank - 1].minEvents &&
-            admin.rank >= 3
-          "
-          v-on:click="
-            user.rank--;
-            updateUser(user);
-          "
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
         >
-          Promote
-        </button>
-        <button
-          class="demote"
-          v-if="user.rank != 0 && Ranks[user.rank + 1]"
-          v-on:click="
-            user.rank++;
-            updateUser(user);
-          "
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="lieutenants.length > 0">
+    <h1>
+      lieutenants
+      <hr />
+    </h1>
+    <div
+      v-for="user in lieutenants"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
         >
-          Demote
-        </button> -->
-        <button
-          class="ally"
-          v-if="user.rank == 7 && user.primary_org != 'REDACTED'"
-          v-on:click="
-            user.ally = true;
-            user.rank = 99;
-            updateUser(user);
-          "
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="specialists.length > 0">
+    <h1>
+      specialists
+      <hr />
+    </h1>
+    <div
+      v-for="user in specialists"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
         >
-          Ally
-        </button>
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="technicians.length > 0">
+    <h1>
+      technicians
+      <hr />
+    </h1>
+    <div
+      v-for="user in technicians"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
+        >
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="members.length > 0">
+    <h1>
+      members
+      <hr />
+    </h1>
+    <div
+      v-for="user in members"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
+        >
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="recruits.length > 0">
+    <h1>
+      recruits
+      <hr />
+    </h1>
+    <div
+      v-for="user in recruits"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
+        >
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="guests.length > 0">
+    <h1>
+      guests
+      <hr />
+    </h1>
+    <div
+      v-for="user in guests"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
+        >
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="allies.length > 0">
+    <h1>
+      allies
+      <hr />
+    </h1>
+    <div
+      v-for="user in allies"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
+        >
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="cards" v-if="bots.length > 0">
+    <h1>
+      bots
+      <hr />
+    </h1>
+    <div
+      v-for="user in bots"
+      :key="user.id"
+      :class="
+        'card ' +
+        ((user.primary_org == 'SOLARMADA' ||
+          user.primary_org == '' ||
+          user.rank == 0 ||
+          user.rank >= 6 ||
+          user.rank == 99) &&
+        user.primary_org != 'REDACTED' &&
+        user.bad_affiliation != true
+          ? Ranks[user.rank].name.toLowerCase()
+          : 'bad-org ')
+      "
+      :id="user.id"
+      :data-nick="user.name"
+    >
+      <h2>
+        {{ truncateString(user.name, 14) }}
+        <hr />
+      </h2>
+
+      <h3
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 6
+        "
+      >
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          >{{ user.primary_org }}</a
+        >
+      </h3>
+      <h3
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
+      >
+        REDACTED ORG
+      </h3>
+      <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+      <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
+        Not on RSI
+      </h3>
+      <div
+        class="events"
+        v-if="
+          user.rank != 0 &&
+          user.rank <= 8 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true
+        "
+      >
+        <h3>Events</h3>
+        <div>
+          <button
+            class="material-symbols-outlined"
+            v-on:click="
+              user.events--;
+              updateUser(user);
+            "
+          >
+            remove
+          </button>
+          <span class="count">{{ user.events }}</span>
+          <button
+            class="material-symbols-outlined"
+            v-if="Ranks[user.rank - 1]"
+            v-on:click="
+              user.events++;
+              updateUser(user);
+            "
+          >
+            add
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -186,6 +1007,12 @@ function search(e) {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+
+  > h1 {
+    width: 100%;
+    text-transform: capitalize;
+    margin: 1rem 0;
+  }
 
   .card {
     opacity: 1;
@@ -247,12 +1074,6 @@ function search(e) {
       }
     }
 
-    &.hidden {
-      display: none;
-      opacity: 0;
-      transition: opacity 1s ease;
-    }
-
     &.ally {
       border-color: #e05b03;
 
@@ -267,6 +1088,14 @@ function search(e) {
 
       hr {
         border-color: #e00303;
+      }
+    }
+
+    &.recruit {
+      border-color: #ffffff;
+
+      hr {
+        border-color: #ffffff;
       }
     }
 
@@ -352,5 +1181,23 @@ input[type="search"] {
   appearance: none;
   z-index: 1;
   position: relative;
+}
+
+button {
+  padding: 0.5rem;
+  margin: 0 0.25rem;
+  border-radius: 0.5rem;
+  border-color: var(--color-border);
+  background: var(--color-background-soft);
+  color: var(--color-text);
+
+  &:hover {
+    border-color: var(--color-border-hover);
+    background-color: var(--color-background);
+  }
+}
+
+.hidden {
+  display: none;
 }
 </style>

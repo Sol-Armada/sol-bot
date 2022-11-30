@@ -58,8 +58,8 @@ export function getUsers() {
           return -1;
         }
 
-        const aName = a.nick.toUpperCase();
-        const bName = b.nick.toUpperCase();
+        const aName = a.name.toUpperCase();
+        const bName = b.name.toUpperCase();
 
         if (aName < bName) {
           return -1;
