@@ -5,7 +5,9 @@ go 1.18
 require (
 	github.com/bwmarrin/discordgo v0.26.1
 	github.com/gorilla/mux v1.8.0
+	github.com/lithammer/fuzzysearch v1.1.5
 	go.mongodb.org/mongo-driver v1.11.0
+	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
 )
 
 require (
@@ -59,6 +61,5 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/xid v1.4.0
 	github.com/spf13/viper v1.13.0
-	golang.org/x/exp v0.0.0-20221109134031-9ce248df8de5
 	golang.org/x/sys v0.1.0 // indirect
 )

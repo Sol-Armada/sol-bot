@@ -1,7 +1,14 @@
 ################################################################
-# admins | list | list of member ids that are allowed to login #
+# admins      | list   | list of member ids that are allowed   #
+#                      | to login                              #
+# ------------------------------------------------------------ #
+# allies      | list   | list of org handles that are allies   #
+# ------------------------------------------------------------ #
+# rsi_org_sid | string | the org's handle running this bot     #
 ################################################################
 admins=[]
+allies=[]
+rsi_org_sid=""
 
 ################################################################
 # server                                                       #

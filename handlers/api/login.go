@@ -38,8 +38,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	// create the user
 	u := &users.User{
 		ID:         "",
-		Rank:       ranks.Recruit,
-		Ally:       false,
+		Rank:       ranks.Guest,
 		PrimaryOrg: "",
 		Notes:      "",
 		Events:     0,
