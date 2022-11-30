@@ -159,7 +159,6 @@ func (b *Bot) Open() error {
 	}); err != nil {
 		return errors.Wrap(err, "failed creating oboarding command")
 	}
-
 	return nil
 }
 
@@ -286,7 +285,7 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 				break
 			}
 		}
-
+    
 		for _, a := range config.GetStringSlice("allies") {
 			if strings.EqualFold(u.PrimaryOrg, a) {
 				u.Rank = ranks.Ally

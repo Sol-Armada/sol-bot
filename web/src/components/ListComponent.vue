@@ -679,7 +679,6 @@ function search(e) {
         {{ truncateString(user.name, 14) }}
         <hr />
       </h2>
-
       <h3
         v-if="
           user.primary_org != '' &&
