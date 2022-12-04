@@ -162,8 +162,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -188,7 +187,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -249,8 +249,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -275,7 +274,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -336,8 +336,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -362,7 +361,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -423,8 +423,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -449,7 +448,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -510,8 +510,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -536,7 +535,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -597,8 +597,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -623,7 +622,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -683,8 +683,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -709,7 +708,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -770,8 +770,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -857,8 +856,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -883,7 +881,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
@@ -944,8 +943,7 @@ function search(e) {
         v-if="
           user.primary_org != '' &&
           user.primary_org != 'SOLARMADA' &&
-          user.primary_org != 'REDACTED' &&
-          user.rank <= 6
+          user.primary_org != 'REDACTED'
         "
       >
         <a
@@ -970,7 +968,8 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
+          user.rsi_member == true &&
+          user.primary_org == 'SOLARMADA'
         "
       >
         <h3>Events</h3>
