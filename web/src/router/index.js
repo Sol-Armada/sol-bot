@@ -24,8 +24,8 @@ const router = createRouter({
     {
       path: "/error",
       name: "error",
-      component: () => import("@/views/ErrorView.vue")
-    }
+      component: () => import("@/views/ErrorView.vue"),
+    },
   ],
 });
 
