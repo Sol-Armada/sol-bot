@@ -708,8 +708,7 @@ function search(e) {
           user.rank <= 8 &&
           user.bad_affiliation == false &&
           user.primary_org != 'REDACTED' &&
-          user.rsi_member == true &&
-          user.primary_org == 'SOLARMADA'
+          user.rsi_member == true
         "
       >
         <h3>Events</h3>
@@ -788,40 +787,6 @@ function search(e) {
       <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
         Not on RSI
       </h3>
-      <div
-        class="events"
-        v-if="
-          user.rank != 0 &&
-          user.rank <= 8 &&
-          user.bad_affiliation == false &&
-          user.primary_org != 'REDACTED' &&
-          user.rsi_member == true
-        "
-      >
-        <h3>Events</h3>
-        <div>
-          <button
-            class="material-symbols-outlined"
-            v-on:click="
-              user.events--;
-              updateUser(user);
-            "
-          >
-            remove
-          </button>
-          <span class="count">{{ user.events }}</span>
-          <button
-            class="material-symbols-outlined"
-            v-if="Ranks[user.rank - 1]"
-            v-on:click="
-              user.events++;
-              updateUser(user);
-            "
-          >
-            add
-          </button>
-        </div>
-      </div>
     </div>
   </div>
   <div class="cards" v-if="allies.length > 0">

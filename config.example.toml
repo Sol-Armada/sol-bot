@@ -52,3 +52,16 @@ guild_id="guildid"
 ################################################################
 [discord.channels]
 attendance=""
+onboarding=""
+
+################################################################
+# discord.role_ids                                             #
+# ------------------------------------------------------------ #
+# guest   | string | The guest role id                         #
+# recruit | string | The recruit role id                       #
+# ally    | string | The ally role id                          #
+################################################################
+[discord.role_ids]
+guest="000000000000000000"
+recruit="000000000000000001"
+ally="000000000000000002"
