@@ -55,7 +55,7 @@ func main() {
 
 	doneMonitoring := make(chan bool, 1)
 	stopMonitoring := make(chan bool, 1)
-	if config.GetBoolWithDefault("FEATURE.MONITOR", true) {
+	if config.GetBoolWithDefault("FEATURE.MONITOR", false) {
 		go b.Monitor(stopMonitoring, doneMonitoring)
 	} else {
 		doneMonitoring <- true
