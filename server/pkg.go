@@ -1,6 +1,7 @@
 package server
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -9,14 +10,29 @@ import (
 	"github.com/sol-armada/admin/router"
 )
 
-func Run() error {
+type Server struct {
+	ctx context.Context
+
+	*http.Server
+}
+
+func New() *Server {
 	port := fmt.Sprintf(":%d", config.GetIntWithDefault("SERVER.PORT", 8080))
-	srv := &http.Server{
-		Addr:    port,
-		Handler: router.Router(),
+	return &Server{
+		ctx: context.Background(),
+		Server: &http.Server{
+			Addr:    port,
+			Handler: router.Router(),
+		},
 	}
+}
 
-	log.WithField("port", port).Info("starting server")
+func (s *Server) Run() error {
+	log.WithField("address", s.Addr).Info("starting server")
 
-	return srv.ListenAndServe()
+	return s.ListenAndServe()
+}
+
+func (s *Server) Stop() error {
+	return s.Shutdown(s.ctx)
 }

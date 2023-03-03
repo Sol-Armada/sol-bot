@@ -19,22 +19,23 @@ import (
 )
 
 type Bot struct {
-	GuildId string
+	GuildId  string
+	ClientId string
 
 	s *discordgo.Session
 }
 
 var bot *Bot
 var interactionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"choice":       handlers.ChoiceButtonHandler,
-	"guest_friend": handlers.GuestFriendHandler,
-	"start_over":   handlers.StartOverHandler,
-	"event":        handlers.EventInteractionHandler,
+	"choice": handlers.ChoiceButtonHandler,
+	// "guest_friend": handlers.GuestFriendHandler,
+	"start_over": handlers.StartOverHandler,
+	"event":      handlers.EventInteractionHandler,
 }
 var modalHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"rsi_handle": handlers.RSIModalHandler,
-	"friend_of":  handlers.GuestFriendOfModalHandler,
-	"ally_org":   handlers.AllyOrgModalHandler,
+	// "friend_of":  handlers.GuestFriendOfModalHandler,
+	// "ally_org":   handlers.AllyOrgModalHandler,
 }
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"attendance": handlers.AttendanceCommandHandler,
@@ -44,7 +45,7 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 
 func New() (*Bot, error) {
 	if bot == nil {
-		log.Info("creating new discord bot")
+		log.Info("creating discord bot")
 		b, err := discordgo.New(fmt.Sprintf("Bot %s", config.GetString("DISCORD.BOT_TOKEN")))
 		if err != nil {
 			return nil, err
@@ -52,6 +53,7 @@ func New() (*Bot, error) {
 
 		bot = &Bot{
 			config.GetString("DISCORD.GUILD_ID"),
+			config.GetString("DISCORD.CLIENT_ID"),
 			b,
 		}
 
@@ -95,7 +97,9 @@ func New() (*Bot, error) {
 		// watch for voice connections and manage them accordingly
 		bot.s.AddHandler(handlers.OnVoiceJoin)
 		// watch for server join
-		// bot.s.AddHandler(handlers.JoinServerHandler)
+		bot.s.AddHandler(handlers.JoinServerHandler)
+		// watch for server leave
+		bot.s.AddHandler(handlers.LeaveServerHandler)
 	}
 
 	return bot, nil
@@ -118,18 +122,15 @@ func (b *Bot) Open() error {
 		return errors.Wrap(err, "failed to start the bot")
 	}
 
-	cid := config.GetString("DISCORD.CLIENT_ID")
-	gid := config.GetString("DISCORD.GUILD_ID")
-
 	// register commands
-	if _, err := b.s.ApplicationCommandCreate(cid, gid, &discordgo.ApplicationCommand{
+	if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "attendance",
 		Description: "Get your Event Attendence count",
 	}); err != nil {
 		return errors.Wrap(err, "failed creating attendance command")
 	}
 
-	if _, err := b.s.ApplicationCommandCreate(cid, gid, &discordgo.ApplicationCommand{
+	if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "event",
 		Description: "Event Actions",
 		Options: []*discordgo.ApplicationCommandOption{
@@ -143,85 +144,110 @@ func (b *Bot) Open() error {
 		return errors.Wrap(err, "failed creating event command")
 	}
 
-	if _, err := b.s.ApplicationCommandCreate(cid, gid, &discordgo.ApplicationCommand{
-		Name:        "onboarding",
-		Description: "Start onboarding process for someone",
-		Type:        discordgo.ChatApplicationCommand,
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Name:         "single-autcomplete",
-				Description:  "the member to onboard",
-				Type:         discordgo.ApplicationCommandOptionMentionable,
-				Required:     true,
-				Autocomplete: true,
+	if config.GetBoolWithDefault("FEATURES.ONBOARDING", false) {
+		log.Debug("using onboarding feature")
+		if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+			Name:        "onboarding",
+			Description: "Start onboarding process for someone",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:         "single-autcomplete",
+					Description:  "the member to onboard",
+					Type:         discordgo.ApplicationCommandOptionMentionable,
+					Required:     true,
+					Autocomplete: true,
+				},
 			},
-		},
-	}); err != nil {
-		return errors.Wrap(err, "failed creating oboarding command")
+		}); err != nil {
+			return errors.Wrap(err, "failed creating oboarding command")
+		}
 	}
+
 	return nil
 }
 
 func (b *Bot) Close() error {
+	log.Info("stopping bot")
+	if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
+		return errors.Wrap(err, "failed deleting oboarding command")
+	}
 	return b.s.Close()
 }
 
-func (b *Bot) Monitor() {
-	log.Debug("monitoring discord for users")
+func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
+	log.Info("monitoring discord for users")
+	ticker := time.NewTicker(1 * time.Minute)
+	defer ticker.Stop()
+
+	lastChecked := time.Now()
 	for {
-		if stores.Storage == nil {
-			log.Debug("storage not setup, waiting a bit")
-			time.Sleep(10 * time.Second)
-			continue
-		}
+		select {
+		case <-stop:
+			log.Info("stopping monitor")
+			goto DONE
+		case <-ticker.C:
+			if time.Now().After(lastChecked.Add(1 * time.Minute)) {
+				if stores.Storage == nil {
+					log.Debug("storage not setup, waiting a bit")
+					time.Sleep(10 * time.Second)
+					continue
+				}
 
-		// rate limit protection
-		rateBucket := b.s.Ratelimiter.GetBucket("guild_member_check")
-		if rateBucket.Remaining == 0 {
-			log.Warn("hit a rate limit. relaxing until it goes away")
-			time.Sleep(b.s.Ratelimiter.GetWaitTime(rateBucket, 0))
-			continue
-		}
+				// rate limit protection
+				rateBucket := b.s.Ratelimiter.GetBucket("guild_member_check")
+				if rateBucket.Remaining == 0 {
+					log.Warn("hit a rate limit. relaxing until it goes away")
+					time.Sleep(b.s.Ratelimiter.GetWaitTime(rateBucket, 0))
+					continue
+				}
 
-		// get the discord members
-		m, err := b.GetMembers()
-		if err != nil {
-			log.WithError(err).Error("bot getting members")
-			return
-		}
+				// get the discord members
+				m, err := b.GetMembers()
+				if err != nil {
+					log.WithError(err).Error("bot getting members")
+					return
+				}
 
-		// get the stored members
-		storedUsers := []*users.User{}
-		cur, err := stores.Storage.GetUsers()
-		if err != nil {
-			log.WithError(err).Error("getting users for updating")
-			return
-		}
-		if err := cur.All(context.Background(), &storedUsers); err != nil {
-			log.WithError(err).Error("getting users from collection for update")
-			return
-		}
+				// get the stored members
+				storedUsers := []*users.User{}
+				cur, err := stores.Storage.GetUsers()
+				if err != nil {
+					log.WithError(err).Error("getting users for updating")
+					return
+				}
+				if err := cur.All(context.Background(), &storedUsers); err != nil {
+					log.WithError(err).Error("getting users from collection for update")
+					return
+				}
 
-		// actually do the members update
-		if err := updateMembers(m, storedUsers); err != nil {
-			if strings.Contains(err.Error(), "Forbidden") {
-				log.Warn("we hit the limit with RSI's website. let's wait and try again...")
-				time.Sleep(30 * time.Minute)
-				continue
+				// actually do the members update
+				if err := updateMembers(m, storedUsers); err != nil {
+					if strings.Contains(err.Error(), "Forbidden") {
+						log.Warn("we hit the limit with RSI's website. let's wait and try again...")
+						time.Sleep(30 * time.Minute)
+						continue
+					}
+
+					log.WithError(err).Error("updating members")
+					return
+				}
+
+				// do some cleaning
+				if err := cleanMembers(m, storedUsers); err != nil {
+					log.WithError(err).Error("cleaning up the members")
+					return
+				}
+
+				lastChecked = time.Now()
 			}
 
-			log.WithError(err).Error("updating members")
-			return
+			continue
 		}
-
-		// do some cleaning
-		if err := cleanMembers(m, storedUsers); err != nil {
-			log.WithError(err).Error("cleaning up the members")
-			return
-		}
-
-		time.Sleep(30 * time.Minute)
+	DONE:
+		break
 	}
+	done <- true
 }
 
 func (b *Bot) UpdateMember() error {
@@ -285,7 +311,7 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 				break
 			}
 		}
-    
+
 		for _, a := range config.GetStringSlice("allies") {
 			if strings.EqualFold(u.PrimaryOrg, a) {
 				u.Rank = ranks.Ally

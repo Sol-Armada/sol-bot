@@ -50,23 +50,25 @@ func New(ctx context.Context) (*Store, error) {
 }
 
 func (s *Store) Disconnect() {
-	s.client.Disconnect(s.ctx)
+	if err := s.client.Disconnect(s.ctx); err != nil {
+		log.WithError(err).Error("disconnect from store")
+	}
 }
 
 func (s *Store) SaveUser(id string, u interface{}) error {
-	log.WithField("id", id).Debug("saving user")
+	log.WithField("id", id).Debug("saving user to mongo")
 	opts := options.Replace().SetUpsert(true)
 	if _, err := s.users.ReplaceOne(s.ctx, bson.D{{Key: "_id", Value: id}}, u, opts); err != nil {
-		return errors.Wrap(err, "saving user")
+		return errors.Wrap(err, "saving user to mongo")
 	}
 	return nil
 }
 
 func (s *Store) SaveUsers(u map[string]interface{}) error {
-	log.WithField("count", len(u)).Info("saving users")
+	log.WithField("count", len(u)).Info("saving users to mongo")
 	for id, user := range u {
 		if err := s.SaveUser(id, user); err != nil {
-			return errors.Wrap(err, "saving users")
+			return errors.Wrap(err, "saving users to mongo")
 		}
 	}
 
@@ -85,7 +87,7 @@ func (s *Store) GetUsers() (*mongo.Cursor, error) {
 func (s *Store) DeleteUser(id string) error {
 	filter := bson.D{{Key: "_id", Value: id}}
 	if _, err := s.users.DeleteOne(s.ctx, filter); err != nil {
-		return errors.Wrap(err, "deleting a user")
+		return errors.Wrap(err, "deleting a user from mongo")
 	}
 	return nil
 }

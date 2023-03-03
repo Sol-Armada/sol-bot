@@ -1,14 +1,13 @@
 ################################################################
-# admins      | list   | list of member ids that are allowed   #
-#                      | to login                              #
-# ------------------------------------------------------------ #
 # allies      | list   | list of org handles that are allies   #
+# ------------------------------------------------------------ #
+# enimies     | list   | list of org handles that are enimies  #
 # ------------------------------------------------------------ #
 # rsi_org_sid | string | the org's handle running this bot     #
 ################################################################
-admins=[]
 allies=[]
-rsi_org_sid=""
+enimies=[]
+rsi_org_sid="MYORG"
 
 ################################################################
 # server                                                       #
@@ -31,6 +30,14 @@ ecryption_key=""
 debug=true
 
 ################################################################
+# features                                                     #
+# ------------------------------------------------------------ #
+# onboarding | bool | enable onboarding                        #
+################################################################
+[features]
+onboarding=false
+
+################################################################
 # discord                                                      #
 # ------------------------------------------------------------ #
 # client_id     | string | discord application client id       #
@@ -49,10 +56,21 @@ guild_id="guildid"
 # discord.channels                                             #
 # ------------------------------------------------------------ #
 # attendance | string | the channel id to use for attendance   #
+# onboarding | string | the channel id to use for onboarding   #
+#                     | notifications                          #
 ################################################################
 [discord.channels]
-attendance=""
-onboarding=""
+attendance="000000000000000004"
+onboarding="000000000000000005"
+
+################################################################
+# discord.categories                                           #
+# ------------------------------------------------------------ #
+# onboarding | string | the category id to use for onboarding  #
+#                     | channels                               #
+################################################################
+[discord.categories]
+onboarding="000000000000000003"
 
 ################################################################
 # discord.role_ids                                             #

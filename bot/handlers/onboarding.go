@@ -1,14 +1,13 @@
 package handlers
 
 import (
-	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
-	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
@@ -18,16 +17,84 @@ import (
 
 var choiceMade map[string]string = map[string]string{}
 
+var basicQuestions *discordgo.MessageSend = &discordgo.MessageSend{
+	Content: "We just have some basic questions for you.\nHow did you find us?",
+	Components: []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "A member recruited me",
+					CustomID: "choice:recruited",
+				},
+				discordgo.Button{
+					Label:    "Found Sol Armada on RSI",
+					CustomID: "choice:rsi",
+				},
+				discordgo.Button{
+					Label:    "Some other way",
+					CustomID: "choice:other",
+				},
+			},
+		},
+	},
+}
+
+func LeaveServerHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
+	logging := log.WithField("handler", "OnLeave")
+	channels, err := s.GuildChannels(m.GuildID)
+	if err != nil {
+		logging.WithError(err).Error("getting all channels")
+		return
+	}
+
+	for _, c := range channels {
+		if c.Name == fmt.Sprintf("onboarding-%s", strings.ToLower(strings.ReplaceAll(m.User.Username, " ", "-"))) {
+			if _, err := s.ChannelDelete(c.ID); err != nil {
+				logging.WithError(err).Error("deleting old onboarding channel")
+				return
+			}
+		}
+
+		if c.ID == config.GetString("DISCORDGO.CHANNELS.ONBOARDING") {
+			messages, err := s.ChannelMessages(c.ID, 100, "", "", "")
+			if err != nil {
+				logging.WithError(err).Error("getting messages in onboarding channel")
+				return
+			}
+
+			for _, message := range messages {
+				if strings.Contains(message.Content, m.User.Username) {
+					if _, err := s.ChannelMessageEdit(message.ChannelID, message.ID, fmt.Sprintf("Onboarding %s (left the server)", m.User.Username)); err != nil {
+						logging.WithError(err).Error("updating onboarding thread message")
+						return
+					}
+				}
+			}
+		}
+	}
+}
+
 func JoinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	onboarding(s, m.Member)
+	if config.GetBoolWithDefault("FEATURES.ONBOARDING", false) {
+		onboarding(s, m.Member)
+	}
+}
+
+func notifyOfOnboarding(s *discordgo.Session, m *discordgo.Member) {
+	channelID := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	if _, err := s.ChannelMessageSend(channelID, fmt.Sprintf("Onboarding %s", m.User.Username)); err != nil {
+		log.WithError(err).Error("sending onboarding message")
+		return
+	}
 }
 
 func onboarding(s *discordgo.Session, m *discordgo.Member) {
-	logger := log.WithField("handler", "JoinServer")
+	logger := log.WithField("func", "onboarding")
+	notifyOfOnboarding(s, m)
 	newChannel, err := s.GuildChannelCreateComplex("997836773927428156", discordgo.GuildChannelCreateData{
-		Name:     fmt.Sprintf("onboarding-%s", m.User.Username),
+		Name:     fmt.Sprintf("onboarding-%s", strings.ToLower(strings.ReplaceAll(m.User.Username, " ", "-"))),
 		Type:     discordgo.ChannelTypeGuildText,
-		ParentID: "997836773927428157",
+		ParentID: config.GetString("DISCORD.CATEGORIES.ONBOARDING"),
 		Topic:    "Onboarding and Help",
 		PermissionOverwrites: []*discordgo.PermissionOverwrite{
 			{
@@ -48,36 +115,28 @@ func onboarding(s *discordgo.Session, m *discordgo.Member) {
 
 	time.Sleep(3 * time.Second)
 
-	if _, err := s.ChannelMessageSendComplex(newChannel.ID, &discordgo.MessageSend{
-		Content: "We just have some basic questions for you.\nWhy did you join our server?",
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					// discordgo.Button{
-					// 	Label:    "Guest of an Org Member",
-					// 	CustomID: "choice:guest",
-					// },
-					// discordgo.Button{
-					// 	Label:    "Ally of the Org",
-					// 	CustomID: "choice:ally",
-					// },
-					discordgo.Button{
-						Label:    "Joining the Org",
-						CustomID: "choice:join",
-					},
-				},
-			},
-		},
-	}); err != nil {
+	if _, err := s.ChannelMessageSendComplex(newChannel.ID, basicQuestions); err != nil {
 		logger.WithError(err).Error("sending messsage with buttons")
 	}
 }
 
 func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	logging := log.WithField("command", "Onboarding")
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	}); err != nil {
+		logging.WithError(err).Error("getting command user for permissions")
+		errorResponse(s, i.Interaction, "internal server error")
+		return
+	}
+
 	storage := stores.Storage
 	u := &users.User{}
-	if err := storage.GetUser(i.User.ID).Decode(u); err != nil {
+	if err := storage.GetUser(i.Member.User.ID).Decode(u); err != nil {
 		logging.WithError(err).Error("getting command user for permissions")
 		errorResponse(s, i.Interaction, "internal server error")
 		return
@@ -91,49 +150,171 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	m, err := s.GuildMember(i.GuildID, i.ApplicationCommandData().Options[0].Value.(string))
 	if err != nil {
 		logging.WithError(err).Error("getting guild member")
+		return
 	}
 
 	if _, ok := choiceMade[m.User.ID]; ok {
 		choiceMade[m.User.ID] = ""
 	}
 
+	if _, err := s.GuildMemberEditComplex(i.GuildID, m.User.ID, &discordgo.GuildMemberParams{
+		Roles: &[]string{},
+		Nick:  m.User.Username,
+	}); err != nil {
+		logging.WithError(err).Error("reverting user")
+		return
+	}
+
+	messages, err := s.ChannelMessages(config.GetString("DISCORD.CHANNELS.ONBOARDING"), 100, "", "", "")
+	if err != nil {
+		logging.WithError(err).Error("getting all onboarding notification messages")
+		return
+	}
+
+	for _, message := range messages {
+		if strings.Contains(message.Content, m.User.Username) {
+			if err := s.ChannelMessageDelete(message.ChannelID, message.ID); err != nil {
+				logging.WithError(err).Error("deleting onboarding notification message")
+				return
+			}
+		}
+	}
+
+	// remove all currently onboarding chanels for this user
+	channels, err := s.GuildChannels(i.GuildID)
+	if err != nil {
+		logging.WithError(err).Error("getting all channels")
+		return
+	}
+
+	for _, c := range channels {
+		if c.Name == fmt.Sprintf("onboarding-%s", strings.ToLower(strings.ReplaceAll(m.User.Username, " ", "-"))) {
+			if _, err := s.ChannelDelete(c.ID); err != nil {
+				logging.WithError(err).Error("deleting old onboarding channel")
+				return
+			}
+		}
+	}
+
 	onboarding(s, m)
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "Started their onboarding process",
-		},
+	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Flags:   discordgo.MessageFlagsEphemeral,
+		Content: fmt.Sprintf("Started onboarding process for %s", m.User.Username),
 	}); err != nil {
 		logging.WithError(err).Error("interaction response")
 	}
 }
 
 func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	channel, err := s.Channel(i.ChannelID)
+	if err != nil {
+		log.WithError(err).Error("getting channel")
+		return
+	}
+
+	onboardingUser := strings.Replace(channel.Name, "onboarding-", "", 1)
+	if onboardingUser != strings.ToLower(strings.ReplaceAll(i.Member.User.Username, " ", "-")) {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "This onboarding process does not belong to you.",
+			},
+		}); err != nil {
+			log.WithError(err).Error("returning miss matched onboarding user")
+			return
+		}
+
+		return
+	}
+
+	choiceMade[i.Member.User.ID] = strings.Split(i.MessageComponentData().CustomID, ":")[1]
+
+	questions := []discordgo.MessageComponent{
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.TextInput{
+					CustomID:    "rsi_handle",
+					Label:       "Your RSI handle",
+					Style:       discordgo.TextInputShort,
+					Placeholder: "You handle can be found on your public RSI page",
+					Required:    true,
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.TextInput{
+					CustomID:    "play_time",
+					Label:       "How long have you been playing SC?",
+					Style:       discordgo.TextInputShort,
+					Placeholder: "Example: 2 years or 1 month",
+					Required:    true,
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.TextInput{
+					CustomID:    "gameplay",
+					Label:       "What gameplay are you most interested in?",
+					Style:       discordgo.TextInputShort,
+					Placeholder: "Combat, Rescue, Mining, etc",
+					Required:    true,
+				},
+			},
+		},
+		discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.TextInput{
+					CustomID: "age",
+					Label:    "How old are you?",
+					Style:    discordgo.TextInputShort,
+					Required: true,
+				},
+			},
+		},
+	}
+
+	if choiceMade[i.Member.User.ID] == "recruited" {
+		questions = append(questions,
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.TextInput{
+						Label:       "Who recruited you?",
+						CustomID:    "who_recruited",
+						Style:       discordgo.TextInputShort,
+						Placeholder: "The recruiter's handle",
+						Required:    true,
+					},
+				},
+			})
+	}
+
+	if choiceMade[i.Member.User.ID] == "other" {
+		questions = append(questions,
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.TextInput{
+						CustomID: "other",
+						Label:    "How was it you found Sol Armada?",
+						Style:    discordgo.TextInputParagraph,
+						Required: true,
+					},
+				},
+			})
+	}
+
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
-			CustomID: "rsi_handle_" + i.Interaction.Member.User.ID,
-			Title:    "What is your RSI handle?",
-			Content:  "You can find your handle on your RSI profile page.",
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID: "rsi_handle",
-							Label:    "Your RSI handle",
-							Style:    discordgo.TextInputShort,
-							Required: true,
-						},
-					},
-				},
-			},
+			CustomID:   "rsi_handle_" + i.Interaction.Member.User.ID,
+			Title:      "What is your RSI handle?",
+			Components: questions,
 		},
 	}); err != nil {
 		log.WithError(err).Error("responding to choice")
 	}
-
-	choiceMade[i.Member.User.ID] = strings.Split(i.MessageComponentData().CustomID, ":")[1]
 }
 
 func RSIModalHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -144,14 +325,7 @@ func RSIModalHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
-				Content: "I couldn't find that RSI handle!\nPlease make sure it is correct and try again.\nIt will be located on your RSI profile page",
-				Embeds: []*discordgo.MessageEmbed{
-					{
-						Image: &discordgo.MessageEmbedImage{
-							URL: "https://imgur.com/auqGvbc",
-						},
-					},
-				},
+				Content: "I couldn't find that RSI handle!\n\nPlease make sure it is correct and try again.\nYour RSI handle can be found on your public RSI profile page or in your settings here: https://robertsspaceindustries.com/account/settings",
 			},
 		}); err != nil {
 			log.WithError(err).Error("RSI modal handler")
@@ -162,17 +336,19 @@ func RSIModalHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	switch choiceMade[i.Member.User.ID] {
-	case "guest":
-		GuestButtonHandler(s, i)
-	case "join":
-		JoinButtonHandler(s, i)
+	case "rsi":
+		RSIChoiceButtonHandler(s, i)
+	case "recruited":
+		RecruitedChoiceButtonHandler(s, i)
+	case "other":
+		OtherChoiceButtonHandler(s, i)
 	}
 }
 
 func startOver(s *discordgo.Session, i *discordgo.Interaction) {
 	logger := log.WithField("func", "startOver")
 	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: "Looks like something went wrong! Would you like to try again?\nYou can come back here at any time and start over. You can also message in this channel if you need help",
+		Content: "Would you like to try again?\nYou can come back here at any time and start over. You can also message in this channel if you need help!",
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
@@ -205,359 +381,12 @@ func StartOverHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	for _, message := range messages {
-		if !strings.Contains(message.Content, "Welcome") {
+		if !strings.Contains(message.Content, "Welcome") && !strings.Contains(message.Content, "How did you find us?") {
 			if err := s.ChannelMessageDelete(i.ChannelID, message.ID); err != nil {
 				logger.WithError(err).Error("deleting channel messages")
 			}
 		}
 	}
-
-	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: "Why did you join our server?",
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					// discordgo.Button{
-					// 	Label:    "Guest of an Org Member",
-					// 	CustomID: "choice:guest",
-					// },
-					// discordgo.Button{
-					// 	Label:    "Ally of the Org",
-					// 	CustomID: "choice:ally",
-					// },
-					discordgo.Button{
-						Label:    "Joining the Org",
-						CustomID: "choice:join",
-					},
-				},
-			},
-		},
-	}); err != nil {
-		logger.WithError(err).Error("sending the question")
-	}
-}
-
-func GuestButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("handler", "GuestButton")
-	data := i.ModalSubmitData()
-	value := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	roleId := config.GetString("DISCORD.ROLE_IDS.GUEST")
-	if _, err := s.GuildMemberEditComplex(i.GuildID, i.Member.User.ID, &discordgo.GuildMemberParams{
-		Nick: value,
-		Roles: &[]string{
-			roleId,
-		},
-	}); err != nil {
-		logger.WithError(err).Error("editing the member")
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Great! Your server nickname has been updated to match your RSI handle and you have been given Guest access!",
-		},
-	}); err != nil {
-		logger.WithError(err).Error("interaction response")
-	}
-
-	disableQuestionButtons(s, i.Interaction)
-	finish(s, i)
-}
-
-func GuestFriendOfModalHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("handler", "GuestFriendOfModal")
-	data := i.ModalSubmitData()
-
-	members, err := s.GuildMembers(i.GuildID, "", 1000)
-	if err != nil {
-		logger.WithError(err).Error("getting members")
-	}
-	memberNames := []string{}
-	membersList := map[string]*discordgo.Member{}
-	for _, member := range members {
-		if member.User.ID != i.Member.User.ID {
-			memberNames = append(memberNames, member.User.Username)
-			membersList[member.User.Username] = member
-		}
-	}
-	ranks := fuzzy.FindFold(data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value, memberNames)
-
-	if len(ranks) > 1 {
-		buttons := []discordgo.MessageComponent{}
-		for _, r := range ranks {
-			buttons = append(buttons, discordgo.Button{
-				Label:    r,
-				CustomID: fmt.Sprintf("guest_friend:%s", membersList[r].User.ID),
-			})
-		}
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Components: []discordgo.MessageComponent{
-					discordgo.ActionsRow{
-						Components: buttons,
-					},
-				},
-			},
-		}); err != nil {
-			logger.WithError(err).Error("interaction response")
-		}
-		return
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponsePong,
-	}); err != nil {
-		logger.WithError(err).Error("interaction response")
-	}
-
-	finish(s, i)
-}
-
-func GuestFriendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("handler", "GuestFriend")
-	if err := s.ChannelMessageDelete(i.ChannelID, i.Message.ID); err != nil {
-		logger.WithError(err).Error("GuestFriend")
-	}
-	finish(s, i)
-}
-
-func AllyButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("handler", "AllyButton")
-
-	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: "Great!",
-	}); err != nil {
-		logger.WithError(err).Error("getting channel messages")
-	}
-
-	time.Sleep(2 * time.Second)
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseModal,
-		Data: &discordgo.InteractionResponseData{
-			CustomID: "ally_org_" + i.Interaction.Member.User.ID,
-			Title:    "What is your Org?",
-			Components: []discordgo.MessageComponent{
-				discordgo.ActionsRow{
-					Components: []discordgo.MessageComponent{
-						discordgo.TextInput{
-							CustomID: "org",
-							Label:    "The org's handle: https://robertsspaceindustries.com/orgs/[orgshandle]",
-							Style:    discordgo.TextInputShort,
-							Required: true,
-						},
-					},
-				},
-			},
-		},
-	}); err != nil {
-		logger.WithError(err).Error("interaction response")
-	}
-}
-
-func AllyOrgModalHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("handler", "AllyOrgModal")
-	data := i.ModalSubmitData()
-	value := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-
-	if !rsi.IsAllyOrg(value) {
-		// let them know that is not an ally
-		// make guest
-		return
-	}
-
-	isMember, err := rsi.IsMemberOfOrg(i.Member.Nick, value)
-	if err != nil {
-		if !errors.Is(err, rsi.UserNotFound) {
-			logger.WithError(err).Error("checking if is member of the given org")
-		}
-
-		// let them know that their profile was not found
-		// restart from the beginning
-		return
-	}
-
-	if !isMember {
-		// let them know their profile doesn't show as part of that org
-		// make guest
-		return
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponsePong,
-	}); err != nil {
-		logger.WithError(err).Error("getting channel messages")
-	}
-
-	finish(s, i)
-}
-
-func JoinButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("handler", "JoinButton")
-	data := i.ModalSubmitData()
-	value := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	roleId := config.GetString("DISCORD.ROLE_IDS.RECRUIT")
-	if _, err := s.GuildMemberEditComplex(i.GuildID, i.Member.User.ID, &discordgo.GuildMemberParams{
-		Nick: value,
-		Roles: &[]string{
-			roleId,
-		},
-	}); err != nil {
-		logger.WithError(err).Error("editing member")
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: `Great! Your server nickname has been updated to match your RSI handle and you have been given Recruit access!
-			We encourage you to check out the #get-roles channel to add roles for professions that you are interested in when Star Citizen releases.
-			These roles will notify you when those kinds of activities are happening!
-
-			Our handbook
-			https://handbook.solarmada.space/
-			Make sure to join the org on RSI!
-			https://join.solarmada.space/`,
-		},
-	}); err != nil {
-		logger.WithError(err).Error("interaction response")
-	}
-
-	// professionsMessage, err := s.ChannelMessageSendEmbed(i.ChannelID, &discordgo.MessageEmbed{
-	// 	Title:       "Professions",
-	// 	Description: "What professions are you interested in when Star Citizen is released?",
-	// 	Color:       15277667,
-	// 	Fields: []*discordgo.MessageEmbedField{
-	// 		{
-	// 			Name:   "🚛 Haulers",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "♻️",
-	// 			Value:  "Scavengers",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "⛏️",
-	// 			Value:  "Miners",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "🧭",
-	// 			Value:  "Scouts (non-combat)",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "🛟",
-	// 			Value:  "SOS Emergency Responders",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "🪖",
-	// 			Value:  "FPS Marines",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "🕵️",
-	// 			Value:  "Bounty Hunters",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "🚀",
-	// 			Value:  "Light Fighters",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "👁️",
-	// 			Value:  "Recon",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "🏁",
-	// 			Value:  "Racers",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "💪",
-	// 			Value:  "Gunners",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "🧩",
-	// 			Value:  "Adventurers",
-	// 			Inline: true,
-	// 		},
-	// 	},
-	// })
-	// if err != nil {
-	// 	logger.WithError(err).Error("send embedded message")
-	// }
-
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🚛")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "♻️")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "⛏️")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🧭")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🛟")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🪖")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🕵️")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🚀")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "👁️")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🏁")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "💪")
-	// s.MessageReactionAdd(i.ChannelID, professionsMessage.ID, "🧩")
-
-	// if _, err := s.ChannelMessageSendEmbed(i.ChannelID, &discordgo.MessageEmbed{
-	// 	Title:       "Professions",
-	// 	Description: "What professions are you interested in when Star Citizen is released?",
-	// 	Color:       15277667,
-	// 	Fields: []*discordgo.MessageEmbedField{
-	// 		{
-	// 			Name:   "1️⃣",
-	// 			Value:  "America/Pacific GMT -7",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "2️⃣",
-	// 			Value:  "America/Mountain GMT -6",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "3️⃣",
-	// 			Value:  "America/Central GMT -5",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "4️⃣",
-	// 			Value:  "America/Eastern GMT -4",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "5️⃣",
-	// 			Value:  "Europe/GMT +0",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "6️⃣",
-	// 			Value:  "Europe/GMT +1",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "7️⃣",
-	// 			Value:  "Europe/GMT +2",
-	// 			Inline: true,
-	// 		},
-	// 		{
-	// 			Name:   "8️⃣",
-	// 			Value:  "Australia/GMT +10 or +11",
-	// 			Inline: true,
-	// 		},
-	// 	},
-	// }); err != nil {
-	// 	logger.WithError(err).Error("send embedded message")
-	// }
-
-	disableQuestionButtons(s, i.Interaction)
-	finish(s, i)
 }
 
 func disableQuestionButtons(s *discordgo.Session, i *discordgo.Interaction) {
@@ -567,38 +396,23 @@ func disableQuestionButtons(s *discordgo.Session, i *discordgo.Interaction) {
 		logger.WithError(err).Error("getting channel messages")
 	}
 
-	messageID := ""
-	for _, message := range messages {
-		if strings.Contains(message.Content, "Why did you join our server?") {
-			messageID = message.ID
+	var message *discordgo.Message
+	for _, m := range messages {
+		if strings.Contains(m.Content, "How did you find us?") {
+			message = m
 			break
 		}
 	}
 
+	for index, bq := range message.Components[0].(*discordgo.ActionsRow).Components {
+		modified := bq.(*discordgo.Button)
+		modified.Disabled = true
+		message.Components[0].(*discordgo.ActionsRow).Components[index] = modified
+	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:      messageID,
-		Channel: i.Message.ChannelID,
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					// discordgo.Button{
-					// 	Label:    "Guest of an Org Member",
-					// 	CustomID: "guest",
-					// 	Disabled: true,
-					// },
-					// discordgo.Button{
-					// 	Label:    "Ally of the Org",
-					// 	CustomID: "ally",
-					// 	Disabled: true,
-					// },
-					discordgo.Button{
-						Label:    "Joining the Org",
-						CustomID: "join",
-						Disabled: true,
-					},
-				},
-			},
-		},
+		ID:         message.ID,
+		Channel:    i.Message.ChannelID,
+		Components: message.Components,
 	}); err != nil {
 		logger.WithError(err).Error("editing message")
 	}
@@ -606,32 +420,168 @@ func disableQuestionButtons(s *discordgo.Session, i *discordgo.Interaction) {
 
 func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	logger := log.WithField("func", "finish")
-	if _, err := s.ChannelMessageSend(i.ChannelID, "Great!"); err != nil {
-		logger.WithError(err).Error("sending message")
+
+	data := i.ModalSubmitData()
+	RSIHandle := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	playTime := data.Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	gameplay := data.Components[2].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	age := data.Components[3].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	var recruiter *string
+	var found *string
+
+	if len(data.Components) >= 5 {
+		if data.Components[4].(*discordgo.ActionsRow).Components[0].Type() == discordgo.ComponentType(discordgo.TextInputShort) {
+			recruiter = &data.Components[4].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+		} else {
+			found = &data.Components[4].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+		}
 	}
+
+	roleId := config.GetString("DISCORD.ROLE_IDS.GUEST")
+	if _, err := s.GuildMemberEditComplex(i.GuildID, i.Member.User.ID, &discordgo.GuildMemberParams{
+		Nick: RSIHandle,
+		Roles: &[]string{
+			roleId,
+		},
+	}); err != nil {
+		logger.WithError(err).Error("editing the member")
+		errorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the admins now. Please standby. Use this channel if you need any other assistance.")
+		return
+	}
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Thank you for the information!\n\nYour server nickname has been updated to match your RSI handle and you have been given Guest access!",
+		},
+	}); err != nil {
+		logger.WithError(err).Error("interaction response")
+	}
+
+	disableQuestionButtons(s, i.Interaction)
 
 	time.Sleep(2 * time.Second)
 
 	message, err := s.ChannelMessageSend(
 		i.ChannelID,
-		"This channel will be removed in about 30 minutes.\nIf you need to repeat this process, please ask for help in the #airlock",
+		"This channel will be removed in about 30 minutes.\nIf you need to repeat this process, please ask for help here or in #airlock",
 	)
 	if err != nil {
 		logger.WithError(err).Error("sending message")
 	}
 
-	for i := 30; i > 0; i-- {
-		time.Sleep(1 * time.Minute)
-		if _, err := s.ChannelMessageEdit(
-			message.ChannelID,
-			message.ID,
-			fmt.Sprintf("This channel will be removed in about %d minutes.\nIf you need to repeat this process, please ask for help in the #airlock", i),
-		); err != nil {
-			logger.WithError(err).Error("editing message")
+	// notify of completed onboarding
+	onboardingChannelID := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	messages, err := s.ChannelMessages(onboardingChannelID, 100, "", "", "")
+	if err != nil {
+		logger.WithError(err).Error("getting onboarding messages")
+		return
+	}
+
+	for _, m := range messages {
+		if strings.Contains(m.Content, i.Member.User.Username) {
+			if m.Thread == nil {
+				thread, err := s.MessageThreadStartComplex(onboardingChannelID, m.ID, &discordgo.ThreadStart{
+					Name:                fmt.Sprintf("%s finished onboarding", i.Member.User.Username),
+					AutoArchiveDuration: 60,
+					Invitable:           false,
+					RateLimitPerUser:    10,
+				})
+				if err != nil {
+					logger.WithError(err).Error("creating onboarding thread")
+					return
+				}
+				em := &discordgo.MessageEmbed{
+					Type:  discordgo.EmbedTypeArticle,
+					Title: "Information",
+					Fields: []*discordgo.MessageEmbedField{
+						{
+							Name:  "RSI Handle",
+							Value: RSIHandle,
+						},
+						{
+							Name:  "RSI Profile",
+							Value: fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", RSIHandle),
+						},
+						{
+							Name:  "Playtime",
+							Value: playTime,
+						},
+						{
+							Name:  "Gameplay",
+							Value: gameplay,
+						},
+						{
+							Name:  "Age",
+							Value: age,
+						},
+					},
+				}
+
+				if recruiter != nil {
+					em.Fields = append(em.Fields, &discordgo.MessageEmbedField{
+						Name:  "Recruiter",
+						Value: *recruiter,
+					})
+				}
+
+				if found != nil {
+					em.Fields = append(em.Fields, &discordgo.MessageEmbedField{
+						Name:  "How they found us",
+						Value: *found,
+					})
+				}
+
+				if _, err := s.ChannelMessageSendComplex(thread.ID, &discordgo.MessageSend{
+					Embeds: []*discordgo.MessageEmbed{
+						em,
+					},
+				}); err != nil {
+					logger.WithError(err).Error("sending onboarding thread message")
+					return
+				}
+			} else {
+				if _, err := s.ChannelMessageSend(m.Thread.ID, "test"); err != nil {
+					logger.WithError(err).Error("sending onboarding thread message")
+					return
+				}
+			}
 		}
 	}
 
-	if _, err := s.ChannelDelete(i.ChannelID); err != nil {
-		logger.WithError(err).Error("deleting channel")
-	}
+	go func() {
+		for i := 29; i > 0; i-- {
+			time.Sleep(1 * time.Second)
+			if _, err := s.ChannelMessageEdit(
+				message.ChannelID,
+				message.ID,
+				fmt.Sprintf("This channel will be removed in about %d minutes.\nIf you need to repeat this process, please ask for help here or in #airlock", i),
+			); err != nil {
+				if strings.Contains(err.Error(), strconv.Itoa(discordgo.ErrCodeUnknownChannel)) {
+					return
+				}
+
+				logger.WithError(err).Error("editing message")
+			}
+		}
+
+		if _, err := s.ChannelDelete(i.ChannelID); err != nil {
+			logger.WithError(err).Error("deleting channel")
+		}
+	}()
+}
+
+func RSIChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// logger := log.WithField("handler", "RSIChoiceButton")
+	finish(s, i)
+}
+
+func RecruitedChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// logger := log.WithField("handler", "RecruitedChoiceButton")
+	finish(s, i)
+}
+
+func OtherChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	// logger := log.WithField("handler", "OtherChoiceButton")
+	finish(s, i)
 }

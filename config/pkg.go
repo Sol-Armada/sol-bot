@@ -69,6 +69,13 @@ func GetBool(key string) bool {
 	return config.GetBool(key)
 }
 
+func GetBoolWithDefault(key string, val bool) bool {
+	if !config.IsSet(key) {
+		return val
+	}
+	return config.GetBool(key)
+}
+
 func GetInt(key string) int {
 	return config.GetInt(key)
 }
