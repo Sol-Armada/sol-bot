@@ -180,14 +180,15 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
 
-	lastChecked := time.Now()
+	lastChecked := time.Now().Add(-30 * time.Minute)
 	for {
 		select {
 		case <-stop:
 			log.Info("stopping monitor")
 			goto DONE
 		case <-ticker.C:
-			if time.Now().After(lastChecked.Add(1 * time.Minute)) {
+			if time.Now().After(lastChecked.Add(30 * time.Minute)) {
+				log.Info("scanning users")
 				if stores.Storage == nil {
 					log.Debug("storage not setup, waiting a bit")
 					time.Sleep(10 * time.Second)
