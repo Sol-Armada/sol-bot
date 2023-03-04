@@ -551,7 +551,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	go func() {
 		for i := 29; i > 0; i-- {
-			time.Sleep(1 * time.Second)
+			time.Sleep(1 * time.Minute)
 			if _, err := s.ChannelMessageEdit(
 				message.ChannelID,
 				message.ID,
