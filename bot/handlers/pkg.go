@@ -5,7 +5,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func errorResponse(s *discordgo.Session, i *discordgo.Interaction, message string) {
+func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string) {
 	if err := s.InteractionRespond(i, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{

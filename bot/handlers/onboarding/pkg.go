@@ -1,4 +1,4 @@
-package handlers
+package onboarding
 
 import (
 	"fmt"
@@ -8,6 +8,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
@@ -24,100 +25,19 @@ var basicQuestions *discordgo.MessageSend = &discordgo.MessageSend{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
 					Label:    "A member recruited me",
-					CustomID: "choice:recruited",
+					CustomID: "onboarding:choice:recruited",
 				},
 				discordgo.Button{
 					Label:    "Found Sol Armada on RSI",
-					CustomID: "choice:rsi",
+					CustomID: "onboarding:choice:rsi",
 				},
 				discordgo.Button{
 					Label:    "Some other way",
-					CustomID: "choice:other",
+					CustomID: "onboarding:choice:other",
 				},
 			},
 		},
 	},
-}
-
-func LeaveServerHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
-	logging := log.WithField("handler", "OnLeave")
-	channels, err := s.GuildChannels(m.GuildID)
-	if err != nil {
-		logging.WithError(err).Error("getting all channels")
-		return
-	}
-
-	for _, c := range channels {
-		if c.Name == fmt.Sprintf("onboarding-%s", strings.ToLower(strings.ReplaceAll(m.User.Username, " ", "-"))) {
-			if _, err := s.ChannelDelete(c.ID); err != nil {
-				logging.WithError(err).Error("deleting old onboarding channel")
-				return
-			}
-		}
-
-		if c.ID == config.GetString("DISCORDGO.CHANNELS.ONBOARDING") {
-			messages, err := s.ChannelMessages(c.ID, 100, "", "", "")
-			if err != nil {
-				logging.WithError(err).Error("getting messages in onboarding channel")
-				return
-			}
-
-			for _, message := range messages {
-				if strings.Contains(message.Content, m.User.Username) {
-					if _, err := s.ChannelMessageEdit(message.ChannelID, message.ID, fmt.Sprintf("Onboarding %s (left the server)", m.User.Username)); err != nil {
-						logging.WithError(err).Error("updating onboarding thread message")
-						return
-					}
-				}
-			}
-		}
-	}
-}
-
-func JoinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	if config.GetBoolWithDefault("FEATURES.ONBOARDING", false) {
-		onboarding(s, m.Member)
-	}
-}
-
-func notifyOfOnboarding(s *discordgo.Session, m *discordgo.Member) {
-	channelID := config.GetString("DISCORD.CHANNELS.ONBOARDING")
-	if _, err := s.ChannelMessageSend(channelID, fmt.Sprintf("Onboarding %s", m.User.Username)); err != nil {
-		log.WithError(err).Error("sending onboarding message")
-		return
-	}
-}
-
-func onboarding(s *discordgo.Session, m *discordgo.Member) {
-	logger := log.WithField("func", "onboarding")
-	notifyOfOnboarding(s, m)
-	newChannel, err := s.GuildChannelCreateComplex("997836773927428156", discordgo.GuildChannelCreateData{
-		Name:     fmt.Sprintf("onboarding-%s", strings.ToLower(strings.ReplaceAll(m.User.Username, " ", "-"))),
-		Type:     discordgo.ChannelTypeGuildText,
-		ParentID: config.GetString("DISCORD.CATEGORIES.ONBOARDING"),
-		Topic:    "Onboarding and Help",
-		PermissionOverwrites: []*discordgo.PermissionOverwrite{
-			{
-				ID:    m.User.ID,
-				Type:  discordgo.PermissionOverwriteTypeMember,
-				Allow: 68672,
-				Deny:  0,
-			},
-		},
-	})
-	if err != nil {
-		logger.WithError(err).Error("creating a channel")
-	}
-
-	if _, err := s.ChannelMessageSend(newChannel.ID, fmt.Sprintf("Welcome, %s!", m.User.Mention())); err != nil {
-		logger.WithError(err).Error("sending message")
-	}
-
-	time.Sleep(3 * time.Second)
-
-	if _, err := s.ChannelMessageSendComplex(newChannel.ID, basicQuestions); err != nil {
-		logger.WithError(err).Error("sending messsage with buttons")
-	}
 }
 
 func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -130,7 +50,7 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 		},
 	}); err != nil {
 		logging.WithError(err).Error("getting command user for permissions")
-		errorResponse(s, i.Interaction, "internal server error")
+		handlers.ErrorResponse(s, i.Interaction, "internal server error")
 		return
 	}
 
@@ -138,12 +58,12 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	u := &users.User{}
 	if err := storage.GetUser(i.Member.User.ID).Decode(u); err != nil {
 		logging.WithError(err).Error("getting command user for permissions")
-		errorResponse(s, i.Interaction, "internal server error")
+		handlers.ErrorResponse(s, i.Interaction, "internal server error")
 		return
 	}
 
 	if u.Rank > ranks.Lieutenant {
-		errorResponse(s, i.Interaction, "You don't have permission for this command.")
+		handlers.ErrorResponse(s, i.Interaction, "You don't have permission for this command.")
 		return
 	}
 
@@ -228,7 +148,7 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	choiceMade[i.Member.User.ID] = strings.Split(i.MessageComponentData().CustomID, ":")[1]
+	choiceMade[i.Member.User.ID] = strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
 	questions := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -237,7 +157,7 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					CustomID:    "rsi_handle",
 					Label:       "Your RSI handle",
 					Style:       discordgo.TextInputShort,
-					Placeholder: "You handle can be found on your public RSI page",
+					Placeholder: "Your handle can be found on your public RSI page",
 					Required:    true,
 				},
 			},
@@ -308,7 +228,7 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
-			CustomID:   "rsi_handle_" + i.Interaction.Member.User.ID,
+			CustomID:   "onboarding:rsi_handle:" + i.Interaction.Member.User.ID,
 			Title:      "What is your RSI handle?",
 			Components: questions,
 		},
@@ -345,23 +265,16 @@ func RSIModalHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 }
 
-func startOver(s *discordgo.Session, i *discordgo.Interaction) {
-	logger := log.WithField("func", "startOver")
-	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Content: "Would you like to try again?\nYou can come back here at any time and start over. You can also message in this channel if you need help!",
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						CustomID: fmt.Sprintf("start_over:%s", i.Member.User.ID),
-						Label:    "Yes! Let's start over",
-					},
-				},
-			},
-		},
-	}); err != nil {
-		logger.WithError(err).Error("sending message with buttons")
-	}
+func RSIChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	finish(s, i)
+}
+
+func RecruitedChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	finish(s, i)
+}
+
+func OtherChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	finish(s, i)
 }
 
 func StartOverHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -386,6 +299,65 @@ func StartOverHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				logger.WithError(err).Error("deleting channel messages")
 			}
 		}
+	}
+}
+
+func notifyOfOnboarding(s *discordgo.Session, m *discordgo.Member) {
+	channelID := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	if _, err := s.ChannelMessageSend(channelID, fmt.Sprintf("Onboarding %s", m.User.Username)); err != nil {
+		log.WithError(err).Error("sending onboarding message")
+		return
+	}
+}
+
+func onboarding(s *discordgo.Session, m *discordgo.Member) {
+	logger := log.WithField("func", "onboarding")
+	notifyOfOnboarding(s, m)
+	newChannel, err := s.GuildChannelCreateComplex("997836773927428156", discordgo.GuildChannelCreateData{
+		Name:     fmt.Sprintf("onboarding-%s", strings.ToLower(strings.ReplaceAll(m.User.Username, " ", "-"))),
+		Type:     discordgo.ChannelTypeGuildText,
+		ParentID: config.GetString("DISCORD.CATEGORIES.ONBOARDING"),
+		Topic:    "Onboarding and Help",
+		PermissionOverwrites: []*discordgo.PermissionOverwrite{
+			{
+				ID:    m.User.ID,
+				Type:  discordgo.PermissionOverwriteTypeMember,
+				Allow: 68672,
+				Deny:  0,
+			},
+		},
+	})
+	if err != nil {
+		logger.WithError(err).Error("creating a channel")
+	}
+
+	if _, err := s.ChannelMessageSend(newChannel.ID, fmt.Sprintf("Welcome, %s!", m.User.Mention())); err != nil {
+		logger.WithError(err).Error("sending message")
+	}
+
+	time.Sleep(3 * time.Second)
+
+	if _, err := s.ChannelMessageSendComplex(newChannel.ID, basicQuestions); err != nil {
+		logger.WithError(err).Error("sending messsage with buttons")
+	}
+}
+
+func startOver(s *discordgo.Session, i *discordgo.Interaction) {
+	logger := log.WithField("func", "startOver")
+	if _, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
+		Content: "Would you like to try again?\nYou can come back here at any time and start over. You can also message in this channel if you need help!",
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						CustomID: fmt.Sprintf("start_over:%s", i.Member.User.ID),
+						Label:    "Yes! Let's start over",
+					},
+				},
+			},
+		},
+	}); err != nil {
+		logger.WithError(err).Error("sending message with buttons")
 	}
 }
 
@@ -445,7 +417,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	}); err != nil {
 		logger.WithError(err).Error("editing the member")
-		errorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the admins now. Please standby. Use this channel if you need any other assistance.")
+		handlers.ErrorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the admins now. Please standby. Use this channel if you need any other assistance.")
 		return
 	}
 
@@ -569,19 +541,4 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			logger.WithError(err).Error("deleting channel")
 		}
 	}()
-}
-
-func RSIChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// logger := log.WithField("handler", "RSIChoiceButton")
-	finish(s, i)
-}
-
-func RecruitedChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// logger := log.WithField("handler", "RecruitedChoiceButton")
-	finish(s, i)
-}
-
-func OtherChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// logger := log.WithField("handler", "OtherChoiceButton")
-	finish(s, i)
 }

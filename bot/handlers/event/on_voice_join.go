@@ -1,4 +1,4 @@
-package handlers
+package event
 
 import (
 	"strings"

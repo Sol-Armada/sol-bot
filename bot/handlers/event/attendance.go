@@ -1,4 +1,4 @@
-package handlers
+package event
 
 import (
 	"fmt"
@@ -8,44 +8,30 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 )
 
-var eventSubCommands = map[string]func(*discordgo.Session, *discordgo.Interaction){
-	"attendance": takeAttendance,
-}
-
 var activeEvent *discordgo.Message
 
-func EventCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	// get the user
-	storage := stores.Storage
-	userResault := storage.GetUser(i.Member.User.ID)
-	user := &users.User{}
-	if err := userResault.Decode(user); err != nil {
-		errorResponse(s, i.Interaction, "Internal server error... >_<; Try again later")
-		return
+func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	storedUser := &users.User{}
+	if err := stores.Storage.GetUser(i.Member.User.ID).Decode(&storedUser); err != nil {
+		log.WithError(err).Error("getting user from storage")
 	}
 
-	// check for permission
-	if user.Rank > ranks.Lieutenant {
-		errorResponse(s, i.Interaction, "You do not have permission to use this command")
-		return
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("%d events", storedUser.Events),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	}); err != nil {
+		log.WithError(err).Error("responding to attendance command interaction")
 	}
-
-	// send to the sub command
-	if handler, ok := eventSubCommands[i.ApplicationCommandData().Options[0].Name]; ok {
-		handler(s, i.Interaction)
-		return
-	}
-
-	// somehow they used a sub command that doesn't exist
-	errorResponse(s, i.Interaction, "That sub command doesn't exist. Not sure how you even got here. Good job.")
 }
 
-func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
+func TakeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 	g, err := s.State.Guild(i.GuildID)
 	if err != nil {
 		log.WithError(err).Error("getting guild state")
