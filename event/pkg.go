@@ -1,39 +1,53 @@
 package event
 
 import (
-	"github.com/bwmarrin/discordgo"
+	"os/user"
+	"time"
+
 	"github.com/rs/xid"
+	apierrors "github.com/sol-armada/admin/errors"
 )
 
 type Event struct {
-	Id string `json:"id"`
-
-	OriginalMessage *discordgo.Message
-	PlayerAttedance map[string]bool
+	Id        string       `json:"id"`
+	Name      string       `json:"name"`
+	Start     time.Time    `json:"start_date"`
+	Duration  int32        `json:"duration"`
+	Attended  []*user.User `json:"attended"`
+	Cancelled bool         `json:"cancelled"`
 }
 
-var CurrentEvent *Event
+func New(body map[string]interface{}) (*Event, error) {
 
-func New(message *discordgo.Message, players []*discordgo.VoiceState) {
+	name, ok := body["name"].(string)
+	if !ok {
+		return nil, apierrors.ErrMissingName
+	}
+
+	startRaw, ok := body["start"].(string)
+	if !ok {
+		return nil, apierrors.ErrMissingStart
+	}
+
+	start, err := time.Parse(time.RFC3339, startRaw)
+	if err != nil {
+		return nil, apierrors.ErrStartWrongFormat
+	}
+
+	durationRaw, ok := body["duration"].(float64)
+	if !ok {
+		return nil, apierrors.ErrMissingDuration
+	}
+	duration := int32(durationRaw)
+
 	event := &Event{
-		Id:              xid.New().String(),
-		OriginalMessage: message,
-	}
-	event.AddPlayersToAttendance(players)
-
-	CurrentEvent = event
-}
-
-func (e *Event) AddPlayersToAttendance(players []*discordgo.VoiceState) {
-	for _, player := range players {
-		if _, ok := e.PlayerAttedance[player.Member.User.ID]; !ok {
-			e.PlayerAttedance[player.Member.User.ID] = true
-		}
+		Id:        xid.New().String(),
+		Name:      name,
+		Start:     start,
+		Duration:  duration,
+		Attended:  []*user.User{},
+		Cancelled: false,
 	}
 
-	e.UpdateMessage()
-}
-
-func (e *Event) UpdateMessage() {
-
+	return event, nil
 }

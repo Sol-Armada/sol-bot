@@ -8,7 +8,7 @@ import (
 	"github.com/sol-armada/admin/handlers"
 	"github.com/sol-armada/admin/handlers/api"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 	"github.com/sol-armada/admin/web"
 )
 
@@ -17,6 +17,8 @@ func Router() http.Handler {
 
 	apiLoginHandler := http.HandlerFunc(api.Login)
 	apiGetUsersHandler := http.HandlerFunc(api.GetUsers)
+	apiGetEventsHandler := http.HandlerFunc(api.GetEvents)
+	apiCreateEventsHandler := http.HandlerFunc(api.CreateEvent)
 	apiUserHandler := http.HandlerFunc(api.User)
 	apiPutRankHander := http.HandlerFunc(api.SetRank)
 	apiCheckLoginHandler := http.HandlerFunc(api.CheckLogin)
@@ -36,6 +38,10 @@ func Router() http.Handler {
 	apiUsersPath.Handle("/{id}", middlewareCORS(isAdmin(apiUserHandler)))
 	apiUsersPath.Handle("/{id}/set-rank", middlewareCORS(isAdmin(apiPutRankHander)))
 	apiUsersPath.Handle("/{id}/check-login", middlewareCORS(apiCheckLoginHandler))
+
+	apiEventsPath := apiPath.PathPrefix("/events").Subrouter()
+	apiEventsPath.Handle("/", middlewareCORS(isAdmin(apiGetEventsHandler))).Methods("GET")
+	apiEventsPath.Handle("/", middlewareCORS(isAdmin(apiCreateEventsHandler))).Methods("POST")
 
 	http.Handle("/", r)
 
@@ -75,7 +81,7 @@ func isAdmin(next http.Handler) http.Handler {
 			return
 		}
 
-		storedUsers := &users.User{}
+		storedUsers := &user.User{}
 		if err := stores.Storage.GetUser(userId).Decode(&storedUsers); err != nil {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return

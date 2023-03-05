@@ -23,7 +23,7 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"attendance": event.AttendanceCommandHandler,
+	"event":      event.EventCommandHandler,
 	"onboarding": onboarding.OnboardingCommandHandler,
 }
 
@@ -116,14 +116,6 @@ func (b *Bot) Open() error {
 
 	// register commands
 
-	// attendance
-	if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "attendance",
-		Description: "Get your Event Attendence count",
-	}); err != nil {
-		return errors.Wrap(err, "creating attendance command")
-	}
-
 	// event
 	if config.GetBoolWithDefault("FEATURES.EVENT", false) {
 		log.Debug("using event feature")
@@ -146,6 +138,10 @@ func (b *Bot) Open() error {
 		}); err != nil {
 			return errors.Wrap(err, "creating event command")
 		}
+	} else {
+		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "event"); err != nil {
+			return errors.Wrap(err, "deleting event command")
+		}
 	}
 
 	// onboarding
@@ -166,6 +162,10 @@ func (b *Bot) Open() error {
 			},
 		}); err != nil {
 			return errors.Wrap(err, "failed creating oboarding command")
+		}
+	} else {
+		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
+			return errors.Wrap(err, "deleting event command")
 		}
 	}
 

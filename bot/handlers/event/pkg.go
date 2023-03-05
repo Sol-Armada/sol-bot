@@ -5,18 +5,19 @@ import (
 	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 )
 
 var eventSubCommands = map[string]func(*discordgo.Session, *discordgo.Interaction){
-	"attendance": TakeAttendance,
+	"create":     createEvent,
+	"attendance": takeAttendance,
 }
 
 func EventCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// get the user
 	storage := stores.Storage
 	userResault := storage.GetUser(i.Member.User.ID)
-	user := &users.User{}
+	user := &user.User{}
 	if err := userResault.Decode(user); err != nil {
 		handlers.ErrorResponse(s, i.Interaction, "Internal server error... >_<; Try again later")
 		return

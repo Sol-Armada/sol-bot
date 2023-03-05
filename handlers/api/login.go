@@ -9,7 +9,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 )
 
 func Login(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// create the user
-	u := &users.User{
+	u := &user.User{
 		ID:         "",
 		Rank:       ranks.Guest,
 		PrimaryOrg: "",
@@ -71,7 +71,7 @@ func CheckLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storedUser := &users.User{}
+	storedUser := &user.User{}
 	if err := stores.Storage.GetUser(id).Decode(storedUser); err != nil {
 		log.WithError(err).Error("check login return")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)

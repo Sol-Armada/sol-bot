@@ -13,7 +13,7 @@ import (
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 )
 
 var choiceMade map[string]string = map[string]string{}
@@ -55,7 +55,7 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	storage := stores.Storage
-	u := &users.User{}
+	u := &user.User{}
 	if err := storage.GetUser(i.Member.User.ID).Decode(u); err != nil {
 		logging.WithError(err).Error("getting command user for permissions")
 		handlers.ErrorResponse(s, i.Interaction, "internal server error")

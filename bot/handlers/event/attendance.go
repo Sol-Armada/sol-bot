@@ -9,13 +9,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 )
 
 var activeEvent *discordgo.Message
 
 func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	storedUser := &users.User{}
+	storedUser := &user.User{}
 	if err := stores.Storage.GetUser(i.Member.User.ID).Decode(&storedUser); err != nil {
 		log.WithError(err).Error("getting user from storage")
 	}
@@ -31,7 +31,7 @@ func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 }
 
-func TakeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
+func takeAttendance(s *discordgo.Session, i *discordgo.Interaction) {
 	g, err := s.State.Guild(i.GuildID)
 	if err != nil {
 		log.WithError(err).Error("getting guild state")

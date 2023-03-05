@@ -15,6 +15,7 @@ import (
 
 type Store struct {
 	users  *mongo.Collection
+	events *mongo.Collection
 	client *mongo.Client
 	ctx    context.Context
 }
@@ -38,11 +39,13 @@ func New(ctx context.Context) (*Store, error) {
 		return nil, errors.Wrap(err, "creating new store")
 	}
 
-	collection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users")
+	usersCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users")
+	eventsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("events")
 
 	Storage = &Store{
 		client: client,
-		users:  collection,
+		users:  usersCollection,
+		events: eventsCollection,
 		ctx:    ctx,
 	}
 
@@ -90,4 +93,8 @@ func (s *Store) DeleteUser(id string) error {
 		return errors.Wrap(err, "deleting a user from mongo")
 	}
 	return nil
+}
+
+func (s *Store) GetEvents() (*mongo.Cursor, error) {
+	return s.events.Find(s.ctx, bson.M{})
 }

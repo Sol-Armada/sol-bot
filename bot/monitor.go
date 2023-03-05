@@ -12,7 +12,7 @@ import (
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 	"golang.org/x/exp/slices"
 )
 
@@ -52,7 +52,7 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 				}
 
 				// get the stored members
-				storedUsers := []*users.User{}
+				storedUsers := []*user.User{}
 				cur, err := stores.Storage.GetUsers()
 				if err != nil {
 					log.WithError(err).Error("getting users for updating")
@@ -114,13 +114,13 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 	return member, nil
 }
 
-func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
+func updateMembers(m []*discordgo.Member, storedUsers []*user.User) error {
 	log.Debug("checking users")
 
 	for _, member := range m {
 		time.Sleep(500 * time.Millisecond)
 
-		u := users.New(member)
+		u := user.New(member)
 
 		for _, su := range storedUsers {
 			if member.User.ID == su.ID {
@@ -169,7 +169,7 @@ func updateMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 	return nil
 }
 
-func cleanMembers(m []*discordgo.Member, storedUsers []*users.User) error {
+func cleanMembers(m []*discordgo.Member, storedUsers []*user.User) error {
 	for _, user := range storedUsers {
 		for _, member := range m {
 			if user.ID == member.User.ID {

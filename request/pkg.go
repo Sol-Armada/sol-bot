@@ -8,16 +8,16 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 )
 
-func GetUser(r *http.Request) (*users.User, error) {
+func GetUser(r *http.Request) (*user.User, error) {
 	vars := mux.Vars(r)
 	if vars["id"] == "" {
 		return nil, errors.New("missing user id")
 	}
 
-	storedUser := &users.User{}
+	storedUser := &user.User{}
 	if err := stores.Storage.GetUser(vars["id"]).Decode(&storedUser); err != nil {
 		return nil, errors.Wrap(err, "getting user from request")
 	}

@@ -11,7 +11,7 @@ import (
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/request"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/admin/user"
 )
 
 func GetUsers(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +26,7 @@ func GetUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	storedUsers := []users.User{}
+	storedUsers := []user.User{}
 	cur, err := stores.Storage.GetUsers()
 	if err != nil {
 		logger.WithError(err).Error("getting users")
@@ -103,7 +103,7 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user, err := request.GetUser(r)
+	u, err := request.GetUser(r)
 	if err != nil {
 		logger.WithError(err).Error("getting user")
 	}
@@ -136,9 +136,9 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	user.Rank = ranks.Rank(rid)
+	u.Rank = ranks.Rank(rid)
 
-	if err := user.Save(); err != nil {
+	if err := u.Save(); err != nil {
 		logger.WithError(err).Error("updating user")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
@@ -169,7 +169,7 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	u := &users.User{}
+	u := &user.User{}
 	if err := json.Unmarshal(mu, u); err != nil {
 		logger.WithError(err).Error("unmarshal user from request")
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
