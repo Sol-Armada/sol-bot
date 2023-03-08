@@ -40,7 +40,7 @@ type Event struct {
 	Attendees   []*user.User     `json:"attendees" bson:"attendees"`
 	Status      Status           `json:"status" bson:"status"`
 	Description string           `json:"description" bson:"description"`
-	HeaderImg   string           `json:"header" bson:"header_img"`
+	Cover       string           `json:"cover" bson:"cover"`
 	Positions   map[string]int32 `json:"positions" bson:"positions"`
 }
 
@@ -78,9 +78,9 @@ func New(body map[string]interface{}) (*Event, error) {
 		description = ""
 	}
 
-	headerImg, ok := body["header"].(string)
+	cover, ok := body["cover"].(string)
 	if !ok {
-		headerImg = ""
+		cover = ""
 	}
 
 	positionsRaw, ok := body["positions"].(map[string]interface{})
@@ -103,7 +103,7 @@ func New(body map[string]interface{}) (*Event, error) {
 		Status:      Created,
 		AutoStart:   autoStart,
 		Description: description,
-		HeaderImg:   headerImg,
+		Cover:       cover,
 		Positions:   positions,
 	}
 	if err := event.Save(); err != nil {

@@ -37,10 +37,12 @@ function addPosition(e) {
     newPositionName.type = "text";
     newPositionName.placeholder = "Position Name";
     newPositionName.name = "position-name";
+    newPositionName.required = true;
     var newPositionCount = document.createElement("input");
     newPositionCount.type = "number";
     newPositionCount.placeholder = "Max";
     newPositionCount.name = "position-count";
+    newPositionCount.required = true;
     var removePositionBtn = document.createElement("button");
     removePositionBtn.innerText = "delete";
     removePositionBtn.classList.add("material-symbols-outlined");
@@ -70,7 +72,7 @@ function newEvent(e) {
   var autoStart = document.getElementById("auto-start").value;
   autoStart = autoStart == "on" ? true : false;
   var description = document.getElementById("description").value;
-  var header = document.getElementById("header").value;
+  var cover = document.getElementById("cover").value;
 
   var positions = document.querySelectorAll(".position");
   var positionsMap = {};
@@ -80,7 +82,7 @@ function newEvent(e) {
     );
   });
 
-  createEvent(name, start, end, autoStart, positionsMap, description, header);
+  createEvent(name, start, end, autoStart, positionsMap, description, cover);
 
   isHidden.value = true;
 }
@@ -99,6 +101,10 @@ function newEvent(e) {
       class="card event"
       :id="event._id"
     >
+      <div
+        class="cover"
+        :style="{ backgroundImage: 'url(' + event.cover + ')' }"
+      ></div>
       <div>
         <div class="title">{{ event.name }}</div>
         <div class="time">{{ event.start_date }}</div>
@@ -111,15 +117,15 @@ function newEvent(e) {
       <form v-on:submit="newEvent">
         <div>
           <label for="name">Name: </label>
-          <input type="text" name="name" id="name" />
+          <input type="text" name="name" id="name" required />
         </div>
         <div>
           <label for="start">Start: </label>
-          <input type="datetime-local" name="start" id="start" />
+          <input type="datetime-local" name="start" id="start" required />
         </div>
         <div>
           <label for="end">End: </label>
-          <input type="time" name="end" id="end" />
+          <input type="time" name="end" id="end" required />
         </div>
         <div class="break"></div>
         <div>
@@ -143,8 +149,10 @@ function newEvent(e) {
         </div>
         <div class="break"></div>
         <div class="positions"></div>
-        <div class="button-wrapper" v-on:click="addPosition">
-          <button class="add-position">Add Position</button>
+        <div class="button-wrapper">
+          <button class="add-position" v-on:click="addPosition">
+            Add Position
+          </button>
         </div>
         <div class="button-wrapper">
           <button type="submit">Create</button>
@@ -172,7 +180,6 @@ function newEvent(e) {
     max-width: 500px;
     min-height: 220px;
     background-color: lightgray;
-    // display: grid;
     grid-template-rows: 25% 75%;
 
     > h1 {
@@ -187,9 +194,6 @@ function newEvent(e) {
       flex-wrap: wrap;
       align-items: center;
       justify-content: center;
-      // grid-template-columns: 20% 80%;
-      // grid-template-rows: repeat(4, 25%);
-      // text-align: right;
       > div:first-child {
         width: 100%;
       }
@@ -260,6 +264,16 @@ function newEvent(e) {
     border-radius: 10px;
     border-style: solid;
     border-color: rgb(46, 46, 46);
+
+    > .cover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.25;
+    }
 
     &.new {
       cursor: pointer;

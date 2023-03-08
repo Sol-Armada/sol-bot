@@ -104,7 +104,7 @@ export function createEvent(
   autoStart,
   positions,
   description,
-  header
+  cover
 ) {
   const { admin } = useComposition();
   axios
@@ -117,7 +117,7 @@ export function createEvent(
         auto_start: autoStart,
         positions: positions,
         description: description,
-        header: header,
+        cover: cover,
       },
       {
         headers: {
