@@ -53,9 +53,11 @@ func (u *User) GetTrueNick() string {
 	trueNick := u.Discord.User.Username
 	regRank := regexp.MustCompile(`\[(.*?)\] `)
 	regAlly := regexp.MustCompile(`\{(.*?)\} `)
+	regPronouns := regexp.MustCompile(` \((.*?)\)`)
 	if u.Discord.Nick != "" {
 		trueNick = regRank.ReplaceAllString(u.Discord.Nick, "")
 		trueNick = regAlly.ReplaceAllString(trueNick, "")
+		trueNick = regPronouns.ReplaceAllString(trueNick, "")
 	}
 
 	return trueNick
