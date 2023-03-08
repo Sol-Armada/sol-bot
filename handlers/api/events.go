@@ -21,7 +21,7 @@ type CreateEventRequest struct {
 	AutoStart   bool             `json:"auto_start"`
 	Positions   map[string]int32 `json:"positions"`
 	Description string           `json:"description"`
-	Header      string           `json:"header"`
+	Cover       string           `json:"cover"`
 }
 
 type CreateEventResponse struct {
