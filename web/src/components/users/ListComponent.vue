@@ -965,7 +965,7 @@ function search(e) {
   </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .cards {
   display: flex;
   gap: 10px;

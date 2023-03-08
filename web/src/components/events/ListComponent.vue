@@ -162,7 +162,7 @@ function newEvent(e) {
   </div>
 </template>
 
-<style lang="scss">
+<style lang="scss" scoped>
 .modal {
   width: 100%;
   height: 100%;
