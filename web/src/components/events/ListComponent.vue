@@ -68,21 +68,19 @@ function newEvent(e) {
   var end = document.getElementById("end").value;
   end = start.split("T")[0] + "T" + end + ":00.000Z";
   var autoStart = document.getElementById("auto-start").value;
+  autoStart = autoStart == "on" ? true : false;
+  var description = document.getElementById("description").value;
+  var header = document.getElementById("header").value;
 
   var positions = document.querySelectorAll(".position");
-
-  var positionsArray = [];
+  var positionsMap = {};
   positions.forEach((position) => {
-    positionsArray.push([
-      position.children[0].value,
-      position.children[1].value,
-    ]);
+    positionsMap[position.children[0].value] = parseInt(
+      position.children[1].value
+    );
   });
 
-  if (name != "") {
-    autoStart = autoStart == "on" ? true : false;
-    createEvent(name, start, end, autoStart, positionsArray);
-  }
+  createEvent(name, start, end, autoStart, positionsMap, description, header);
 
   isHidden.value = true;
 }
@@ -122,6 +120,21 @@ function newEvent(e) {
         <div>
           <label for="end">End: </label>
           <input type="time" name="end" id="end" />
+        </div>
+        <div class="break"></div>
+        <div>
+          <textarea
+            name="description"
+            id="description"
+            cols="45"
+            rows="10"
+            placeholder="Description of the event"
+          ></textarea>
+        </div>
+        <div class="break"></div>
+        <div>
+          <label for="end">Header Image URL: </label>
+          <input type="text" name="header" id="header" />
         </div>
         <div class="break"></div>
         <div>
@@ -189,10 +202,10 @@ function newEvent(e) {
         > input {
           margin: 5px;
         }
-      }
 
-      > label {
-        margin: 5px;
+        > label {
+          margin: 5px;
+        }
       }
 
       > .positions {

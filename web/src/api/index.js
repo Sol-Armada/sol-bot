@@ -97,7 +97,15 @@ export function getEvents() {
     });
 }
 
-export function createEvent(name, start, end, autoStart, positions) {
+export function createEvent(
+  name,
+  start,
+  end,
+  autoStart,
+  positions,
+  description,
+  header
+) {
   const { admin } = useComposition();
   axios
     .post(
@@ -108,6 +116,8 @@ export function createEvent(name, start, end, autoStart, positions) {
         end: end,
         auto_start: autoStart,
         positions: positions,
+        description: description,
+        header: header,
       },
       {
         headers: {

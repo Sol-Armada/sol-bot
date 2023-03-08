@@ -31,14 +31,17 @@ const (
 )
 
 type Event struct {
-	Id        string       `json:"_id" bson:"_id"`
-	Name      string       `json:"name" bson:"name"`
-	Start     time.Time    `json:"start_date" bson:"start_date"`
-	Duration  float64      `json:"duration" bson:"duration"`
-	Repeat    Repeat       `json:"repeat" bson:"repeat"`
-	AutoStart bool         `json:"auto_start" bson:"auto_start"`
-	Attendees []*user.User `json:"attendees" bson:"attendees"`
-	Status    Status       `json:"status" bson:"status"`
+	Id          string           `json:"_id" bson:"_id"`
+	Name        string           `json:"name" bson:"name"`
+	Start       time.Time        `json:"start_date" bson:"start_date"`
+	Duration    float64          `json:"duration" bson:"duration"`
+	Repeat      Repeat           `json:"repeat" bson:"repeat"`
+	AutoStart   bool             `json:"auto_start" bson:"auto_start"`
+	Attendees   []*user.User     `json:"attendees" bson:"attendees"`
+	Status      Status           `json:"status" bson:"status"`
+	Description string           `json:"description" bson:"description"`
+	HeaderImg   string           `json:"header" bson:"header_img"`
+	Positions   map[string]int32 `json:"positions" bson:"positions"`
 }
 
 func New(body map[string]interface{}) (*Event, error) {
@@ -70,15 +73,38 @@ func New(body map[string]interface{}) (*Event, error) {
 		autoStart = false
 	}
 
+	description, ok := body["description"].(string)
+	if !ok {
+		description = ""
+	}
+
+	headerImg, ok := body["header"].(string)
+	if !ok {
+		headerImg = ""
+	}
+
+	positionsRaw, ok := body["positions"].(map[string]interface{})
+	if !ok {
+		positionsRaw = nil
+	}
+
+	positions := map[string]int32{}
+	for k, v := range positionsRaw {
+		positions[k] = int32(v.(float64))
+	}
+
 	event := &Event{
-		Id:        xid.New().String(),
-		Name:      name,
-		Start:     start,
-		Duration:  duration.Minutes(),
-		Repeat:    Repeat(repeat),
-		Attendees: []*user.User{},
-		Status:    Created,
-		AutoStart: autoStart,
+		Id:          xid.New().String(),
+		Name:        name,
+		Start:       start,
+		Duration:    duration.Minutes(),
+		Repeat:      Repeat(repeat),
+		Attendees:   []*user.User{},
+		Status:      Created,
+		AutoStart:   autoStart,
+		Description: description,
+		HeaderImg:   headerImg,
+		Positions:   positions,
 	}
 	if err := event.Save(); err != nil {
 		return nil, err

@@ -14,12 +14,14 @@ import (
 )
 
 type CreateEventRequest struct {
-	Name      string     `json:"name"`
-	Start     time.Time  `json:"start"`
-	End       time.Time  `json:"end"`
-	Repeat    int        `json:"repeat"`
-	AutoStart bool       `json:"auto_start"`
-	Positions [][]string `json:"positions"`
+	Name        string           `json:"name"`
+	Start       time.Time        `json:"start"`
+	End         time.Time        `json:"end"`
+	Repeat      int              `json:"repeat"`
+	AutoStart   bool             `json:"auto_start"`
+	Positions   map[string]int32 `json:"positions"`
+	Description string           `json:"description"`
+	Header      string           `json:"header"`
 }
 
 type CreateEventResponse struct {
