@@ -8,88 +8,59 @@ import (
 	"strconv"
 
 	"github.com/apex/log"
+	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/request"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/user"
 )
 
-func GetUsers(w http.ResponseWriter, r *http.Request) {
+type usersResponse struct {
+	Users []user.User `json:"users"`
+}
+
+type getUserResponse struct {
+	User *user.User `json:"user"`
+}
+
+type updateUserRequest struct {
+	User map[string]interface{} `json:"user"`
+}
+
+func GetUsers(c echo.Context) error {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "GetUsers",
 	})
 	logger.Debug("getting users")
 
-	// make sure we are only getting get
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	storedUsers := []user.User{}
+	users := []user.User{}
 	cur, err := stores.Storage.GetUsers()
 	if err != nil {
 		logger.WithError(err).Error("getting users")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
-	if err := cur.All(r.Context(), &storedUsers); err != nil {
+	if err := cur.All(c.Request().Context(), &users); err != nil {
 		logger.WithError(err).Error("getting users from collection")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	jsonUsers, err := json.Marshal(storedUsers)
-	if err != nil {
-		logger.WithError(err).Error("getting users")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := fmt.Fprint(w, string(jsonUsers)); err != nil {
-		logger.WithError(err).Error("converting users to json")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	return c.JSON(http.StatusOK, usersResponse{Users: users})
 }
 
-func User(w http.ResponseWriter, r *http.Request) {
-	logger := log.WithFields(log.Fields{
-		"endpoint": "GetUser",
-	})
-	switch r.Method {
-	case http.MethodGet:
-		if _, err := fmt.Fprint(w, http.StatusNotImplemented); err != nil {
-			logger.WithError(err).Error("returning status")
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		}
-	case http.MethodPut:
-		UpdateUser(w, r)
-	}
-}
-
-func GetUser(w http.ResponseWriter, r *http.Request) {
+func GetUser(c echo.Context) error {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "GetUser",
 	})
 
-	user, err := request.GetUser(r)
-	if err != nil {
-		log.WithError(err).Error("getting user")
+	storedUser := &user.User{}
+	if err := stores.Storage.GetUser(c.Param("userid")).Decode(&storedUser); err != nil {
+		logger.WithError(err).Error("getting user")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	userJson, err := json.Marshal(user)
-	if err != nil {
-		logger.WithError(err).Error("marshaling user")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := fmt.Fprint(w, userJson); err != nil {
-		logger.WithError(err).Error("converting users to json")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	return c.JSON(http.StatusOK, getUserResponse{
+		User: storedUser,
+	})
 }
 
 func SetRank(w http.ResponseWriter, r *http.Request) {
@@ -150,30 +121,34 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func UpdateUser(w http.ResponseWriter, r *http.Request) {
+func (r *updateUserRequest) bind(c echo.Context) error {
+	if err := c.Bind(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func UpdateUser(c echo.Context) error {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "UpdateUser",
 	})
+	logger.Debug("updating user")
 
-	params, err := request.GetBody(r)
-	if err != nil {
-		logger.WithError(err).Error("getting body")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+	req := &updateUserRequest{}
+	if err := req.bind(c); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
-	mu, err := json.Marshal(params["user"].(map[string]interface{}))
+	mu, err := json.Marshal(req.User)
 	if err != nil {
 		logger.WithError(err).Error("marshal user from request")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
 	u := &user.User{}
 	if err := json.Unmarshal(mu, u); err != nil {
 		logger.WithError(err).Error("unmarshal user from request")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
 	if u.Events < 0 {
@@ -182,20 +157,8 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 
 	if err := u.Save(); err != nil {
 		logger.WithError(err).Error("returning status")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	userJson, err := json.Marshal(u)
-	if err != nil {
-		logger.WithError(err).Error("marshal updated user")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := fmt.Fprint(w, string(userJson)); err != nil {
-		logger.WithError(err).Error("returning status")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	return c.NoContent(http.StatusOK)
 }

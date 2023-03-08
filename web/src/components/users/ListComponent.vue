@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue";
-import { updateUser } from "../api";
-import { truncateString } from "../utils";
+import { updateUser } from "../../api";
+import { truncateString } from "../../utils";
 
 const Ranks = {
   0: { name: "Bot" },
@@ -1146,19 +1146,19 @@ input[type="search"] {
   position: relative;
 }
 
-button {
-  padding: 0.5rem;
-  margin: 0 0.25rem;
-  border-radius: 0.5rem;
-  border-color: var(--color-border);
-  background: var(--color-background-soft);
-  color: var(--color-text);
+// button {
+//   padding: 0.5rem;
+//   margin: 0 0.25rem;
+//   border-radius: 0.5rem;
+//   border-color: var(--color-border);
+//   background: var(--color-background-soft);
+//   color: var(--color-text);
 
-  &:hover {
-    border-color: var(--color-border-hover);
-    background-color: var(--color-background);
-  }
-}
+//   &:hover {
+//     border-color: var(--color-border-hover);
+//     background-color: var(--color-background);
+//   }
+// }
 
 .hidden {
   display: none;

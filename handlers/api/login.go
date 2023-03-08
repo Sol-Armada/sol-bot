@@ -1,66 +1,61 @@
 package api
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 
 	"github.com/apex/log"
 	"github.com/gorilla/mux"
-	"github.com/sol-armada/admin/ranks"
+	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/user"
 )
 
-func Login(w http.ResponseWriter, r *http.Request) {
-	// make sure we are only getting post
-	if r.Method != http.MethodPost {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
+type loginRequest struct {
+	Code string `json:"code"`
+}
 
-	// extract the body for the code
-	body := map[string]interface{}{}
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		log.WithError(err).Error("extracting body from request")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+type loginResponse struct {
+	User *user.User `json:"user"`
+}
 
-	// make sure the code is real
-	code, ok := body["code"].(string)
-	if !ok {
-		log.Error("body does not have the code")
-		http.Error(w, "Invalid Parameters", http.StatusBadRequest)
-		return
+func (r *loginRequest) bind(c echo.Context) error {
+	if err := c.Bind(r); err != nil {
+		return err
+	}
+	// if err := c.Validate(r); err != nil {
+	// 	return err
+	// }
+
+	return nil
+}
+
+func Login(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "Login",
+	})
+	logger.Debug("logging in")
+
+	req := &loginRequest{}
+	if err := req.bind(c); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
 	// create the user
-	u := &user.User{
-		ID:         "",
-		Rank:       ranks.Guest,
-		PrimaryOrg: "",
-		Notes:      "",
-		Events:     0,
-		RSIMember:  true,
-		Discord:    nil,
-	}
-
-	if err := u.Login(code); err != nil {
+	u := &user.User{}
+	if err := u.Login(req.Code); err != nil {
 		log.WithError(err).Error("authenicating user")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
 	// check the user is allowed
 	if !u.IsAdmin() {
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
+		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
-	if _, err := fmt.Fprint(w, u.ToJson()); err != nil {
-		log.WithError(err).Error("sending login response")
-	}
+	return c.JSON(http.StatusOK, loginResponse{
+		User: u,
+	})
 }
 
 func CheckLogin(w http.ResponseWriter, r *http.Request) {

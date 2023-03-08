@@ -50,7 +50,7 @@ export function getUsers() {
       },
     })
     .then((resp) => {
-      var u = resp.data;
+      var u = resp.data.users;
       u.sort((a, b) => {
         if (a.rank > b.rank) {
           return 1;
@@ -76,5 +76,50 @@ export function getUsers() {
     .catch((err) => {
       console.error(err);
       users.value = [];
+    });
+}
+
+export function getEvents() {
+  const { admin, events } = useComposition();
+  axios
+    .get(`${import.meta.env.VITE_API_BASE_URL}/events/`, {
+      headers: {
+        "X-User-Id": admin.value.id,
+      },
+    })
+    .then((resp) => {
+      var e = resp.data.events;
+      events.value = e;
+    })
+    .catch((err) => {
+      console.error(err);
+      events.value = [];
+    });
+}
+
+export function createEvent(name, start, end, autoStart, positions) {
+  const { admin } = useComposition();
+  axios
+    .post(
+      `${import.meta.env.VITE_API_BASE_URL}/events`,
+      {
+        name: name,
+        start: start,
+        end: end,
+        auto_start: autoStart,
+        positions: positions,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": admin.value.id,
+        },
+      }
+    )
+    .then(() => {
+      getEvents();
+    })
+    .catch((err) => {
+      console.error(err);
     });
 }

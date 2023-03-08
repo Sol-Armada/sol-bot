@@ -75,7 +75,7 @@ func main() {
 	}()
 
 	// start the web server now that everything is running
-	if err := srv.Run(); err != nil {
+	if err := srv.Start(); err != nil {
 		if !errors.Is(err, http.ErrServerClosed) {
 			log.WithError(err).Error("failed to start the web server")
 			return

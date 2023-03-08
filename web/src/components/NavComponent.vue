@@ -20,10 +20,16 @@ defineProps({
 
     <ul>
       <li>
-        <a>
+        <router-link to="/ranks">
           <span class="material-symbols-outlined nav-icon">military_tech</span>
           <span class="nav-text"> Ranks </span>
-        </a>
+        </router-link>
+      </li>
+      <li>
+        <router-link to="/events">
+          <span class="material-symbols-outlined nav-icon">calendar_month</span>
+          <span class="nav-text"> Events </span>
+        </router-link>
       </li>
     </ul>
 

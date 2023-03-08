@@ -3,102 +3,117 @@ package api
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/apex/log"
+	"github.com/labstack/echo/v4"
 	apierrors "github.com/sol-armada/admin/errors"
 	"github.com/sol-armada/admin/event"
 	"github.com/sol-armada/admin/stores"
 )
 
 type CreateEventRequest struct {
-	Name     string    `json:"name"`
-	Start    time.Time `json:"start"`
-	Duration int       `json:"duration"`
+	Name      string     `json:"name"`
+	Start     time.Time  `json:"start"`
+	End       time.Time  `json:"end"`
+	Repeat    int        `json:"repeat"`
+	AutoStart bool       `json:"auto_start"`
+	Positions [][]string `json:"positions"`
 }
 
 type CreateEventResponse struct {
 	Event *event.Event `json:"event"`
 }
 
-func GetEvents(w http.ResponseWriter, r *http.Request) {
+type getEventsResponse struct {
+	Events []event.Event `json:"events"`
+}
+
+func GetEvents(c echo.Context) error {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "GetEvents",
 	})
 	logger.Debug("getting events")
 
-	// make sure we are only getting get
-	if r.Method != http.MethodGet {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	storedEvents := []event.Event{}
 	cur, err := stores.Storage.GetEvents()
 	if err != nil {
 		logger.WithError(err).Error("getting events")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	if err := cur.All(r.Context(), &storedEvents); err != nil {
+	if err := cur.All(c.Request().Context(), &storedEvents); err != nil {
 		logger.WithError(err).Error("getting events from collection")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	jsonEvents, err := json.Marshal(storedEvents)
-	if err != nil {
-		logger.WithError(err).Error("marshaling events")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := fmt.Fprint(w, string(jsonEvents)); err != nil {
-		logger.WithError(err).Error("converting events to json string")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	return c.JSON(http.StatusOK, getEventsResponse{
+		Events: storedEvents,
+	})
 }
 
-func CreateEvent(w http.ResponseWriter, r *http.Request) {
-	var body map[string]interface{}
-	decoder := json.NewDecoder(r.Body)
-	if err := decoder.Decode(&body); err != nil {
-		if _, err := w.Write([]byte("Did not Work")); err != nil {
-			log.WithError(err).Error("writting error response")
-		}
-		return
+func (r *CreateEventRequest) bind(c echo.Context) error {
+	if err := c.Bind(r); err != nil {
+		return err
 	}
-	defer r.Body.Close()
+	return nil
+}
 
-	event, err := event.New(body)
+func (r *CreateEventRequest) toMap() (map[string]interface{}, error) {
+	jsonRequest, err := json.Marshal(r)
 	if err != nil {
-		if errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrMissingDuration) || errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrStartWrongFormat) {
-			w.WriteHeader(http.StatusBadRequest)
-			if _, err := w.Write([]byte(fmt.Sprintf("{\"error\":\"%s\"}", err.Error()))); err != nil {
-				log.WithError(err).Error("write error response")
-			}
-			return
+		return nil, err
+	}
+
+	mapRequest := map[string]interface{}{}
+	if err := json.Unmarshal(jsonRequest, &mapRequest); err != nil {
+		return nil, err
+	}
+
+	start, err := time.Parse(time.RFC3339, mapRequest["start"].(string))
+	if err != nil {
+		return nil, err
+	}
+
+	mapRequest["start"] = start
+
+	end, err := time.Parse(time.RFC3339, mapRequest["end"].(string))
+	if err != nil {
+		return nil, err
+	}
+
+	mapRequest["end"] = end
+
+	return mapRequest, nil
+}
+
+func CreateEvent(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "CreateEvent",
+	})
+	logger.Debug("creating event")
+
+	req := &CreateEventRequest{}
+	if err := req.bind(c); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	reqMap, err := req.toMap()
+	if err != nil {
+		logger.WithError(err).Error("request to map")
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	event, err := event.New(reqMap)
+	if err != nil {
+		if errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrMissingDuration) || errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrStartWrongFormat) || errors.Is(err, apierrors.ErrMissingId) {
+			return c.JSON(http.StatusBadRequest, err.Error())
 		}
 
-		w.WriteHeader(500)
-		if _, err := w.Write([]byte("internal server error")); err != nil {
-			log.WithError(err).Error("write error response")
-		}
-		return
+		logger.WithError(err).Error("request to map")
+		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 
-	response := CreateEventResponse{
-		Event: event,
-	}
-
-	responseJson, _ := json.Marshal(response)
-
-	w.WriteHeader(200)
-	if _, err := w.Write(responseJson); err != nil {
-		log.WithError(err).Error("writting response")
-	}
+	return c.JSON(http.StatusOK, CreateEventResponse{Event: event})
 }

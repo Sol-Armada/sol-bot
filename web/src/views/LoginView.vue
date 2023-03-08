@@ -28,7 +28,7 @@ onMounted(() => {
       .then((resp) => {
         admin.value = resp.data.user;
         setTimeout(() => {
-          cookie.set("admin", JSON.stringify(resp.data));
+          cookie.set("admin", JSON.stringify(resp.data.user));
           router.push("/ranks");
         }, 2000);
       })

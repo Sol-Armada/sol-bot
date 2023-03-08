@@ -3,9 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"net/http"
 
-	"github.com/apex/log"
+	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/router"
 )
@@ -13,24 +12,20 @@ import (
 type Server struct {
 	ctx context.Context
 
-	*http.Server
+	*echo.Echo
 }
 
 func New() *Server {
-	port := fmt.Sprintf(":%d", config.GetIntWithDefault("SERVER.PORT", 8080))
+	r := router.New()
+
 	return &Server{
-		ctx: context.Background(),
-		Server: &http.Server{
-			Addr:    port,
-			Handler: router.Router(),
-		},
+		ctx:  context.Background(),
+		Echo: r,
 	}
 }
 
-func (s *Server) Run() error {
-	log.WithField("address", s.Addr).Info("starting server")
-
-	return s.ListenAndServe()
+func (s *Server) Start() error {
+	return s.Echo.Start(fmt.Sprintf(":%d", config.GetIntWithDefault("SERVER.PORT", 8080)))
 }
 
 func (s *Server) Stop() error {
