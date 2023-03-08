@@ -265,6 +265,10 @@ function newEvent(e) {
     border-style: solid;
     border-color: rgb(46, 46, 46);
 
+    &.event {
+      color: white;
+    }
+
     > .cover {
       position: absolute;
       top: 0;
