@@ -140,6 +140,9 @@ func updateMembers(m []*discordgo.Member, storedUsers []*user.User) error {
 
 			u.RSIMember = false
 		}
+		if slices.Contains(member.Roles, config.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
+			rank = ranks.Recruit
+		}
 		if member.User.Bot {
 			rank = ranks.Bot
 		}
