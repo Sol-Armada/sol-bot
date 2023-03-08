@@ -30,6 +30,7 @@ func New() (*echo.Echo, error) {
 	e.GET("/", echo.WrapHandler(indexHandler))
 	e.GET("/ranks", echo.WrapHandler(http.StripPrefix("/ranks", indexHandler)))
 	e.GET("/events", echo.WrapHandler(http.StripPrefix("/events", indexHandler)))
+	e.GET("/login", echo.WrapHandler(http.StripPrefix("/login", indexHandler)))
 	e.GET("/favicon.ico", echo.WrapHandler(indexHandler))
 	e.GET("/assets/*", echo.WrapHandler(indexHandler))
 	// e.GET("login", indexHandler, indexRewrite)
