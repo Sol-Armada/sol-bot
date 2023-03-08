@@ -134,7 +134,7 @@ function newEvent(e) {
         <div class="break"></div>
         <div>
           <label for="end">Header Image URL: </label>
-          <input type="text" name="header" id="header" />
+          <input type="url" name="header" id="header" />
         </div>
         <div class="break"></div>
         <div>
