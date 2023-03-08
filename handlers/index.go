@@ -3,15 +3,15 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/apex/log"
+	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/web"
 )
 
-func IndexHander(w http.ResponseWriter, r *http.Request) {
-	if r.URL.Path == "/favicon.ico" {
-		rawFile, _ := web.StaticFiles.ReadFile("dist/favicon.ico")
-		w.Write(rawFile)
-		return
-	}
+func IndexHander(c echo.Context) error {
 	rawFile, _ := web.StaticFiles.ReadFile("dist/index.html")
-	w.Write(rawFile)
+	if err := c.Render(http.StatusOK, "index", rawFile); err != nil {
+		log.WithError(err).Error("render error")
+	}
+	return nil
 }

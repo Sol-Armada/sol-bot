@@ -1,12 +1,16 @@
 package router
 
 import (
+	"io/fs"
+	"net/http"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sol-armada/admin/handlers/api"
+	"github.com/sol-armada/admin/web"
 )
 
-func New() *echo.Echo {
+func New() (*echo.Echo, error) {
 	e := echo.New()
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
@@ -14,6 +18,24 @@ func New() *echo.Echo {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "x-user-id"},
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
+
+	fsys, err := fs.Sub(web.StaticFiles, "dist")
+	if err != nil {
+		return nil, err
+	}
+
+	indexHandler := http.FileServer(http.FS(fsys))
+	// indexRewrite := middleware.Rewrite(map[string]string{"/assets": "/dist/$1"})
+
+	e.GET("/", echo.WrapHandler(indexHandler))
+	e.GET("/ranks", echo.WrapHandler(http.StripPrefix("/ranks", indexHandler)))
+	e.GET("/events", echo.WrapHandler(http.StripPrefix("/events", indexHandler)))
+	e.GET("/assets/*", echo.WrapHandler(indexHandler))
+	// e.GET("login", indexHandler, indexRewrite)
+	// e.GET("ranks", indexHandler, indexRewrite)
+	// e.GET("events", indexHandler, indexRewrite)
+	// homeGroup.GET("/login", IndexHander)
+	// homeGroup.GET("/ranks", IndexHander)
 
 	apiGroup := e.Group("/api")
 
@@ -35,7 +57,7 @@ func New() *echo.Echo {
 	events.GET("", apiGetEventsHandler)
 	events.POST("", apiCreateEventsHandler)
 
-	return e
+	return e, nil
 }
 
 // func assets(next http.Handler) http.Handler {

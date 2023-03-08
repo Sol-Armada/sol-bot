@@ -15,13 +15,16 @@ type Server struct {
 	*echo.Echo
 }
 
-func New() *Server {
-	r := router.New()
-
-	return &Server{
+func New() (*Server, error) {
+	r, err := router.New()
+	if err != nil {
+		return nil, err
+	}
+	s := &Server{
 		ctx:  context.Background(),
 		Echo: r,
 	}
+	return s, nil
 }
 
 func (s *Server) Start() error {

@@ -140,7 +140,7 @@ func (b *Bot) Open() error {
 		}
 	} else {
 		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "event"); err != nil {
-			return errors.Wrap(err, "deleting event command")
+			log.WithError(err).Warn("deleting event command")
 		}
 	}
 
@@ -165,7 +165,7 @@ func (b *Bot) Open() error {
 		}
 	} else {
 		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
-			return errors.Wrap(err, "deleting event command")
+			log.WithError(err).Warn("deleting onboarding command")
 		}
 	}
 

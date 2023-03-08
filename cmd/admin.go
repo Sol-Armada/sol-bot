@@ -60,8 +60,16 @@ func main() {
 	} else {
 		doneMonitoring <- true
 	}
+	defer func() {
+		doneMonitoring <- true
+		stopMonitoring <- true
+	}()
 
-	srv := server.New()
+	srv, err := server.New()
+	if err != nil {
+		log.WithError(err).Error("starting web server")
+		return
+	}
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
