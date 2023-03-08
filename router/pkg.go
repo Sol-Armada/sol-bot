@@ -25,7 +25,6 @@ func New() (*echo.Echo, error) {
 	}
 
 	indexHandler := http.FileServer(http.FS(fsys))
-	// indexRewrite := middleware.Rewrite(map[string]string{"/assets": "/dist/$1"})
 
 	e.GET("/", echo.WrapHandler(indexHandler))
 	e.GET("/ranks", echo.WrapHandler(http.StripPrefix("/ranks", indexHandler)))
@@ -33,11 +32,6 @@ func New() (*echo.Echo, error) {
 	e.GET("/login", echo.WrapHandler(http.StripPrefix("/login", indexHandler)))
 	e.GET("/favicon.ico", echo.WrapHandler(indexHandler))
 	e.GET("/assets/*", echo.WrapHandler(indexHandler))
-	// e.GET("login", indexHandler, indexRewrite)
-	// e.GET("ranks", indexHandler, indexRewrite)
-	// e.GET("events", indexHandler, indexRewrite)
-	// homeGroup.GET("/login", IndexHander)
-	// homeGroup.GET("/ranks", IndexHander)
 
 	apiGroup := e.Group("/api")
 
@@ -61,13 +55,6 @@ func New() (*echo.Echo, error) {
 
 	return e, nil
 }
-
-// func assets(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		r.URL.Path = path.Join("/dist/", r.URL.Path)
-// 		next.ServeHTTP(w, r)
-// 	})
-// }
 
 // func isAdmin(next http.Handler) http.Handler {
 // 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
