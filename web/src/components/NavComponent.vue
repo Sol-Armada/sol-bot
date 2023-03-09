@@ -1,167 +1,123 @@
 <script setup>
 import { useComposition } from "../compositions";
+import { onMounted } from "vue";
+import { MDCList } from "@material/list";
+import { getRankName, averageColor } from "../utils";
 const { admin } = useComposition();
 defineProps({
   logout: Function,
 });
+
+onMounted(() => {
+  const list = MDCList.attachTo(document.querySelector(".mdc-deprecated-list"));
+  list.wrapFocus = true;
+  const header = document.querySelector(".mdc-drawer__header-img");
+  var img = new Image();
+  img.crossOrigin = "Anonymous";
+  img.src =
+    "https://cdn.discordapp.com/avatars/" +
+    admin.value.id +
+    "/" +
+    admin.value.discord.user.avatar +
+    ".png";
+  img.onload = function () {
+    var rgb = averageColor(img);
+    header.style.backgroundColor =
+      "rgb(" + rgb.r + "," + rgb.g + "," + rgb.b + ")";
+  };
+});
 </script>
 
 <template>
-  <nav>
-    <ul class="admin">
-      <li>
-        <img
-          class="avatar"
-          :src="`https://cdn.discordapp.com/avatars/${admin.id}/${admin.discord.user.avatar}.png`"
-          alt=""
-        />
-      </li>
-    </ul>
-
-    <ul>
-      <li>
-        <router-link to="/ranks">
-          <span class="material-symbols-outlined nav-icon">military_tech</span>
-          <span class="nav-text"> Ranks </span>
+  <aside class="mdc-drawer">
+    <div
+      class="mdc-drawer__header-img"
+      :style="{
+        backgroundImage:
+          'url(https://cdn.discordapp.com/avatars/' +
+          admin.id +
+          '/' +
+          admin.discord.user.avatar +
+          '.png)',
+      }"
+    ></div>
+    <div class="mdc-drawer__header">
+      <h3 class="mdc-drawer__title">
+        {{
+          admin.discord.nick != ""
+            ? admin.discord.nick
+            : admin.discord.user.username
+        }}
+      </h3>
+      <h6 class="mdc-drawer__subtitle">{{ getRankName(admin.rank) }}</h6>
+    </div>
+    <div class="mdc-drawer__content">
+      <nav class="mdc-deprecated-list">
+        <li role="separator" class="mdc-deprecated-list-divider"></li>
+        <router-link
+          to="/ranks"
+          class="mdc-deprecated-list-item"
+          aria-current="page"
+        >
+          <span class="mdc-deprecated-list-item__ripple"></span>
+          <i
+            class="material-icons mdc-deprecated-list-item__graphic"
+            aria-hidden="true"
+            >military_tech</i
+          >
+          <span class="mdc-deprecated-list-item__text">Ranks</span>
         </router-link>
-      </li>
-      <li>
-        <router-link to="/events">
-          <span class="material-symbols-outlined nav-icon">calendar_month</span>
-          <span class="nav-text"> Events </span>
+        <router-link to="/events" class="mdc-deprecated-list-item">
+          <span class="mdc-deprecated-list-item__ripple"></span>
+          <i
+            class="material-icons mdc-deprecated-list-item__graphic"
+            aria-hidden="true"
+            >calendar_today</i
+          >
+          <span class="mdc-deprecated-list-item__text">Events</span>
         </router-link>
-      </li>
-    </ul>
-
-    <ul class="logout">
-      <li>
-        <a v-on:click="logout">
-          <span class="material-symbols-outlined nav-icon">logout</span>
-          <span class="nav-text"> Logout </span>
+        <li role="separator" class="mdc-deprecated-list-divider"></li>
+        <a v-on:click="logout" class="mdc-deprecated-list-item">
+          <span class="mdc-deprecated-list-item__ripple"></span>
+          <i
+            class="material-icons mdc-deprecated-list-item__graphic"
+            aria-hidden="true"
+            >logout</i
+          >
+          <span class="mdc-deprecated-list-item__text">Logout</span>
         </a>
-      </li>
-    </ul>
-  </nav>
+      </nav>
+    </div>
+  </aside>
 </template>
 
-<style lang="scss">
-@import "../assets/variables.scss";
+<style lang="scss" scoped>
+@use "@material/button";
+@use "@material/drawer";
+@use "@material/list/mdc-list";
+
 @import "../assets/shadows.scss";
 
-nav {
-  background: #212121;
-  position: sticky;
-  top: 0;
-  bottom: 0;
-  height: 100vh;
-  left: 0;
-  width: $nav-width;
-  overflow: hidden;
-  -webkit-transition: width 0.05s linear;
-  transition: width 0.05s linear;
-  -webkit-transform: translateZ(0) scale(1, 1);
-  z-index: 1000;
+// @include drawer.core-styles;
+// @include list.deprecated-core-styles;
 
-  @include box_shadow(5, false);
-
-  > ul {
-    margin: 7px 0;
-
-    &.admin {
-      text-align: center;
-      margin: 30px 0;
-
-      img {
-        width: 50%;
-        border-radius: 100%;
-      }
-    }
-
-    &.logout {
-      position: absolute;
-      left: 0;
-      bottom: 0;
-    }
-  }
-
-  li {
-    position: relative;
-    display: block;
-    width: $nav-width;
-
-    > a {
-      position: relative;
-      display: table;
-      border-collapse: collapse;
-      border-spacing: 0;
-      color: #999;
-      font-family: arial;
-      font-size: 14px;
-      text-decoration: none;
-      -webkit-transform: translateZ(0) scale(1, 1);
-      -webkit-transition: all 0.1s linear;
-
-      > i {
-        width: $nav-width;
-        height: 36px;
-        position: relative;
-        text-align: center;
-        vertical-align: middle;
-        display: table-cell;
-        font-size: 30px;
-      }
-    }
-  }
-
-  .nav-icon {
-    position: relative;
-    display: table-cell;
-    width: 60px;
-    height: 36px;
-    text-align: center;
-    vertical-align: middle;
-    font-size: 18px;
-  }
-
-  .nav-text {
-    position: relative;
-    display: table-cell;
-    vertical-align: middle;
-    width: 190px;
-    font-family: "Titillium Web", sans-serif;
-  }
+aside {
+  @include box_shadow(2, false);
 }
 
-a:hover,
-a:focus {
-  text-decoration: none;
+.mdc-drawer__header-img {
+  display: flex;
+  flex-direction: column;
+  justify-content: end;
+  min-height: 164px;
+  border-radius: 0;
+
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 50%;
 }
 
-nav {
-  -webkit-user-select: none;
-  -moz-user-select: none;
-  -ms-user-select: none;
-  -o-user-select: none;
-  user-select: none;
-}
-
-nav ul,
-nav li {
-  outline: 0;
-  margin: 0;
-  padding: 0;
-}
-
-.main-menu li:hover > a,
-nav.main-menu li.active > a,
-.dropdown-menu > li > a:hover,
-.dropdown-menu > li > a:focus,
-.dropdown-menu > .active > a,
-.dropdown-menu > .active > a:hover,
-.dropdown-menu > .active > a:focus,
-.no-touch .dashboard-page nav.dashboard-menu ul li:hover a,
-.dashboard-page nav.dashboard-menu ul li.active a {
-  color: #fff;
-  background-color: #5fa2db;
+.router-link-exact-active {
+  @extend .mdc-deprecated-list-item--activated;
 }
 </style>

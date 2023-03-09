@@ -22,4 +22,19 @@ function logout() {
   </div>
 </template>
 
-<style scoped></style>
+<style scoped>
+.content {
+  overflow: auto;
+  padding: 10px;
+  grid-column-start: 2;
+  width: 100%;
+}
+
+.content:only-child {
+  grid-column-start: 1;
+  grid-column-end: 3;
+  justify-self: center;
+  align-self: center;
+  text-align: center;
+}
+</style>

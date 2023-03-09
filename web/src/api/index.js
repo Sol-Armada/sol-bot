@@ -89,6 +89,25 @@ export function getEvents() {
     })
     .then((resp) => {
       var e = resp.data.events;
+
+      for (let index = 0; index < e.length; index++) {
+        const event = e[index];
+
+        var startDate = new Date(event.start);
+        var endDate = new Date(event.end);
+
+        e[index].start = startDate;
+        e[index].end = endDate;
+
+        if (startDate.getDate() == endDate.getDate()) {
+          e[index]._schedule =
+            startDate.toLocaleString() + " - " + endDate.toLocaleTimeString();
+        } else {
+          e[index]._schedule =
+            startDate.toLocaleString() + " - " + endDate.toLocaleString();
+        }
+      }
+
       events.value = e;
     })
     .catch((err) => {

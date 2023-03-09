@@ -13,7 +13,6 @@
     "vue-router": "^4.1.5"
   },
   "devDependencies": {
-    "@material/button": "^14.0.0",
     "@point-hub/vue-cookie": "^0.1.1",
     "@rushstack/eslint-patch": "^1.1.4",
     "@vitejs/plugin-vue": "^3.0.3",

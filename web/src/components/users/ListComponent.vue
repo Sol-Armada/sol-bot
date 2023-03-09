@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { updateUser } from "../../api";
 import { truncateString } from "../../utils";
+import Card from "./CardComponent.vue";
 
 const Ranks = {
   0: { name: "Bot" },
@@ -135,7 +136,8 @@ function search(e) {
       admirals
       <hr />
     </h1>
-    <div
+    <Card :users="admirals" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in admirals"
       :key="user.id"
       :class="
@@ -215,14 +217,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="commanders.length > 0">
     <h1>
       commanders
       <hr />
     </h1>
-    <div
+    <Card :users="commanders" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in commanders"
       :key="user.id"
       :class="
@@ -302,14 +305,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="lieutenants.length > 0">
     <h1>
       lieutenants
       <hr />
     </h1>
-    <div
+    <Card :users="lieutenants" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in lieutenants"
       :key="user.id"
       :class="
@@ -389,14 +393,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="specialists.length > 0">
     <h1>
       specialists
       <hr />
     </h1>
-    <div
+    <Card :users="specialists" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in specialists"
       :key="user.id"
       :class="
@@ -476,14 +481,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="technicians.length > 0">
     <h1>
       technicians
       <hr />
     </h1>
-    <div
+    <Card :users="technicians" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in technicians"
       :key="user.id"
       :class="
@@ -563,14 +569,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="members.length > 0">
     <h1>
       members
       <hr />
     </h1>
-    <div
+    <Card :users="members" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in members"
       :key="user.id"
       :class="
@@ -650,14 +657,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="recruits.length > 0">
     <h1>
       recruits
       <hr />
     </h1>
-    <div
+    <Card :users="recruits" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in recruits"
       :key="user.id"
       :class="
@@ -735,14 +743,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="guests.length > 0">
     <h1>
       guests
       <hr />
     </h1>
-    <div
+    <Card :users="guests" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in guests"
       :key="user.id"
       :class="
@@ -787,14 +796,15 @@ function search(e) {
       <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
         Not on RSI
       </h3>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="allies.length > 0">
     <h1>
       allies
       <hr />
     </h1>
-    <div
+    <Card :users="allies" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in allies"
       :key="user.id"
       :class="
@@ -874,14 +884,15 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
   <div class="cards" v-if="bots.length > 0">
     <h1>
       bots
       <hr />
     </h1>
-    <div
+    <Card :users="bots" :updateUser="updateUser"></Card>
+    <!-- <div
       v-for="user in bots"
       :key="user.id"
       :class="
@@ -961,15 +972,23 @@ function search(e) {
           </button>
         </div>
       </div>
-    </div>
+    </div> -->
   </div>
 </template>
 
 <style lang="scss" scoped>
+@import "../../assets/shadows.scss";
+
 .cards {
   display: flex;
   gap: 10px;
   flex-wrap: wrap;
+  color: var(--mdc-theme-on-surface);
+  background-color: var(--mdc-theme-surface);
+  padding: 0 10px;
+  padding-bottom: 10px;
+  margin-bottom: 10px;
+  @include box_shadow(1, false);
 
   > h1 {
     width: 100%;
@@ -977,146 +996,8 @@ function search(e) {
     margin: 1rem 0;
   }
 
-  .card {
-    opacity: 1;
-    text-align: center;
-    border: 2px solid grey;
-    border-radius: 10px;
-    width: 200px;
-    height: 200px;
-
-    hr {
-      width: 80%;
-      margin: auto;
-    }
-
-    .events {
-      display: flex;
-      flex-direction: column;
-
-      div {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-
-        button {
-          background: transparent;
-          border: 2px solid var(--color-border);
-          border-radius: 10px;
-          padding: 4px;
-          margin: 0 10px;
-          cursor: pointer;
-          color: var(--color-text);
-
-          &:nth-child(odd) {
-            cursor: pointer;
-          }
-        }
-      }
-    }
-
-    .controls {
-      position: absolute;
-      width: 100%;
-      bottom: 0;
-      padding: 5px;
-
-      .promote,
-      .demote,
-      .ally {
-        background: transparent;
-        border: 2px solid var(--color-border);
-        border-radius: 10px;
-        padding: 10px;
-        cursor: pointer;
-        color: var(--color-text);
-      }
-
-      .demote:not(:only-child) {
-        display: none;
-      }
-    }
-
-    &.ally {
-      border-color: #e05b03;
-
-      hr {
-        border-color: #e05b03;
-      }
-    }
-
-    &.bad-org {
-      border-color: #e00303;
-      box-shadow: inset 0 0 30px 1px #ff0000;
-
-      hr {
-        border-color: #e00303;
-      }
-    }
-
-    &.recruit {
-      border-color: #ffffff;
-
-      hr {
-        border-color: #ffffff;
-      }
-    }
-
-    &.recruit {
-      border-color: #1cfac0;
-
-      hr {
-        border-color: #1cfac0;
-      }
-    }
-
-    &.member {
-      border-color: #ffc900;
-
-      hr {
-        border-color: #ffc900;
-      }
-    }
-
-    &.specialist {
-      border-color: #da5c5c;
-
-      hr {
-        border-color: #da5c5c;
-      }
-    }
-
-    &.technician {
-      border-color: #e69737;
-
-      hr {
-        border-color: #e69737;
-      }
-    }
-
-    &.lieutenant {
-      border-color: #5796ff;
-
-      hr {
-        border-color: #5796ff;
-      }
-    }
-
-    &.commander {
-      border-color: white;
-
-      hr {
-        border-color: white;
-      }
-    }
-
-    &.admiral {
-      border-color: #235cff;
-
-      hr {
-        border-color: #235cff;
-      }
-    }
+  &:last-child {
+    margin-bottom: 0;
   }
 }
 
@@ -1135,15 +1016,18 @@ input[type="number"] {
 input[type="search"] {
   height: 3rem;
   border: 0;
-  color: var(--color-text);
+  border-radius: var(--mdc-shape-small, 4px);
+  color: var(--mdc-theme-on-surface);
   font-size: 1.8rem;
   margin-bottom: 10px;
-  background: var(--color-background-soft);
+  background: var(--mdc-theme-surface);
   padding: 0 1.6rem;
-  border-radius: 0.7rem;
   appearance: none;
   z-index: 1;
   position: relative;
+  outline: none !important;
+
+  @include box_shadow(1, false);
 }
 
 // button {
@@ -1162,5 +1046,19 @@ input[type="search"] {
 
 .hidden {
   display: none;
+}
+
+button {
+  padding: 0.5rem;
+  margin: 0 0.25rem;
+  border-radius: 0.5rem;
+  border-color: var(--color-border);
+  background: var(--color-background-soft);
+  color: var(--color-text);
+
+  &:hover {
+    border-color: var(--color-border-hover);
+    background-color: var(--color-background);
+  }
 }
 </style>
