@@ -197,14 +197,6 @@ defineProps({
   }
 
   &.recruit {
-    // border-color: #ffffff;
-
-    hr {
-      border-color: #ffffff;
-    }
-  }
-
-  &.recruit {
     // border-color: #1cfac0;
 
     hr {

@@ -25,7 +25,7 @@ function logout() {
 <style scoped>
 .content {
   overflow: auto;
-  padding: 10px;
+  padding: 0px 10px 10px 10px;
   grid-column-start: 2;
   width: 100%;
 }
