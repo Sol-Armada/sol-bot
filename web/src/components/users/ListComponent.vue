@@ -186,7 +186,8 @@ function sort(users) {
   </form>
   <div class="list">
     <div class="cards" v-if="admirals.length > 0">
-      <h1>admirals</h1>
+      <h1>admirals
+        <hr /></h1>
       <Card :users="admirals" :updateUser="updateUser"></Card>
     </div>
     <div class="cards" v-if="commanders.length > 0">
