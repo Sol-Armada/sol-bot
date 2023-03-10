@@ -34,7 +34,8 @@ defineProps({
       v-if="
         user.primary_org != '' &&
         user.primary_org != 'SOLARMADA' &&
-        user.primary_org != 'REDACTED'
+        user.primary_org != 'REDACTED' &&
+        user.rank <= 7
       "
     >
       <h3>Different Primary</h3>
@@ -52,7 +53,19 @@ defineProps({
     <h3 v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false">
       REDACTED ORG
     </h3>
-    <h3 v-if="user.bad_affiliation == true">ENEMY ORG</h3>
+    <div v-if="user.bad_affiliation == true">
+      <h3>ENEMY ORG</h3>
+      <a
+        :href="'https://robertsspaceindustries.com/citizens/' + user.name + '/organizations'"
+        target="_blank"
+        class="other-org mdc-button mdc-button--raised mdc-button--icon-trailing"
+      >
+        <span class="mdc-button__label">affiliates</span>
+        <i class="material-icons mdc-button__icon" aria-hidden="true"
+          >open_in_new</i
+        >
+      </a>
+    </div>
     <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
       Not on RSI
     </h3>

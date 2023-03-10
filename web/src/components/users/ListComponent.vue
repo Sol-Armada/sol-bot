@@ -10,10 +10,13 @@ const props = defineProps({
 });
 
 const sortBy = ref("name");
+const searchFor = ref("");
 
 const bots = computed(() => {
   if (props.users != undefined) {
-    return props.users.filter((u) => u.rank == 0);
+    var users = props.users.filter((u) => u.rank == 0);
+    users = search(users);
+    return sort(users);
   }
 
   return [];
@@ -21,6 +24,7 @@ const bots = computed(() => {
 const admirals = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 1);
+    users = search(users);
     return sort(users);
   }
 
@@ -29,6 +33,7 @@ const admirals = computed(() => {
 const commanders = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 2);
+    users = search(users);
     return sort(users);
   }
 
@@ -37,6 +42,7 @@ const commanders = computed(() => {
 const lieutenants = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 3);
+    users = search(users);
     return sort(users);
   }
 
@@ -45,6 +51,7 @@ const lieutenants = computed(() => {
 const specialists = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 4);
+    users = search(users);
     return sort(users);
   }
 
@@ -53,6 +60,7 @@ const specialists = computed(() => {
 const technicians = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 5);
+    users = search(users);
     return sort(users);
   }
 
@@ -61,6 +69,7 @@ const technicians = computed(() => {
 const members = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 6);
+    users = search(users);
     return sort(users);
   }
 
@@ -69,6 +78,7 @@ const members = computed(() => {
 const recruits = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 7);
+    users = search(users);
     return sort(users);
   }
 
@@ -77,6 +87,7 @@ const recruits = computed(() => {
 const guests = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 8);
+    users = search(users);
     return sort(users);
   }
 
@@ -85,37 +96,46 @@ const guests = computed(() => {
 const allies = computed(() => {
   if (props.users != undefined) {
     var users = props.users.filter((u) => u.rank == 99);
+    users = search(users);
     return sort(users);
   }
 
   return [];
 });
 
-var delayTimer;
-function search(e) {
-  var value = e.srcElement.value.toUpperCase();
-  clearTimeout(delayTimer);
-  delayTimer = setTimeout(() => {
-    const cardLists = document.querySelectorAll(".cards");
-    cardLists.forEach((cl) => {
-      cl.classList.add("hidden");
-      const cards = cl.querySelectorAll(".card");
-      cards.forEach((c) => {
-        if (value != "") {
-          if (c.dataset.nick.toUpperCase().includes(value)) {
-            c.classList.remove("hidden");
-          } else {
-            c.classList.add("hidden");
-          }
-        } else {
-          c.classList.remove("hidden");
-        }
-        if (!c.classList.contains("hidden")) {
-          cl.classList.remove("hidden");
-        }
-      });
-    });
-  }, 250);
+// var delayTimer;
+function search(users) {
+  if (searchFor.value == "") return users;
+  var filteredUsers = [];
+  users.forEach((user) => {
+    if (user.name.toUpperCase().includes(searchFor.value.toUpperCase())) {
+      filteredUsers.push(user);
+    }
+  });
+
+  return filteredUsers;
+  // clearTimeout(delayTimer);
+  // delayTimer = setTimeout(() => {
+  //   const cardLists = document.querySelectorAll(".cards");
+  //   cardLists.forEach((cl) => {
+  //     cl.classList.add("hidden");
+  //     const cards = cl.querySelectorAll(".card");
+  //     cards.forEach((c) => {
+  //       if (by != "") {
+  //         if (c.dataset.nick.toUpperCase().includes(by.toUpperCase())) {
+  //           c.classList.remove("hidden");
+  //         } else {
+  //           c.classList.add("hidden");
+  //         }
+  //       } else {
+  //         c.classList.remove("hidden");
+  //       }
+  //       if (!c.classList.contains("hidden")) {
+  //         cl.classList.remove("hidden");
+  //       }
+  //     });
+  //   });
+  // }, 250);
 }
 
 function sort(users) {
@@ -155,7 +175,7 @@ function sort(users) {
       type="search"
       placeholder="Search..."
       autofocus
-      v-on:keyup="search"
+      v-model="searchFor"
     />
     <div>
       <select name="sort" id="sort" v-model="sortBy">
@@ -164,72 +184,77 @@ function sort(users) {
       </select>
     </div>
   </form>
-  <div class="cards" v-if="admirals.length > 0">
-    <h1>admirals</h1>
-    <Card :users="admirals" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="commanders.length > 0">
-    <h1>
-      commanders
-      <hr />
-    </h1>
-    <Card :users="commanders" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="lieutenants.length > 0">
-    <h1>
-      lieutenants
-      <hr />
-    </h1>
-    <Card :users="lieutenants" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="specialists.length > 0">
-    <h1>
-      specialists
-      <hr />
-    </h1>
-    <Card :users="specialists" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="technicians.length > 0">
-    <h1>
-      technicians
-      <hr />
-    </h1>
-    <Card :users="technicians" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="members.length > 0">
-    <h1>
-      members
-      <hr />
-    </h1>
-    <Card :users="members" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="recruits.length > 0">
-    <h1>
-      recruits
-      <hr />
-    </h1>
-    <Card :users="recruits" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="guests.length > 0">
-    <h1>
-      guests
-      <hr />
-    </h1>
-    <Card :users="guests" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="allies.length > 0">
-    <h1>
-      allies
-      <hr />
-    </h1>
-    <Card :users="allies" :updateUser="updateUser"></Card>
-  </div>
-  <div class="cards" v-if="bots.length > 0">
-    <h1>
-      bots
-      <hr />
-    </h1>
-    <Card :users="bots" :updateUser="updateUser"></Card>
+  <div class="list">
+    <div class="cards" v-if="admirals.length > 0">
+      <h1>admirals</h1>
+      <Card :users="admirals" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="commanders.length > 0">
+      <h1>
+        commanders
+        <hr />
+      </h1>
+      <Card :users="commanders" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="lieutenants.length > 0">
+      <h1>
+        lieutenants
+        <hr />
+      </h1>
+      <Card :users="lieutenants" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="specialists.length > 0">
+      <h1>
+        specialists
+        <hr />
+      </h1>
+      <Card :users="specialists" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="technicians.length > 0">
+      <h1>
+        technicians
+        <hr />
+      </h1>
+      <Card :users="technicians" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="members.length > 0">
+      <h1>
+        members
+        <hr />
+      </h1>
+      <Card :users="members" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="recruits.length > 0">
+      <h1>
+        recruits
+        <hr />
+      </h1>
+      <Card :users="recruits" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="guests.length > 0">
+      <h1>
+        guests
+        <hr />
+      </h1>
+      <Card :users="guests" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="allies.length > 0">
+      <h1>
+        allies
+        <hr />
+      </h1>
+      <Card :users="allies" :updateUser="updateUser"></Card>
+    </div>
+    <div class="cards" v-if="bots.length > 0">
+      <h1>
+        bots
+        <hr />
+      </h1>
+      <Card :users="bots" :updateUser="updateUser"></Card>
+    </div>
+    <div class="nothing-found">
+      <h1>Nothing Found</h1>
+    </div>
   </div>
 </template>
 
@@ -309,6 +334,18 @@ select[name="sort"] {
   outline: none !important;
 
   @include box_shadow(1, false);
+}
+
+.nothing-found {
+  display: none;
+  width: 100%;
+  min-height: 300px;
+  justify-content: center;
+  align-items: center;
+
+  &:only-child {
+    display: flex;
+  }
 }
 
 // button {

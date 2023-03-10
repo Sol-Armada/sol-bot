@@ -146,24 +146,24 @@ func updateMembers(m []*discordgo.Member, storedUsers []*user.User) error {
 		if member.User.Bot {
 			rank = ranks.Bot
 		}
+		for _, a := range config.GetStringSlice("allies") {
+			if strings.EqualFold(u.PrimaryOrg, a) {
+				rank = ranks.Ally
+				break
+			}
+		}
 		u.Rank = rank
+
 		u.PrimaryOrg = po
 
 		for _, affiliatedOrg := range ao {
 			if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
 				u.BadAffiliation = true
-				u.Rank = ranks.Guest
-				break
+				goto SAVE
 			}
 		}
 
-		for _, a := range config.GetStringSlice("allies") {
-			if strings.EqualFold(u.PrimaryOrg, a) {
-				u.Rank = ranks.Ally
-				break
-			}
-		}
-
+	SAVE:
 		if err := u.Save(); err != nil {
 			return errors.Wrap(err, "saving new user")
 		}
