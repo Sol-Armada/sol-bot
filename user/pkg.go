@@ -45,6 +45,7 @@ func New(m *discordgo.Member) *User {
 		RSIMember:  true,
 		Discord:    m,
 	}
+	u.Name = u.GetTrueNick()
 
 	return u
 }

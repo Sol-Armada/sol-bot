@@ -53,12 +53,12 @@ defineProps({
     <div
       class="events"
       v-if="
-        user.rank != 0 &&
-        user.rank <= 8 &&
+        user.rank > 0 &&
+        user.rank <= 7 &&
         user.bad_affiliation == false &&
         user.primary_org != 'REDACTED' &&
         user.rsi_member == true &&
-        user.primary_org == 'SOLARMADA'
+        (user.primary_org == 'SOLARMADA' || user.rank == 7)
       "
     >
       <h3>Events</h3>
