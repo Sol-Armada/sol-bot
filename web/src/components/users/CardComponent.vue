@@ -20,7 +20,7 @@ defineProps({
       user.primary_org != 'REDACTED' &&
       user.bad_affiliation != true
         ? getRankName(user.rank).toLowerCase()
-        : 'bad-org ')
+        : 'issues ')
     "
     :id="user.id"
     :data-nick="user.name"
@@ -132,6 +132,10 @@ defineProps({
   margin: 5px 0;
   align-items: center;
 
+  &.issues {
+    background: linear-gradient(90deg, rgba(255,0,0,1) 0%, rgba(148,0,0,0.8463760504201681) 22%, rgba(0,0,0,0) 80%);
+  }
+
   > h2 {
     margin-left: 10px;
   }
@@ -183,79 +187,6 @@ defineProps({
       //     cursor: pointer;
       //   }
       // }
-    }
-  }
-
-  &.ally {
-    // border-color: #e05b03;
-
-    hr {
-      border-color: #e05b03;
-    }
-  }
-
-  &.bad-org {
-    // border-color: #e00303;
-    // box-shadow: inset 0 0 30px 1px #ff0000;
-
-    hr {
-      border-color: #e00303;
-    }
-  }
-
-  &.recruit {
-    // border-color: #1cfac0;
-
-    hr {
-      border-color: #1cfac0;
-    }
-  }
-
-  &.member {
-    // border-color: #ffc900;
-
-    hr {
-      border-color: #ffc900;
-    }
-  }
-
-  &.specialist {
-    // border-color: #da5c5c;
-
-    hr {
-      border-color: #da5c5c;
-    }
-  }
-
-  &.technician {
-    // border-color: #e69737;
-
-    hr {
-      border-color: #e69737;
-    }
-  }
-
-  &.lieutenant {
-    // border-color: #5796ff;
-
-    hr {
-      border-color: #5796ff;
-    }
-  }
-
-  &.commander {
-    // border-color: white;
-
-    hr {
-      border-color: white;
-    }
-  }
-
-  &.admiral {
-    // border-color: #235cff;
-
-    hr {
-      border-color: #235cff;
     }
   }
 }

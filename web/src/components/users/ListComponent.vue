@@ -227,46 +227,87 @@ onMounted(() => {
     </div>
   </form>
   <div class="list">
+
     <div class="cards" v-if="admirals.length > 0">
-      <span style="border-color: #235cff"><h1>admirals</h1></span>
+      <span style="border-color: #235cff">
+        <h1>admirals</h1>
+        <h2>{{ admirals.length }}</h2>
+      </span>
       <Card :users="admirals" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="commanders.length > 0">
-      <span style="border-color: #fff"><h1>commanders</h1></span>
+      <span style="border-color: #fff">
+        <h1>commanders</h1>
+        <h2>{{ commanders.length }}</h2>
+      </span>
       <Card :users="commanders" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="lieutenants.length > 0">
-      <span style="border-color: #5796ff"><h1>lieutenants</h1></span>
+      <span style="border-color: #5796ff">
+        <h1>lieutenants</h1>
+        <h2>{{ lieutenants.length }}</h2>
+      </span>
       <Card :users="lieutenants" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="specialists.length > 0">
-      <span style="border-color: #da5c5c"><h1>specialists</h1></span>
+      <span style="border-color: #da5c5c">
+        <h1>specialists</h1>
+        <h2>{{ specialists.length }}</h2>
+      </span>
       <Card :users="specialists" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="technicians.length > 0">
-      <span style="border-color: #e69737"><h1>technicians</h1></span>
+      <span style="border-color: #e69737">
+        <h1>technicians</h1>
+        <h2>{{ technicians.length }}</h2>
+      </span>
       <Card :users="technicians" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="members.length > 0">
-      <span style="border-color: #ffc900"><h1>members</h1></span>
+      <span style="border-color: #ffc900">
+        <h1>members</h1>
+        <h2>{{ members.length }}</h2>
+      </span>
       <Card :users="members" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="recruits.length > 0">
-      <span style="border-color: #1cfac0"><h1>recruits</h1></span>
+      <span style="border-color: #1cfac0">
+        <h1>recruits</h1>
+        <h2>{{ recruits.length }}</h2>
+      </span>
       <Card :users="recruits" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="guests.length > 0">
-      <span><h1>guests</h1></span>
+      <span>
+        <h1>guests</h1>
+        <h2>{{ guests.length }}</h2>
+      </span>
       <Card :users="guests" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="allies.length > 0">
-      <span style="border-color: #e05b03"><h1>allies</h1></span>
+      <span style="border-color: #e05b03">
+        <h1>allies</h1>
+        <h2>{{ allies.length }}</h2>
+      </span>
       <Card :users="allies" :updateUser="updateUser"></Card>
     </div>
+
     <div class="cards" v-if="bots.length > 0">
-      <span><h1>bots</h1></span>
+      <span>
+        <h1>bots</h1>
+        <h2>{{ bots.length }}</h2>
+      </span>
       <Card :users="bots" :updateUser="updateUser"></Card>
     </div>
+
     <div class="nothing-found">
       <h1>Nothing Found</h1>
     </div>
@@ -335,7 +376,6 @@ form {
           selected-focus-track-color: var(--mdc-theme-primary),
           selected-pressed-handle-color: var(--mdc-theme-primary),
           selected-pressed-track-color: var(--mdc-theme-primary),
-
           unselected-pressed-handle-color: var(--mdc-theme-primary),
           unselected-pressed-track-color: var(--mdc-theme-primary),
         )
@@ -346,9 +386,6 @@ form {
 }
 
 .cards {
-  // display: flex;
-  // gap: 10px;
-  // flex-wrap: wrap;
   color: var(--mdc-theme-on-surface);
   background-color: var(--mdc-theme-surface);
   padding: 10px;
@@ -364,25 +401,22 @@ form {
     background-color: var(--mdc-theme-surface);
     padding-left: 10px;
     border: 3px solid var(--mdc-theme-on-surface);
-    // border-left: 3px solid var(--mdc-theme-on-surface);
-    border-radius: var(--mdc-shape-small, 4px) 10px var(--mdc-shape-small, 4px) 10px;
+    border-radius: var(--mdc-shape-small, 4px) 10px var(--mdc-shape-small, 4px)
+      10px;
     display: flex;
     align-items: center;
     z-index: 10;
     @include box_shadow(2, false);
+
+    > h2 {
+      position: absolute;
+      right: 15px;
+    }
   }
   &:last-child {
     margin-bottom: 0;
   }
 }
-
-// input {
-//   height: 3rem;
-//   border: 0;
-//   color: var(--color-text);
-//   font-size: 1.8rem;
-//   margin-bottom: 10px;
-// }
 
 input[type="number"] {
   width: 30%;
@@ -399,20 +433,6 @@ input[type="number"] {
     display: flex;
   }
 }
-
-// button {
-//   padding: 0.5rem;
-//   margin: 0 0.25rem;
-//   border-radius: 0.5rem;
-//   border-color: var(--color-border);
-//   background: var(--color-background-soft);
-//   color: var(--color-text);
-
-//   &:hover {
-//     border-color: var(--color-border-hover);
-//     background-color: var(--color-background);
-//   }
-// }
 
 .hidden {
   display: none;
