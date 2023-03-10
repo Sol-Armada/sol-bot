@@ -301,6 +301,8 @@ form {
     position: relative;
     outline: none !important;
     margin-right: 10px;
+    width: 30%;
+    min-width: 175px;
   }
 
   > select[name="sort"] {
