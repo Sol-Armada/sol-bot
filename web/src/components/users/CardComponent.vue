@@ -25,81 +25,91 @@ defineProps({
     :id="user.id"
     :data-nick="user.name"
   >
-    <h2>
-      {{ truncateString(user.name, 14) }}
-      <hr />
-    </h2>
+    <h2>{{ truncateString(user.name, 14) }}</h2>
 
-    <div
-      v-if="
-        user.primary_org != '' &&
-        user.primary_org != 'SOLARMADA' &&
-        user.primary_org != 'REDACTED' &&
-        user.rank <= 7
-      "
-    >
-      <h3>Different Primary</h3>
-      <a
-        :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
-        target="_blank"
-        class="other-org mdc-button mdc-button--raised mdc-button--icon-trailing"
+    <div class="events">
+      <div
+        class="bad-primary"
+        v-if="
+          user.primary_org != '' &&
+          user.primary_org != 'SOLARMADA' &&
+          user.primary_org != 'REDACTED' &&
+          user.rank <= 7
+        "
       >
-        <span class="mdc-button__label">{{ user.primary_org }}</span>
-        <i class="material-icons mdc-button__icon" aria-hidden="true"
-          >open_in_new</i
+        <h3>Different Primary</h3>
+        <a
+          :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
+          target="_blank"
+          class="other-org mdc-button mdc-button--raised mdc-button--icon-trailing"
         >
-      </a>
-    </div>
-    <h3 v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false">
-      REDACTED ORG
-    </h3>
-    <div v-if="user.bad_affiliation == true">
-      <h3>ENEMY ORG</h3>
-      <a
-        :href="'https://robertsspaceindustries.com/citizens/' + user.name + '/organizations'"
-        target="_blank"
-        class="other-org mdc-button mdc-button--raised mdc-button--icon-trailing"
+          <span class="mdc-button__label">{{ user.primary_org }}</span>
+          <i class="material-icons mdc-button__icon" aria-hidden="true">
+            open_in_new
+          </i>
+        </a>
+      </div>
+
+      <div
+        class="redacted-org"
+        v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false"
       >
-        <span class="mdc-button__label">affiliates</span>
-        <i class="material-icons mdc-button__icon" aria-hidden="true"
-          >open_in_new</i
+        <h3>REDACTED ORG</h3>
+      </div>
+
+      <div class="enemy-org" v-if="user.bad_affiliation == true">
+        <h3>ENEMY ORG</h3>
+        <a
+          :href="
+            'https://robertsspaceindustries.com/citizens/' +
+            user.name +
+            '/organizations'
+          "
+          target="_blank"
+          class="other-org mdc-button mdc-button--raised mdc-button--icon-trailing"
         >
-      </a>
-    </div>
-    <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
-      Not on RSI
-    </h3>
-    <div
-      class="events"
-      v-if="
-        user.rank > 0 &&
-        user.rank <= 7 &&
-        user.bad_affiliation == false &&
-        user.primary_org != 'REDACTED' &&
-        user.rsi_member == true &&
-        (user.primary_org == 'SOLARMADA' || user.rank == 7)
-      "
-    >
-      <h3>Events</h3>
-      <div>
+          <span class="mdc-button__label">affiliates</span>
+          <i class="material-icons mdc-button__icon" aria-hidden="true">
+            open_in_new
+          </i>
+        </a>
+      </div>
+
+      <div
+        class="not-on-rsi"
+        v-if="!user.rsi_member && user.rank != 0 && user.rank != 99"
+      >
+        <h3>Not on RSI</h3>
+      </div>
+
+      <div
+        class="controls"
+        v-if="
+          user.rank > 0 &&
+          user.rank <= 7 &&
+          user.bad_affiliation == false &&
+          user.primary_org != 'REDACTED' &&
+          user.rsi_member == true &&
+          (user.primary_org == 'SOLARMADA' || user.rank == 7)
+        "
+      >
+        <h3>Event Count</h3>
         <button
-          class="material-symbols-outlined"
           v-on:click="
             user.events--;
             updateUser(user);
           "
         >
-          remove
+          <i class="material-icons" aria-hidden="true">remove</i>
         </button>
         <span class="count">{{ user.events }}</span>
         <button
-          class="material-symbols-outlined"
           v-on:click="
             user.events++;
             updateUser(user);
           "
         >
-          add
+          <i class="material-icons" aria-hidden="true">add</i>
         </button>
       </div>
     </div>
@@ -112,71 +122,68 @@ defineProps({
 @import "../../assets/shadows.scss";
 
 .card {
-  opacity: 1;
-  text-align: center;
+  display: flex;
+  // text-align: center;
   @include full_box_shadow(2, false);
-  width: 200px;
-  height: 200px;
+  width: 100%;
+  height: 50px;
   color: var(--mdc-theme-on-surface);
   background-color: var(--mdc-theme-surface);
+  margin: 5px 0;
+  align-items: center;
 
-  hr {
-    width: 80%;
-    margin: auto;
+  > h2 {
+    margin-left: 10px;
   }
 
-  h3 {
-    margin-top: 5px;
-  }
-
-  .events {
+  > .events {
     display: flex;
-    flex-direction: column;
+    position: absolute;
+    right: 0;
+
+    > *:not(:last-child) {
+      margin-right: 10px;
+    }
 
     div {
       display: flex;
       justify-content: center;
       align-items: center;
-      margin: 10px 0;
+      margin: 10px;
 
-      button {
-        background: transparent;
-        // border: 2px solid var(--color-border);
-        border-radius: 5px;
-        padding: 4px;
-        margin: 0 10px;
-        cursor: pointer;
+      > h3 {
+        margin-right: 10px;
+      }
 
-        &:nth-child(odd) {
-          cursor: pointer;
+      &.controls {
+        button {
+          background-color: var(--mdc-theme-primary);
+          border-radius: var(--mdc-shape-small, 4px);
+          border-style: none;
+          margin: 10px;
+
+          @include box_shadow(1, false);
+        }
+
+        span {
+          width: 25px;
+          text-align: center;
         }
       }
+
+      // button {
+      //   background: transparent;
+      //   // border: 2px solid var(--color-border);
+      //   border-radius: 5px;
+      //   padding: 4px;
+      //   // margin: 0 10px;
+      //   cursor: pointer;
+
+      //   &:nth-child(odd) {
+      //     cursor: pointer;
+      //   }
+      // }
     }
-  }
-
-  .controls {
-    position: absolute;
-    width: 100%;
-    bottom: 0;
-    padding: 5px;
-
-    .promote,
-    .demote,
-    .ally {
-      background: transparent;
-      border: 2px solid transparent;
-      border-radius: 10px;
-      padding: 10px;
-      cursor: pointer;
-    }
-
-    .demote:not(:only-child) {
-      display: none;
-    }
-  }
-
-  a.other-org {
-    margin-top: 10px;
   }
 
   &.ally {

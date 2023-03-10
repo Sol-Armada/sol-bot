@@ -344,13 +344,12 @@ form {
 }
 
 .cards {
-  display: flex;
-  gap: 10px;
-  flex-wrap: wrap;
+  // display: flex;
+  // gap: 10px;
+  // flex-wrap: wrap;
   color: var(--mdc-theme-on-surface);
   background-color: var(--mdc-theme-surface);
   padding: 10px;
-  padding-bottom: 10px;
   margin-bottom: 10px;
   @include box_shadow(1, false);
 
