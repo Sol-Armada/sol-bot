@@ -30,23 +30,29 @@ defineProps({
       <hr />
     </h2>
 
-    <h3
+    <div
       v-if="
         user.primary_org != '' &&
         user.primary_org != 'SOLARMADA' &&
         user.primary_org != 'REDACTED'
       "
     >
+      <h3>Different Primary</h3>
       <a
         :href="'https://robertsspaceindustries.com/orgs/' + user.primary_org"
         target="_blank"
-        >{{ user.primary_org }}</a
+        class="other-org mdc-button mdc-button--raised mdc-button--icon-trailing"
       >
-    </h3>
+        <span class="mdc-button__label">{{ user.primary_org }}</span>
+        <i class="material-icons mdc-button__icon" aria-hidden="true"
+          >open_in_new</i
+        >
+      </a>
+    </div>
     <h3 v-if="user.primary_org == 'REDACTED' && user.bad_affiliation == false">
       REDACTED ORG
     </h3>
-    <h3 v-if="user.bad_affiliation == true">BAD ORG</h3>
+    <h3 v-if="user.bad_affiliation == true">ENEMY ORG</h3>
     <h3 v-if="!user.rsi_member && user.rank != 0 && user.rank != 99">
       Not on RSI
     </h3>
@@ -95,8 +101,6 @@ defineProps({
 .card {
   opacity: 1;
   text-align: center;
-  // border: 2px solid grey;
-  // border-radius: 10px;
   @include full_box_shadow(2, false);
   width: 200px;
   height: 200px;
@@ -106,6 +110,10 @@ defineProps({
   hr {
     width: 80%;
     margin: auto;
+  }
+
+  h3 {
+    margin-top: 5px;
   }
 
   .events {
@@ -152,6 +160,10 @@ defineProps({
     .demote:not(:only-child) {
       display: none;
     }
+  }
+
+  a.other-org {
+    margin-top: 10px;
   }
 
   &.ally {
