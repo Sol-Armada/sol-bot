@@ -18,10 +18,7 @@ if (admin.value == undefined || admin.value.username == "") {
 }
 
 onMounted(() => {
-  const { admin } = useComposition();
-  if (admin.value) {
-    getUsers();
-  }
+  getUsers();
 });
 </script>
 

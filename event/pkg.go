@@ -33,8 +33,8 @@ const (
 type Event struct {
 	Id          string           `json:"_id" bson:"_id"`
 	Name        string           `json:"name" bson:"name"`
-	Start       time.Time        `json:"start_date" bson:"start_date"`
-	Duration    float64          `json:"duration" bson:"duration"`
+	Start       time.Time        `json:"start" bson:"start"`
+	End         time.Time        `json:"end" bson:"end"`
 	Repeat      Repeat           `json:"repeat" bson:"repeat"`
 	AutoStart   bool             `json:"auto_start" bson:"auto_start"`
 	Attendees   []*user.User     `json:"attendees" bson:"attendees"`
@@ -59,8 +59,6 @@ func New(body map[string]interface{}) (*Event, error) {
 	if !ok {
 		return nil, apierrors.ErrMissingDuration
 	}
-
-	duration := end.Sub(start)
 
 	repeatRaw, ok := body["repeat"].(float64)
 	if !ok {
@@ -97,7 +95,7 @@ func New(body map[string]interface{}) (*Event, error) {
 		Id:          xid.New().String(),
 		Name:        name,
 		Start:       start,
-		Duration:    duration.Minutes(),
+		End:         end,
 		Repeat:      Repeat(repeat),
 		Attendees:   []*user.User{},
 		Status:      Created,

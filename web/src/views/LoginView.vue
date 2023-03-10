@@ -60,7 +60,7 @@ onMounted(() => {
   </div>
 </template>
 
-<style>
+<style scoped>
 .logging-in {
   grid-row-start: 2;
   justify-self: center;

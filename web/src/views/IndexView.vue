@@ -26,4 +26,9 @@ if (cookie.get("admin") != undefined && admin.value == undefined) {
   </a>
 </template>
 
-<style lang="scss"></style>
+<style lang="scss" scoped>
+h1 {
+  color: var(--mdc-theme-on-surface);
+  margin-bottom: 10px;
+}
+</style>

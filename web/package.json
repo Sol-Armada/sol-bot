@@ -8,12 +8,10 @@
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs --fix --ignore-path .gitignore"
   },
   "dependencies": {
-    "@material/theme": "^14.0.0",
     "vue": "^3.2.38",
     "vue-router": "^4.1.5"
   },
   "devDependencies": {
-    "@material/button": "^14.0.0",
     "@point-hub/vue-cookie": "^0.1.1",
     "@rushstack/eslint-patch": "^1.1.4",
     "@vitejs/plugin-vue": "^3.0.3",
@@ -21,6 +19,7 @@
     "axios": "^0.27.2",
     "eslint": "^8.22.0",
     "eslint-plugin-vue": "^9.3.0",
+    "@material/theme": "^14.0.0",
     "material-components-web": "^14.0.0",
     "node-sass": "^7.0.3",
     "prettier": "^2.7.1",

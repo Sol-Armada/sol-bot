@@ -36,15 +36,17 @@ func New(m *discordgo.Member) *User {
 		name = m.Nick
 	}
 	u := &User{
-		ID:         m.User.ID,
-		Name:       name,
-		Rank:       ranks.Guest,
-		PrimaryOrg: "",
-		Notes:      "",
-		Events:     0,
-		RSIMember:  true,
-		Discord:    m,
+		ID:             m.User.ID,
+		Name:           name,
+		Rank:           ranks.Guest,
+		PrimaryOrg:     "",
+		Notes:          "",
+		Events:         0,
+		RSIMember:      true,
+		Discord:        m,
+		BadAffiliation: false,
 	}
+	u.Name = u.GetTrueNick()
 
 	return u
 }
