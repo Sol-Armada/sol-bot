@@ -30,18 +30,23 @@ const (
 	Cancelled
 )
 
+type Position struct {
+	Name string `json:"name" bson:"name"`
+	Max  int32  `json:"max" bson:"max"`
+}
+
 type Event struct {
-	Id          string           `json:"_id" bson:"_id"`
-	Name        string           `json:"name" bson:"name"`
-	Start       time.Time        `json:"start" bson:"start"`
-	End         time.Time        `json:"end" bson:"end"`
-	Repeat      Repeat           `json:"repeat" bson:"repeat"`
-	AutoStart   bool             `json:"auto_start" bson:"auto_start"`
-	Attendees   []*user.User     `json:"attendees" bson:"attendees"`
-	Status      Status           `json:"status" bson:"status"`
-	Description string           `json:"description" bson:"description"`
-	Cover       string           `json:"cover" bson:"cover"`
-	Positions   map[string]int32 `json:"positions" bson:"positions"`
+	Id          string       `json:"_id" bson:"_id"`
+	Name        string       `json:"name" bson:"name"`
+	Start       time.Time    `json:"start" bson:"start"`
+	End         time.Time    `json:"end" bson:"end"`
+	Repeat      Repeat       `json:"repeat" bson:"repeat"`
+	AutoStart   bool         `json:"auto_start" bson:"auto_start"`
+	Attendees   []*user.User `json:"attendees" bson:"attendees"`
+	Status      Status       `json:"status" bson:"status"`
+	Description string       `json:"description" bson:"description"`
+	Cover       string       `json:"cover" bson:"cover"`
+	Positions   []*Position  `json:"positions" bson:"positions"`
 }
 
 func New(body map[string]interface{}) (*Event, error) {
@@ -86,9 +91,12 @@ func New(body map[string]interface{}) (*Event, error) {
 		positionsRaw = nil
 	}
 
-	positions := map[string]int32{}
+	positions := []*Position{}
 	for k, v := range positionsRaw {
-		positions[k] = int32(v.(float64))
+		positions = append(positions, &Position{
+			Name: k,
+			Max:  int32(v.(float64)),
+		})
 	}
 
 	event := &Event{

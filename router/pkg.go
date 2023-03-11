@@ -36,11 +36,14 @@ func New() (*echo.Echo, error) {
 	apiGroup := e.Group("/api")
 
 	apiLoginHandler := echo.HandlerFunc(api.Login)
+
 	apiGetUsersHandler := echo.HandlerFunc(api.GetUsers)
 	apiGetUserHandler := echo.HandlerFunc(api.GetUser)
+	apiUpdateUserHandler := echo.HandlerFunc(api.UpdateUser)
+
 	apiGetEventsHandler := echo.HandlerFunc(api.GetEvents)
 	apiCreateEventsHandler := echo.HandlerFunc(api.CreateEvent)
-	apiUpdateUserHandler := echo.HandlerFunc(api.UpdateUser)
+	apiUpdateEventHandler := echo.HandlerFunc(api.UpdateEvent)
 
 	apiGroup.POST("/login", apiLoginHandler)
 
@@ -52,6 +55,7 @@ func New() (*echo.Echo, error) {
 	events := apiGroup.Group("/events")
 	events.GET("", apiGetEventsHandler)
 	events.POST("", apiCreateEventsHandler)
+	events.PUT("/:eventid", apiUpdateEventHandler)
 
 	return e, nil
 }

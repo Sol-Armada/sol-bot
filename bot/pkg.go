@@ -25,6 +25,7 @@ var bot *Bot
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"event":      event.EventCommandHandler,
 	"onboarding": onboarding.OnboardingCommandHandler,
+	"attendance": event.AttendanceCommandHandler,
 }
 
 // event hanlders
@@ -115,6 +116,13 @@ func (b *Bot) Open() error {
 	}
 
 	// register commands
+
+	if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		Name:        "attendance",
+		Description: "Get your attendance count",
+	}); err != nil {
+		return errors.Wrap(err, "creating attendance command")
+	}
 
 	// event
 	if config.GetBoolWithDefault("FEATURES.EVENT", false) {

@@ -53,7 +53,7 @@ func GetOrgInfo(username string) (string, []string, ranks.Rank, error) {
 		return po, affiliatedOrgs, ranks.Guest, err
 	}
 
-	if po != config.GetString("rsi_org_sid") || po == "REDACTED" {
+	if po == "REDACTED" {
 		rank = ranks.Guest
 	}
 

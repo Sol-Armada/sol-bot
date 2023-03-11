@@ -37,4 +37,8 @@ function logout() {
   align-self: center;
   text-align: center;
 }
+
+.content div {
+  border-radius: var(--mdc-shape-small, 4px);
+}
 </style>

@@ -24,6 +24,18 @@ type CreateEventRequest struct {
 	Cover       string           `json:"cover"`
 }
 
+type UpdateEventRequest struct {
+	Id          string           `json:"id"`
+	Name        string           `json:"name"`
+	Start       time.Time        `json:"start"`
+	End         time.Time        `json:"end"`
+	Repeat      int              `json:"repeat"`
+	AutoStart   bool             `json:"auto_start"`
+	Positions   map[string]int32 `json:"positions"`
+	Description string           `json:"description"`
+	Cover       string           `json:"cover"`
+}
+
 type CreateEventResponse struct {
 	Event *event.Event `json:"event"`
 }
@@ -114,6 +126,45 @@ func CreateEvent(c echo.Context) error {
 		}
 
 		logger.WithError(err).Error("request to map")
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	return c.JSON(http.StatusOK, CreateEventResponse{Event: event})
+}
+
+func UpdateEvent(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "UpdateEvent",
+	})
+	logger.Debug("update event")
+
+	req := &CreateEventRequest{}
+	if err := req.bind(c); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	reqMap, err := req.toMap()
+	if err != nil {
+		logger.WithError(err).Error("request to map")
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	eventMap, err := stores.Storage.GetEvent(reqMap)
+	if err != nil {
+		if errors.Is(err, apierrors.ErrMissingId) {
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	eventByte, err := json.Marshal(eventMap)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, err.Error())
+	}
+
+	event := &event.Event{}
+	if err := json.Unmarshal(eventByte, event); err != nil {
 		return c.JSON(http.StatusInternalServerError, err.Error())
 	}
 

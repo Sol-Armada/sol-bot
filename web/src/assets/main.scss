@@ -1,6 +1,6 @@
 @use "@material/theme" with (
   $primary: #bb9900,
-  $secondary: #2500ca,
+  $secondary: #1e00ca,
   $background: #222222,
   $surface: #2e2e2e,
   $on-surface: #cecece
@@ -25,15 +25,12 @@ html, body {
   height: 100%;
   min-width: 900px;
 }
+
 #app {
   display: flex;
   font-weight: normal;
   height: 100%;
   background-color: var(--mdc-theme-background);
-}
-
-div {
-  border-radius: var(--mdc-shape-small, 4px);
 }
 
 .hidden {
