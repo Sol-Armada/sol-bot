@@ -126,7 +126,6 @@ func updateMembers(m []*discordgo.Member, storedUsers []*user.User) error {
 			if member.User.ID == su.ID {
 				u.Events = su.Events
 				u.Notes = su.Notes
-				u.Rank = su.Rank
 				break
 			}
 		}

@@ -86,13 +86,6 @@ func New() (*Bot, error) {
 				}
 			}
 		})
-
-		// watch for voice connections and manage them accordingly
-		bot.s.AddHandler(event.OnVoiceJoin)
-		// watch for server join
-		bot.s.AddHandler(onboarding.JoinServerHandler)
-		// watch for server leave
-		bot.s.AddHandler(onboarding.LeaveServerHandler)
 	}
 
 	return bot, nil
@@ -126,7 +119,7 @@ func (b *Bot) Open() error {
 
 	// event
 	if config.GetBoolWithDefault("FEATURES.EVENT", false) {
-		log.Debug("using event feature")
+		log.Info("using event feature")
 
 		if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "event",
@@ -146,6 +139,9 @@ func (b *Bot) Open() error {
 		}); err != nil {
 			return errors.Wrap(err, "creating event command")
 		}
+
+		// watch for voice connections and manage them accordingly
+		bot.s.AddHandler(event.OnVoiceJoin)
 	} else {
 		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "event"); err != nil {
 			log.WithError(err).Warn("deleting event command")
@@ -154,7 +150,7 @@ func (b *Bot) Open() error {
 
 	// onboarding
 	if config.GetBoolWithDefault("FEATURES.ONBOARDING", false) {
-		log.Debug("using onboarding feature")
+		log.Info("using onboarding feature")
 		if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "onboarding",
 			Description: "Start onboarding process for someone",
@@ -171,9 +167,17 @@ func (b *Bot) Open() error {
 		}); err != nil {
 			return errors.Wrap(err, "failed creating oboarding command")
 		}
+
+		// watch for server join
+		bot.s.AddHandler(onboarding.JoinServerHandler)
+		// watch for server leave
+		bot.s.AddHandler(onboarding.LeaveServerHandler)
 	} else {
 		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
 			log.WithError(err).Warn("deleting onboarding command")
+		}
+		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "join"); err != nil {
+			log.WithError(err).Warn("deleting join command")
 		}
 	}
 

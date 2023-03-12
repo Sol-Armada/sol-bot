@@ -10,6 +10,7 @@ import (
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/utils"
+	"golang.org/x/exp/slices"
 )
 
 var (
@@ -53,7 +54,7 @@ func GetOrgInfo(username string) (string, []string, ranks.Rank, error) {
 		return po, affiliatedOrgs, ranks.Guest, err
 	}
 
-	if po == "REDACTED" {
+	if po == "REDACTED" || slices.Contains(config.GetStringSlice("ENEMIES"), po) || po != config.GetString("RSI_ORG_SID") {
 		rank = ranks.Guest
 	}
 
