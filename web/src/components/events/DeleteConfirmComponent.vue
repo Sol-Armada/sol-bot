@@ -8,23 +8,28 @@ const props = defineProps({
 });
 
 onMounted(() => {
-  const dialog = new MDCDialog(document.querySelector(".mdc-dialog"));
+  const dialog = new MDCDialog(
+    document.querySelector("#delete-" + props.event._id + ".mdc-dialog")
+  );
   dialog.listen("MDCDialog:closing", (choice) => {
     if (choice.detail.action == "delete") {
+      console.log(props.event._id);
       deleteEvent(props.event._id);
     }
   });
 });
 
 const openDeleteDialog = () => {
-  const dialog = new MDCDialog(document.querySelector(".mdc-dialog"));
+  const dialog = new MDCDialog(
+    document.querySelector("#delete-" + props.event._id + ".mdc-dialog")
+  );
   dialog.open();
 };
 
 defineExpose({ openDeleteDialog });
 </script>
 <template>
-  <div class="mdc-dialog">
+  <div class="mdc-dialog" :id="'delete-' + event._id">
     <div class="mdc-dialog__container">
       <div
         class="mdc-dialog__surface"
