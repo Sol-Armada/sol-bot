@@ -152,3 +152,57 @@ export function createEvent(
       console.error(err);
     });
 }
+
+export function updateEvent(
+  name,
+  start,
+  end,
+  autoStart,
+  positions,
+  description,
+  cover
+) {
+  const { admin } = useComposition();
+  axios
+    .put(
+      `${import.meta.env.VITE_API_BASE_URL}/events`,
+      {
+        name: name,
+        start: start,
+        end: end,
+        auto_start: autoStart,
+        positions: positions,
+        description: description,
+        cover: cover,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-User-Id": admin.value.id,
+        },
+      }
+    )
+    .then(() => {
+      getEvents();
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+}
+
+export function deleteEvent(id) {
+  const { admin } = useComposition();
+  axios
+    .delete(`${import.meta.env.VITE_API_BASE_URL}/events/${id}`, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Id": admin.value.id,
+      },
+    })
+    .then(() => {
+      getEvents();
+    })
+    .catch((err) => {
+      console.error(err);
+    });
+}

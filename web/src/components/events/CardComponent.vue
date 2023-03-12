@@ -1,7 +1,16 @@
 <script setup>
-defineProps({
+import DeleteConfirm from "./DeleteConfirmComponent.vue";
+import { ref } from "vue";
+
+const props = defineProps({
   event: Object,
 });
+
+const childRef = ref(null);
+
+const handleDelete = () => {
+  childRef.value.openDeleteDialog(props.event._id);
+};
 </script>
 <template>
   <div class="event mdc-card" :key="event._id" :id="event._id">
@@ -30,6 +39,7 @@ defineProps({
       <button
         class="delete-icon-button mdc-button mdc-button--raised mdc-button--leading mdc-card__action mdc-card__action--icon"
         title="Delete"
+        v-on:click="handleDelete"
       >
         <span class="mdc-button__ripple"></span>
         <i class="material-icons mdc-button__icon" aria-hidden="true">
@@ -38,6 +48,7 @@ defineProps({
         <span class="mdc-button__label">Delete</span>
       </button>
     </div>
+    <DeleteConfirm ref="childRef" :event="event" />
   </div>
 </template>
 <style lang="scss" scoped>

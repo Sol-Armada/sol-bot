@@ -112,15 +112,48 @@ func New(body map[string]interface{}) (*Event, error) {
 		Cover:       cover,
 		Positions:   positions,
 	}
-	if err := event.Save(); err != nil {
+
+	return event, nil
+}
+
+func Get(id string) (*Event, error) {
+	eventMap, err := stores.Storage.GetEvent(id)
+	if err != nil {
+		return nil, err
+	}
+
+	eventByte, err := json.Marshal(eventMap)
+	if err != nil {
+		return nil, err
+	}
+
+	event := &Event{}
+	if err := json.Unmarshal(eventByte, event); err != nil {
 		return nil, err
 	}
 
 	return event, nil
 }
 
+func (e *Event) Update(n map[string]interface{}) error {
+	updatedEvent, err := New(n)
+	if err != nil {
+		return err
+	}
+
+	updatedEvent.Id = n["id"].(string)
+	updatedEvent.Attendees = e.Attendees
+	updatedEvent.Status = e.Status
+
+	return e.Save()
+}
+
 func (e *Event) Save() error {
 	return stores.Storage.SaveEvent(e.ToMap())
+}
+
+func (e *Event) Delete() error {
+	return stores.Storage.DeleteEvent(e.ToMap())
 }
 
 func (e *Event) ToMap() map[string]interface{} {
