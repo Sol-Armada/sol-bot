@@ -192,7 +192,7 @@ func (b *Bot) Open() error {
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Name:        "amount",
+					Name:        "balance",
 					Description: "How much is in the bank",
 					Type:        discordgo.ApplicationCommandOptionSubCommand,
 				},
@@ -232,6 +232,30 @@ func (b *Bot) Open() error {
 							Type:         discordgo.ApplicationCommandOptionMentionable,
 							Required:     true,
 							Autocomplete: true,
+						},
+						{
+							Name:        "amount",
+							Description: "how much",
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Required:    true,
+						},
+						{
+							Name:        "notes",
+							Description: "extra information",
+							Type:        discordgo.ApplicationCommandOptionString,
+						},
+					},
+				},
+				{
+					Name:        "spend",
+					Description: "Spend aUEC",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Name:        "for",
+							Description: "what you spending aUEC on",
+							Type:        discordgo.ApplicationCommandOptionString,
+							Required:    true,
 						},
 						{
 							Name:        "amount",

@@ -7,45 +7,62 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	h "github.com/sol-armada/admin/bot/handlers"
+	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/transaction"
 	"github.com/sol-armada/admin/user"
+	"golang.org/x/exp/slices"
 )
 
 var handlers = map[string]func(*discordgo.Session, *discordgo.InteractionCreate){
-	"amount": amountHandler,
-	"add":    addHandler,
-	"remove": removeHandler,
+	"balance": balanceHandler,
+	"add":     addHandler,
+	"remove":  removeHandler,
+	"spend":   spendHandler,
 }
 
 func BankCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	logger := log.WithField("func", "BankCommandHandler")
 	logger.Debug("bank")
 
+	holders := config.GetStringSlice("BANK.HOLDERS")
+	if !slices.Contains(holders, i.Member.User.ID) {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "You do not have permission for this command",
+			},
+		}); err != nil {
+			h.ErrorResponse(s, i.Interaction, "backend error responding to the interaction")
+		}
+		return
+	}
+
 	commandOption := i.ApplicationCommandData().Options[0].Name
 	handlers[commandOption](s, i)
 }
 
-func amountHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("func", "amountHandler")
-	logger.Debug("getting the bank amount")
+func balanceHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	logger := log.WithField("func", "balanceHandler")
+	logger.Debug("getting the bank balance")
 
 	transactions, err := transaction.List()
 	if err != nil {
-		logger.WithError(err).Error("getting transactions for ammount command")
+		logger.WithError(err).Error("getting transactions for balance command")
 		h.ErrorResponse(s, i.Interaction, "backend error getting transactions")
 		return
 	}
 
-	amount := int32(0)
+	balance := int32(0)
 	for _, transaction := range transactions {
-		amount += transaction.Amount
+		balance += transaction.Amount
 	}
 
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: fmt.Sprintf("%d", amount),
+			Content: fmt.Sprintf("%d", balance),
 		},
 	}); err != nil {
 		h.ErrorResponse(s, i.Interaction, "backend error responding to the interaction")
@@ -172,6 +189,61 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
 			Content: fmt.Sprintf("Removing %d to be for %s", amount, to.Name),
+		},
+	}); err != nil {
+		h.ErrorResponse(s, i.Interaction, "backend issue")
+	}
+}
+
+func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	logger := log.WithField("func", "spendHandler")
+	logger.Debug("spending from the bank")
+
+	spendReason := i.ApplicationCommandData().Options[0].Options[0].Value.(string)
+	amount := int32(i.ApplicationCommandData().Options[0].Options[1].Value.(float64))
+	notes := ""
+	if len(i.ApplicationCommandData().Options[0].Options) == 3 {
+		notes = i.ApplicationCommandData().Options[0].Options[3].Value.(string)
+	}
+
+	if amount <= 0 {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "Amount must be above zero",
+			},
+		}); err != nil {
+			h.ErrorResponse(s, i.Interaction, "backend issue")
+		}
+	}
+
+	holder, err := user.Get(i.Member.User.ID)
+	holder.Discord = nil
+	if err != nil {
+		logger.WithError(err).Error("getting holder user for bank remove")
+		h.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)")
+		return
+	}
+
+	transaction := &transaction.Transaction{
+		Id:     xid.New().String(),
+		Amount: amount * -1,
+		For:    spendReason,
+		Holder: holder,
+		Notes:  notes,
+	}
+
+	if err := transaction.Save(); err != nil {
+		h.ErrorResponse(s, i.Interaction, "backend error saving the transaction")
+		return
+	}
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: fmt.Sprintf("Spending %d for \"%s\"", amount, spendReason),
 		},
 	}); err != nil {
 		h.ErrorResponse(s, i.Interaction, "backend issue")

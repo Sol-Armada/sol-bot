@@ -3,7 +3,10 @@ import Nav from "./components/NavComponent.vue";
 import { RouterView, useRouter } from "vue-router";
 import { useComposition } from "./compositions";
 import cookie from "@point-hub/vue-cookie";
-const { admin } = useComposition();
+import { getUsers, getBankBalance } from "./api";
+import { onMounted } from "vue";
+
+const { admin, users, bank } = useComposition();
 const router = useRouter();
 
 function logout() {
@@ -11,12 +14,28 @@ function logout() {
   cookie.remove("admin");
   router.push("/");
 }
+
+onMounted(() => {
+  getUsers
+    .then((u) => {
+      users.value = u;
+    })
+    .catch((e) => {
+      console.log(e);
+    });
+
+  getBankBalance
+    .then((b) => {
+      bank.value = {
+        balance: b,
+      };
+    })
+    .catch(console.log);
+});
 </script>
 
 <template>
-  <div class="nav" v-if="admin">
-    <Nav :logout="logout" />
-  </div>
+  <Nav :logout="logout" v-if="admin" />
   <div class="content">
     <RouterView />
   </div>

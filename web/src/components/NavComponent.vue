@@ -55,6 +55,19 @@ onMounted(() => {
       <nav class="mdc-deprecated-list">
         <li role="separator" class="mdc-deprecated-list-divider"></li>
         <router-link
+          to="/"
+          class="mdc-deprecated-list-item"
+          aria-current="page"
+        >
+          <span class="mdc-deprecated-list-item__ripple"></span>
+          <i
+            class="material-icons mdc-deprecated-list-item__graphic"
+            aria-hidden="true"
+            >dashboard</i
+          >
+          <span class="mdc-deprecated-list-item__text">Dashboard</span>
+        </router-link>
+        <router-link
           to="/ranks"
           class="mdc-deprecated-list-item"
           aria-current="page"

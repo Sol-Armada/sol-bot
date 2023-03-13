@@ -4,14 +4,14 @@ import { useComposition } from "@/compositions";
 import cookie from "@point-hub/vue-cookie";
 import axios from "axios";
 import { onMounted, ref } from "vue";
+
+const discordAuthUrl = ref(import.meta.env.VITE_DISCORD_AUTH_URL);
 const route = useRoute();
 const userCode = ref(route.query.code);
-const { user } = useComposition();
 
 onMounted(() => {
-  const router = useRouter();
   const { err, admin } = useComposition();
-
+  const router = useRouter();
   if (userCode.value != undefined) {
     axios
       .post(
@@ -26,11 +26,10 @@ onMounted(() => {
         }
       )
       .then((resp) => {
+        console.log("setting admin");
         admin.value = resp.data.user;
-        setTimeout(() => {
-          cookie.set("admin", JSON.stringify(resp.data.user));
-          router.push("/ranks");
-        }, 2000);
+        cookie.set("admin", JSON.stringify(resp.data.user));
+        router.push("/");
       })
       .catch((error) => {
         if (error != undefined) {
@@ -42,25 +41,28 @@ onMounted(() => {
           }
         }
       });
-  } else {
-    router.push("/");
-    console.log("no have usercode");
   }
 });
 </script>
 
 <template>
-  <div>
-    <h1 v-if="user">
-      Welcome to Sol Armada Administration, {{ admin.username }}#{{
-        admin.discriminator
-      }}
-    </h1>
-    <div class="lds-dual-ring" v-else></div>
-  </div>
+  <h1>Sol Armada Administration Portal</h1>
+  <a
+    :href="`${discordAuthUrl}`"
+    class="mdc-button mdc-button--raised mdc-button--leading"
+  >
+    <span class="mdc-button__ripple"></span>
+    <i class="material-icons mdc-button__icon" aria-hidden="true">discord</i>
+    <span class="mdc-button__label">Login with Discord</span>
+  </a>
 </template>
 
 <style scoped>
+h1 {
+  color: var(--mdc-theme-on-surface);
+  margin-bottom: 10px;
+}
+
 .logging-in {
   grid-row-start: 2;
   justify-self: center;

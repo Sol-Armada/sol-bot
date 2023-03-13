@@ -46,6 +46,8 @@ func New() (*echo.Echo, error) {
 	apiUpdateEventHandler := echo.HandlerFunc(api.UpdateEvent)
 	apiDeleteEventHandler := echo.HandlerFunc(api.DeleteEvent)
 
+	apiGetBankBalanceHandler := echo.HandlerFunc(api.GetBankBalance)
+
 	apiGroup.POST("/login", apiLoginHandler)
 
 	users := apiGroup.Group("/users")
@@ -58,6 +60,9 @@ func New() (*echo.Echo, error) {
 	events.POST("", apiCreateEventsHandler)
 	events.PUT("/:id", apiUpdateEventHandler)
 	events.DELETE("/:id", apiDeleteEventHandler)
+
+	bank := apiGroup.Group("/bank")
+	bank.GET("/balance", apiGetBankBalanceHandler)
 
 	return e, nil
 }

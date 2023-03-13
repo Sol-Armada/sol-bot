@@ -33,22 +33,14 @@ export function updateUser(user) {
         },
       }
     )
-    .then(() => {
-      getUsers();
-    })
     .catch((err) => {
       console.error(err);
     });
 }
 
-export function getUsers() {
-  const { admin, users } = useComposition();
+export const getUsers = new Promise((resolve, reject) => {
   axios
-    .get(`${import.meta.env.VITE_API_BASE_URL}/users/`, {
-      headers: {
-        "X-User-Id": admin.value.id,
-      },
-    })
+    .get(`${import.meta.env.VITE_API_BASE_URL}/users/`)
     .then((resp) => {
       var u = resp.data.users;
       u.sort((a, b) => {
@@ -71,22 +63,31 @@ export function getUsers() {
 
         return 0;
       });
-      users.value = u;
+      // users.value = u;
+      resolve(u);
     })
     .catch((err) => {
-      console.error(err);
-      users.value = [];
+      reject(err);
     });
-}
+});
 
-export function getEvents() {
-  const { admin, events } = useComposition();
+export const getBankBalance = new Promise((resolve, reject) => {
   axios
-    .get(`${import.meta.env.VITE_API_BASE_URL}/events/`, {
+    .get(`${import.meta.env.VITE_API_BASE_URL}/bank/balance`, {
       headers: {
-        "X-User-Id": admin.value.id,
+        "Content-Type": "application/json",
       },
     })
+    .then((resp) => {
+      resolve(resp.data.balance);
+    })
+    .catch(reject);
+});
+
+export function getEvents() {
+  const { events } = useComposition();
+  axios
+    .get(`${import.meta.env.VITE_API_BASE_URL}/events/`)
     .then((resp) => {
       var e = resp.data.events;
 
@@ -125,7 +126,6 @@ export function createEvent(
   description,
   cover
 ) {
-  const { admin } = useComposition();
   axios
     .post(
       `${import.meta.env.VITE_API_BASE_URL}/events`,
@@ -141,7 +141,6 @@ export function createEvent(
       {
         headers: {
           "Content-Type": "application/json",
-          "X-User-Id": admin.value.id,
         },
       }
     )
@@ -154,12 +153,10 @@ export function createEvent(
 }
 
 export function updateEvent(event) {
-  const { admin } = useComposition();
   axios
     .put(`${import.meta.env.VITE_API_BASE_URL}/events/${event._id}`, event, {
       headers: {
         "Content-Type": "application/json",
-        "X-User-Id": admin.value.id,
       },
     })
     .then(() => {
@@ -171,12 +168,10 @@ export function updateEvent(event) {
 }
 
 export function deleteEvent(id) {
-  const { admin } = useComposition();
   axios
     .delete(`${import.meta.env.VITE_API_BASE_URL}/events/${id}`, {
       headers: {
         "Content-Type": "application/json",
-        "X-User-Id": admin.value.id,
       },
     })
     .then(() => {

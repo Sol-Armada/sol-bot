@@ -79,6 +79,11 @@ export function averageColor(imageElement) {
   return rgb;
 }
 
+export function filterForRank(rank, users) {
+  users = users.filter((user) => user.rank == rank);
+  return users;
+}
+
 function mostRepeated(array) {
   // Create an empty object
   let frequency = {};

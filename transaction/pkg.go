@@ -14,6 +14,7 @@ type Transaction struct {
 	Amount int32      `json:"amount" bson:"amount"`
 	From   *user.User `omitempty,json:"from" bson:"from"`
 	To     *user.User `omitempty,json:"to" bson:"to"`
+	For    string     `omitempty,json:"for" bson:"for"`
 	Holder *user.User `json:"holder" bson:"holder"`
 	Notes  string     `json:"notes" bson:"notes"`
 }

@@ -1,20 +1,21 @@
 import { createRouter, createWebHistory } from "vue-router";
-import Index from "../views/IndexView.vue";
-import Login from "../views/LoginView.vue";
+import { useComposition } from "../compositions";
+import cookie from "@point-hub/vue-cookie";
+
+const admin = useComposition().admin;
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: "/",
-      alias: ["/index.html"],
-      name: "home",
-      component: Index,
+      name: "dashboard",
+      component: () => import("@/views/DashboardView.vue"),
     },
     {
       path: "/login",
       name: "login",
-      component: Login,
+      component: () => import("@/views/LoginView.vue"),
     },
     {
       path: "/ranks",
@@ -32,6 +33,30 @@ const router = createRouter({
       component: () => import("@/views/ErrorView.vue"),
     },
   ],
+});
+
+router.beforeEach(async (to) => {
+  if (admin.value == null && cookie.get("admin") != undefined) {
+    admin.value = JSON.parse(cookie.get("admin"));
+  }
+
+  if (to.name == "login" && admin.value != null) {
+    return { name: "dashboard" };
+  }
+
+  if (to.name == "login") {
+    return true;
+  }
+
+  if (admin.value == null && cookie.get("admin") != undefined) {
+    admin.value = JSON.parse(cookie.get("admin"));
+  }
+
+  if (admin.value != null) {
+    return true;
+  }
+
+  return { name: "login" };
 });
 
 export default router;
