@@ -13,10 +13,11 @@ import (
 )
 
 type Store struct {
-	users  *mongo.Collection
-	events *mongo.Collection
-	client *mongo.Client
-	ctx    context.Context
+	users        *mongo.Collection
+	events       *mongo.Collection
+	transactions *mongo.Collection
+	client       *mongo.Client
+	ctx          context.Context
 }
 
 var Storage *Store
@@ -40,12 +41,14 @@ func New(ctx context.Context) (*Store, error) {
 
 	usersCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users")
 	eventsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("events")
+	transactionsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("transactions")
 
 	Storage = &Store{
-		client: client,
-		users:  usersCollection,
-		events: eventsCollection,
-		ctx:    ctx,
+		client:       client,
+		users:        usersCollection,
+		events:       eventsCollection,
+		transactions: transactionsCollection,
+		ctx:          ctx,
 	}
 
 	return Storage, nil

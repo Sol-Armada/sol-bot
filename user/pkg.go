@@ -51,6 +51,15 @@ func New(m *discordgo.Member) *User {
 	return u
 }
 
+func Get(id string) (*User, error) {
+	result := stores.Storage.GetUser(id)
+	user := &User{}
+	if err := result.Decode(&user); err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
 func (u *User) GetTrueNick() string {
 	trueNick := u.Discord.User.Username
 	regRank := regexp.MustCompile(`\[(.*?)\] `)

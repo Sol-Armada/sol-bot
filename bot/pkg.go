@@ -7,6 +7,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/admin/bot/handlers/bank"
 	"github.com/sol-armada/admin/bot/handlers/event"
 	"github.com/sol-armada/admin/bot/handlers/onboarding"
 	"github.com/sol-armada/admin/config"
@@ -26,6 +27,7 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 	"event":      event.EventCommandHandler,
 	"onboarding": onboarding.OnboardingCommandHandler,
 	"attendance": event.AttendanceCommandHandler,
+	"bank":       bank.BankCommandHandler,
 }
 
 // event hanlders
@@ -157,7 +159,7 @@ func (b *Bot) Open() error {
 			Type:        discordgo.ChatApplicationCommand,
 			Options: []*discordgo.ApplicationCommandOption{
 				{
-					Name:         "single-autcomplete",
+					Name:         "member",
 					Description:  "the member to onboard",
 					Type:         discordgo.ApplicationCommandOptionMentionable,
 					Required:     true,
@@ -178,6 +180,84 @@ func (b *Bot) Open() error {
 		}
 		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "join"); err != nil {
 			log.WithError(err).Warn("deleting join command")
+		}
+	}
+
+	// bank
+	if config.GetBoolWithDefault("FEATURES.BANK", false) {
+		log.Info("using bank feature")
+		if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+			Name:        "bank",
+			Description: "Manage the bank",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:        "amount",
+					Description: "How much is in the bank",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+				},
+				{
+					Name:        "add",
+					Description: "Add aUEC to the bank",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Name:         "from",
+							Description:  "who the money came from",
+							Type:         discordgo.ApplicationCommandOptionMentionable,
+							Required:     true,
+							Autocomplete: true,
+						},
+						{
+							Name:        "amount",
+							Description: "how much",
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Required:    true,
+						},
+						{
+							Name:        "notes",
+							Description: "extra information",
+							Type:        discordgo.ApplicationCommandOptionString,
+						},
+					},
+				},
+				{
+					Name:        "remove",
+					Description: "Remove aURC from the bank",
+					Type:        discordgo.ApplicationCommandOptionSubCommand,
+					Options: []*discordgo.ApplicationCommandOption{
+						{
+							Name:         "to",
+							Description:  "who the money is going to",
+							Type:         discordgo.ApplicationCommandOptionMentionable,
+							Required:     true,
+							Autocomplete: true,
+						},
+						{
+							Name:        "amount",
+							Description: "how much",
+							Type:        discordgo.ApplicationCommandOptionInteger,
+							Required:    true,
+						},
+						{
+							Name:        "notes",
+							Description: "extra information",
+							Type:        discordgo.ApplicationCommandOptionString,
+						},
+					},
+				},
+			},
+		}); err != nil {
+			return errors.Wrap(err, "failed creating bank command")
+		}
+
+		// watch for server join
+		bot.s.AddHandler(onboarding.JoinServerHandler)
+		// watch for server leave
+		bot.s.AddHandler(onboarding.LeaveServerHandler)
+	} else {
+		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "bank"); err != nil {
+			log.WithError(err).Warn("deleting bank command")
 		}
 	}
 
