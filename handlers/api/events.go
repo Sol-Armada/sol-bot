@@ -25,7 +25,7 @@ type CreateEventRequest struct {
 }
 
 type UpdateEventRequest struct {
-	Id          string           `json:"id"`
+	Id          string           `json:"_id"`
 	Name        string           `json:"name"`
 	Start       time.Time        `json:"start"`
 	End         time.Time        `json:"end"`

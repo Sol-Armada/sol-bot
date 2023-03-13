@@ -1,8 +1,33 @@
 <script setup>
-import { ref } from "vue";
-import { createEvent } from "../../api/index";
+import { ref, onUpdated } from "vue";
+import Position from "./PositionComponent.vue";
+import { updateEvent as ue } from "../../api/index";
 
 const show = ref(false);
+
+const props = defineProps({
+  event: Object,
+});
+
+onUpdated(() => {
+  if (show.value == true) {
+    var now = new Date();
+    var startEle = document.getElementById("start");
+    var startDate = new Date(props.event.start);
+    startEle.value = new Date(startDate.getTime() + now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(0, 16);
+
+    var endEle = document.getElementById("end");
+    var endDate = new Date(props.event.end);
+    var t = new Date(endDate.getTime() + now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(11, 16);
+    endEle.value = new Date(endDate.getTime() + now.getTimezoneOffset() * 60000)
+      .toISOString()
+      .slice(11, 16);
+  }
+});
 
 function hideModal(e) {
   var modal = document.querySelector(".modal>div");
@@ -18,7 +43,7 @@ function hideModal(e) {
   }
 }
 
-function newEvent(e) {
+function updateEvent(e) {
   e.preventDefault();
 
   var name = document.getElementById("name");
@@ -27,12 +52,13 @@ function newEvent(e) {
   var end = document.getElementById("end");
   var endDate = new Date(start.value.slice(0, 10) + "T" + end.value);
 
+  console.log(startDate);
+
   if (startDate > endDate) {
     endDate.setDate(endDate.getDate() + 1);
   }
 
   var autoStart = document.getElementById("auto-start");
-  var autoStartBool = autoStart == "on" ? true : false;
   var description = document.getElementById("description");
   var cover = document.getElementById("cover");
 
@@ -46,36 +72,38 @@ function newEvent(e) {
     }
   });
 
-  createEvent(
-    name.value,
-    startDate.toISOString(),
-    endDate.toISOString(),
-    autoStartBool,
-    positionsMap,
-    description.value,
-    cover.value
-  );
+  var event = props.event;
+  event.name = name.value;
+  event.start = startDate.toISOString();
+  event.event = endDate.toISOString();
+  event.auto_start = autoStart == "on" ? true : false;
+  event.positions = positionsMap;
+  event.description = description.value;
+  event.cover = cover.value;
 
-  show.value = false;
-  name.value = "";
-  start.value = "";
-  end.value = "";
-  autoStart.value = true;
-  description.value = "";
-  cover.value = "";
-  positions.forEach((position) => {
-    position.children[0].value = "";
-    position.children[1].value = "";
-  });
+  ue(event);
 }
+
+defineExpose({ show });
 </script>
 <template>
-  <div class="modal" v-on:click="hideModal" v-if="show">
+  <div
+    :id="'modal-' + event._id"
+    class="modal"
+    v-on:click="hideModal"
+    v-if="show"
+  >
     <div>
-      <form v-on:submit="newEvent">
+      <form v-on:submit="updateEvent">
         <div>
           <label for="name">Name: </label>
-          <input type="text" name="name" id="name" required />
+          <input
+            type="text"
+            name="name"
+            id="name"
+            :value="event.name"
+            required
+          />
         </div>
         <div>
           <label for="start">Start: </label>
@@ -93,37 +121,34 @@ function newEvent(e) {
             cols="45"
             rows="10"
             placeholder="Description of the event"
+            :value="event.description"
           ></textarea>
         </div>
         <div class="break"></div>
         <div>
           <label for="cover">Header Image URL: </label>
-          <input type="url" name="cover" id="cover" />
+          <input type="url" name="cover" id="cover" :value="event.cover" />
         </div>
         <div class="break"></div>
         <div>
           <label for="auto-start">Auto Start: </label>
-          <input type="checkbox" name="auto-start" id="auto-start" checked />
+          <input
+            type="checkbox"
+            name="auto-start"
+            id="auto-start"
+            :checked="event.auto_start"
+          />
         </div>
         <div class="break"></div>
         <div class="positions">
-          <div class="position" v-for="n in 6" :key="n" id="position-{{ n }}">
-            <input
-              type="text"
-              name="position-name-{{n}}"
-              id="position-name-{{n}}"
-              placeholder="Position Name"
-            />
-            <input
-              type="number"
-              name="position-max-{{n}}"
-              id="position-max-{{n}}"
-              placeholder="Max"
-            />
-          </div>
+          <Position
+            v-for="n in 6"
+            :key="n"
+            :position="event.positions[n - 1]"
+          />
         </div>
         <div class="button-wrapper">
-          <button type="submit">Create</button>
+          <button type="submit">Update</button>
         </div>
       </form>
     </div>
@@ -151,12 +176,17 @@ function newEvent(e) {
   z-index: 100;
 
   > div {
-    color: var(--mdc-theme-on-surface);
     position: absolute;
     max-width: 500px;
     min-height: 220px;
     background-color: var(--mdc-theme-surface);
     grid-template-rows: 25% 75%;
+
+    > h1 {
+      background-color: grey;
+      width: 100%;
+      text-align: center;
+    }
 
     > form {
       display: flex;

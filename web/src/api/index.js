@@ -153,35 +153,15 @@ export function createEvent(
     });
 }
 
-export function updateEvent(
-  name,
-  start,
-  end,
-  autoStart,
-  positions,
-  description,
-  cover
-) {
+export function updateEvent(event) {
   const { admin } = useComposition();
   axios
-    .put(
-      `${import.meta.env.VITE_API_BASE_URL}/events`,
-      {
-        name: name,
-        start: start,
-        end: end,
-        auto_start: autoStart,
-        positions: positions,
-        description: description,
-        cover: cover,
+    .put(`${import.meta.env.VITE_API_BASE_URL}/events/${event._id}`, event, {
+      headers: {
+        "Content-Type": "application/json",
+        "X-User-Id": admin.value.id,
       },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          "X-User-Id": admin.value.id,
-        },
-      }
-    )
+    })
     .then(() => {
       getEvents();
     })

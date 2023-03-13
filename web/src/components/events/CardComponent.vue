@@ -1,15 +1,21 @@
 <script setup>
 import DeleteConfirm from "./DeleteConfirmComponent.vue";
+import Edit from "./EditComponent.vue";
 import { ref } from "vue";
 
 const props = defineProps({
   event: Object,
 });
 
-const childRef = ref(null);
+const deleteRef = ref(null);
+const editRef = ref(null);
 
 const handleDelete = () => {
-  childRef.value.openDeleteDialog(props.event._id);
+  deleteRef.value.openDeleteDialog(props.event._id);
+};
+
+const handleEdit = () => {
+  editRef.value.show = true;
 };
 </script>
 <template>
@@ -22,7 +28,7 @@ const handleDelete = () => {
       <div class="event__title">{{ event.name }}</div>
       <div class="event__subhead">{{ event._schedule }}</div>
     </div>
-    <div class="mdc-card-wrapper__text-section">
+    <div class="description mdc-card-wrapper__text-section">
       <div class="event__supporting-text">
         {{ event.description }}
       </div>
@@ -31,6 +37,7 @@ const handleDelete = () => {
       <button
         class="mdc-button mdc-button--leading mdc-card__action mdc-card__action--icon"
         title="Edit"
+        v-on:click="handleEdit"
       >
         <span class="mdc-button__ripple"></span>
         <i class="material-icons mdc-button__icon" aria-hidden="true">edit</i>
@@ -48,7 +55,8 @@ const handleDelete = () => {
         <span class="mdc-button__label">Delete</span>
       </button>
     </div>
-    <DeleteConfirm ref="childRef" :event="event" />
+    <DeleteConfirm ref="deleteRef" :event="event" />
+    <edit ref="editRef" :event="event" />
   </div>
 </template>
 <style lang="scss" scoped>
@@ -58,6 +66,11 @@ const handleDelete = () => {
 .event {
   width: 335px;
   color: var(--mdc-theme-on-surface);
+
+  .description {
+    flex-grow: 1;
+    word-break: break-all;
+  }
 
   .delete-icon-button {
     // --mdc-theme-primary: #ff0000;

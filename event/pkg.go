@@ -136,14 +136,34 @@ func Get(id string) (*Event, error) {
 }
 
 func (e *Event) Update(n map[string]interface{}) error {
-	updatedEvent, err := New(n)
-	if err != nil {
-		return err
+	e.Name = n["name"].(string)
+	e.Start = n["start"].(time.Time)
+	e.End = n["end"].(time.Time)
+	e.Description = n["description"].(string)
+	e.Cover = n["cover"].(string)
+	e.AutoStart = n["auto_start"].(bool)
+
+	positionsRaw, ok := n["positions"].(map[string]interface{})
+	if !ok {
+		positionsRaw = nil
 	}
 
-	updatedEvent.Id = n["id"].(string)
-	updatedEvent.Attendees = e.Attendees
-	updatedEvent.Status = e.Status
+	positions := []*Position{}
+	for k, v := range positionsRaw {
+		positions = append(positions, &Position{
+			Name: k,
+			Max:  int32(v.(float64)),
+		})
+	}
+
+	e.Positions = positions
+
+	repeatRaw, ok := n["repeat"].(float64)
+	if !ok {
+		repeatRaw = 0
+	}
+
+	e.Repeat = Repeat(int32(repeatRaw))
 
 	return e.Save()
 }
