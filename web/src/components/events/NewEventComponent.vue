@@ -27,7 +27,7 @@ function newEvent(e) {
   var end = document.getElementById("end");
   var endDate = new Date(start.value.slice(0, 10) + "T" + end.value);
 
-  if (startDate > endDate) {
+  if (startDate >= endDate) {
     endDate.setDate(endDate.getDate() + 1);
   }
 
