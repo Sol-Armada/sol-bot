@@ -8,7 +8,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/bot/handlers/bank"
-	"github.com/sol-armada/admin/bot/handlers/event"
 	"github.com/sol-armada/admin/bot/handlers/onboarding"
 	"github.com/sol-armada/admin/config"
 )
@@ -24,16 +23,12 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"event":      event.EventCommandHandler,
 	"onboarding": onboarding.OnboardingCommandHandler,
-	"attendance": event.AttendanceCommandHandler,
 	"bank":       bank.BankCommandHandler,
 }
 
 // event hanlders
-var eventInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"event": event.EventInteractionHandler,
-}
+var eventInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
 
 // onboarding handlers
 var onboardingInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -112,42 +107,12 @@ func (b *Bot) Open() error {
 
 	// register commands
 
+	// misc commands
 	if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "attendance",
 		Description: "Get your attendance count",
 	}); err != nil {
 		return errors.Wrap(err, "creating attendance command")
-	}
-
-	// event
-	if config.GetBoolWithDefault("FEATURES.EVENT", false) {
-		log.Info("using event feature")
-
-		if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-			Name:        "event",
-			Description: "Event Actions",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "create",
-					Description: "Create a new event",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-				},
-				{
-					Name:        "attendance",
-					Description: "Take attendance of an Event going on now",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-				},
-			},
-		}); err != nil {
-			return errors.Wrap(err, "creating event command")
-		}
-
-		// watch for voice connections and manage them accordingly
-		bot.s.AddHandler(event.OnVoiceJoin)
-	} else {
-		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "event"); err != nil {
-			log.WithError(err).Warn("deleting event command")
-		}
 	}
 
 	// onboarding
