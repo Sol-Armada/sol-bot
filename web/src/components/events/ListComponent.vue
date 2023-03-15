@@ -1,7 +1,6 @@
 <script setup>
 import Card from "./CardComponent.vue";
 import NewEvent from "./NewEventComponent.vue";
-import Embed from "./EmbedComponent.vue";
 
 defineProps({
   admin: Object,

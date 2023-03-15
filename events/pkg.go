@@ -1,6 +1,7 @@
-package event
+package events
 
 import (
+	"context"
 	"encoding/json"
 	"os/user"
 	"time"
@@ -8,7 +9,9 @@ import (
 	"github.com/apex/log"
 	"github.com/rs/xid"
 	apierrors "github.com/sol-armada/admin/errors"
+	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Repeat int
@@ -31,8 +34,9 @@ const (
 )
 
 type Position struct {
-	Name string `json:"name" bson:"name"`
-	Max  int32  `json:"max" bson:"max"`
+	Name    string     `json:"name" bson:"name"`
+	Max     int32      `json:"max" bson:"max"`
+	MinRank ranks.Rank `json:"min_rank" bson:"min_rank"`
 }
 
 type Event struct {
@@ -92,11 +96,16 @@ func New(body map[string]interface{}) (*Event, error) {
 	}
 
 	positions := []*Position{}
-	for k, v := range positionsRaw {
-		positions = append(positions, &Position{
-			Name: k,
-			Max:  int32(v.(float64)),
-		})
+	for _, v := range positionsRaw {
+		position := &Position{}
+		vJson, err := json.Marshal(v)
+		if err != nil {
+			return nil, err
+		}
+		if err := json.Unmarshal(vJson, &position); err != nil {
+			return nil, err
+		}
+		positions = append(positions, position)
 	}
 
 	event := &Event{
@@ -135,6 +144,34 @@ func Get(id string) (*Event, error) {
 	return event, nil
 }
 
+func GetAll() ([]*Event, error) {
+	e := []*Event{}
+	cur, err := stores.Storage.GetEvents(bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cur.All(context.Background(), &e); err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
+
+func GetAllWithFilter(filter interface{}) ([]*Event, error) {
+	e := []*Event{}
+	cur, err := stores.Storage.GetEvents(filter)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := cur.All(context.Background(), &e); err != nil {
+		return nil, err
+	}
+
+	return e, nil
+}
+
 func (e *Event) Update(n map[string]interface{}) error {
 	e.Name = n["name"].(string)
 	e.Start = n["start"].(time.Time)
@@ -149,11 +186,16 @@ func (e *Event) Update(n map[string]interface{}) error {
 	}
 
 	positions := []*Position{}
-	for k, v := range positionsRaw {
-		positions = append(positions, &Position{
-			Name: k,
-			Max:  int32(v.(float64)),
-		})
+	for _, v := range positionsRaw {
+		position := &Position{}
+		vJson, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		if err := json.Unmarshal(vJson, &position); err != nil {
+			return err
+		}
+		positions = append(positions, position)
 	}
 
 	e.Positions = positions

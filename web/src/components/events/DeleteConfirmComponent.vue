@@ -3,6 +3,7 @@ import { onMounted } from "vue";
 import { MDCDialog } from "@material/dialog";
 import { deleteEvent } from "../../api";
 
+
 const props = defineProps({
   event: Object,
 });
@@ -13,7 +14,6 @@ onMounted(() => {
   );
   dialog.listen("MDCDialog:closing", (choice) => {
     if (choice.detail.action == "delete") {
-      console.log(props.event._id);
       deleteEvent(props.event._id);
     }
   });

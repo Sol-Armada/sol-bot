@@ -1,8 +1,11 @@
 <script setup>
 import { ref } from "vue";
 import { createEvent } from "../../api/index";
+import Position from "./PositionComponent.vue";
+import { useComposition } from "../../compositions";
 
 const show = ref(false);
+const { events } = useComposition();
 
 function hideModal(e) {
   var modal = document.querySelector(".modal>div");
@@ -40,21 +43,27 @@ function newEvent(e) {
   var positionsMap = {};
   positions.forEach((position) => {
     if (position.children[0].value != "") {
-      positionsMap[position.children[0].value] = parseInt(
-        position.children[1].value
-      );
+      positionsMap[position.children[0].value] = {
+        name: position.children[0].value,
+        max: parseInt(position.children[1].value),
+        min_rank: parseInt(position.children[2].value),
+      };
     }
   });
 
-  createEvent(
-    name.value,
-    startDate.toISOString(),
-    endDate.toISOString(),
-    autoStartBool,
-    positionsMap,
-    description.value,
-    cover.value
-  );
+  var newEvent = {
+    name: name.value,
+    start: startDate.toISOString(),
+    end: endDate.toISOString(),
+    auto_start: autoStartBool,
+    positions: positionsMap,
+    description: description.value,
+    cover: cover.value,
+  };
+
+  createEvent(newEvent).then((newEvent) => {
+    events.value.push(newEvent);
+  });
 
   show.value = false;
   name.value = "";
@@ -107,7 +116,8 @@ function newEvent(e) {
         </div>
         <div class="break"></div>
         <div class="positions">
-          <div class="position" v-for="n in 6" :key="n" id="position-{{ n }}">
+          <Position v-for="n in 6" :key="n" :position="[]" />
+          <!-- <div class="position" v-for="n in 6" :key="n" id="position-{{ n }}">
             <input
               type="text"
               name="position-name-{{n}}"
@@ -120,7 +130,17 @@ function newEvent(e) {
               id="position-max-{{n}}"
               placeholder="Max"
             />
-          </div>
+            <select name="max-rank">
+              <option value="99">Min Rank</option>
+              <option value="6">Recruit</option>
+              <option value="5">Member</option>
+              <option value="4">Technician</option>
+              <option value="3">Specialist</option>
+              <option value="2">Lieutenant</option>
+              <option value="1">Commander</option>
+              <option value="0">Admiral</option>
+            </select>
+          </div> -->
         </div>
         <div class="button-wrapper">
           <button type="submit">Create</button>
@@ -186,20 +206,6 @@ function newEvent(e) {
 
       > .positions {
         flex-wrap: wrap;
-
-        > .position {
-          display: grid;
-          grid-template-columns: 85% 15%;
-          margin: 2px 0;
-
-          > input:last-child {
-            grid-column-start: 2;
-          }
-
-          > button {
-            padding: 0.5vh;
-          }
-        }
       }
 
       > .button-wrapper {

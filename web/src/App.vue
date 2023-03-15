@@ -3,10 +3,10 @@ import Nav from "./components/NavComponent.vue";
 import { RouterView, useRouter } from "vue-router";
 import { useComposition } from "./compositions";
 import cookie from "@point-hub/vue-cookie";
-import { getUsers, getBankBalance } from "./api";
+import { getUsers, getBankBalance, getEvents } from "./api";
 import { onMounted } from "vue";
 
-const { admin, users, bank } = useComposition();
+const { admin, users, bank, events } = useComposition();
 const router = useRouter();
 
 function logout() {
@@ -29,6 +29,12 @@ onMounted(() => {
       bank.value = {
         balance: b,
       };
+    })
+    .catch(console.log);
+
+  getEvents
+    .then((e) => {
+      events.value = e;
     })
     .catch(console.log);
 });

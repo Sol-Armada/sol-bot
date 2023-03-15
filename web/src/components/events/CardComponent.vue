@@ -56,7 +56,7 @@ const handleEdit = () => {
       </button>
     </div>
     <DeleteConfirm ref="deleteRef" :event="event" />
-    <edit ref="editRef" :event="event" />
+    <Edit ref="editRef" :event="event" />
   </div>
 </template>
 <style lang="scss" scoped>

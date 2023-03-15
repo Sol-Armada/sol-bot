@@ -9,20 +9,21 @@ const props = defineProps({
   event: Object,
 });
 
+const event = ref(props.event);
+
 onUpdated(() => {
   if (show.value == true) {
     var now = new Date();
     var startEle = document.getElementById("start");
     var startDate = new Date(props.event.start);
-    startEle.value = new Date(startDate.getTime() + now.getTimezoneOffset() * 60000)
+    startEle.value = new Date(
+      startDate.getTime() + now.getTimezoneOffset() * 60000
+    )
       .toISOString()
       .slice(0, 16);
 
     var endEle = document.getElementById("end");
     var endDate = new Date(props.event.end);
-    var t = new Date(endDate.getTime() + now.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(11, 16);
     endEle.value = new Date(endDate.getTime() + now.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(11, 16);
@@ -52,8 +53,6 @@ function updateEvent(e) {
   var end = document.getElementById("end");
   var endDate = new Date(start.value.slice(0, 10) + "T" + end.value);
 
-  console.log(startDate);
-
   if (startDate > endDate) {
     endDate.setDate(endDate.getDate() + 1);
   }
@@ -66,22 +65,25 @@ function updateEvent(e) {
   var positionsMap = {};
   positions.forEach((position) => {
     if (position.children[0].value != "") {
-      positionsMap[position.children[0].value] = parseInt(
-        position.children[1].value
-      );
+      positionsMap[position.children[0].value] = {
+        name: position.children[0].value,
+        max: parseInt(position.children[1].value),
+        min_rank: parseInt(position.children[2].value),
+      };
     }
   });
 
-  var event = props.event;
-  event.name = name.value;
-  event.start = startDate.toISOString();
-  event.event = endDate.toISOString();
-  event.auto_start = autoStart == "on" ? true : false;
-  event.positions = positionsMap;
-  event.description = description.value;
-  event.cover = cover.value;
+  event.value.name = name.value;
+  event.value.start = startDate.toISOString();
+  event.value.event = endDate.toISOString();
+  event.value.auto_start = autoStart == "on" ? true : false;
+  event.value.positionsMap = positionsMap;
+  event.value.description = description.value;
+  event.value.cover = cover.value;
 
-  ue(event);
+  ue(event.value).then((updatedEvent) => {
+    event.value = updatedEvent;
+  });
 }
 
 defineExpose({ show });
@@ -144,7 +146,9 @@ defineExpose({ show });
           <Position
             v-for="n in 6"
             :key="n"
-            :position="event.positions[n - 1]"
+            :position="
+              event.positions[n - 1] == null ? [] : event.positions[n - 1]
+            "
           />
         </div>
         <div class="button-wrapper">
@@ -216,20 +220,6 @@ defineExpose({ show });
 
       > .positions {
         flex-wrap: wrap;
-
-        > .position {
-          display: grid;
-          grid-template-columns: 85% 15%;
-          margin: 2px 0;
-
-          > input:last-child {
-            grid-column-start: 2;
-          }
-
-          > button {
-            padding: 0.5vh;
-          }
-        }
       }
 
       > .button-wrapper {

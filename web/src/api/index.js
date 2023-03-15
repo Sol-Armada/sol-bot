@@ -84,8 +84,7 @@ export const getBankBalance = new Promise((resolve, reject) => {
     .catch(reject);
 });
 
-export function getEvents() {
-  const { events } = useComposition();
+export const getEvents = new Promise((resolve, reject) => {
   axios
     .get(`${import.meta.env.VITE_API_BASE_URL}/events/`)
     .then((resp) => {
@@ -109,65 +108,46 @@ export function getEvents() {
         }
       }
 
-      events.value = e;
+      resolve(e);
     })
-    .catch((err) => {
-      console.error(err);
-      events.value = [];
-    });
-}
+    .catch(reject);
+});
 
-export function createEvent(
-  name,
-  start,
-  end,
-  autoStart,
-  positions,
-  description,
-  cover
-) {
-  axios
-    .post(
-      `${import.meta.env.VITE_API_BASE_URL}/events`,
-      {
-        name: name,
-        start: start,
-        end: end,
-        auto_start: autoStart,
-        positions: positions,
-        description: description,
-        cover: cover,
-      },
-      {
+export function createEvent(event) {
+  return new Promise((resolve, reject) => {
+    axios
+      .post(`${import.meta.env.VITE_API_BASE_URL}/events`, event, {
         headers: {
           "Content-Type": "application/json",
         },
-      }
-    )
-    .then(() => {
-      getEvents();
-    })
-    .catch((err) => {
-      console.error(err);
-    });
+      })
+      .then((resp) => {
+        resolve(resp.data.event);
+      })
+      .catch(reject);
+  });
 }
 
-export function updateEvent(event) {
-  axios
-    .put(`${import.meta.env.VITE_API_BASE_URL}/events/${event._id}`, event, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    })
-    .then(() => {
-      getEvents();
-    })
-    .catch((err) => {
-      console.error(err);
-    });
-}
+export const updateEvent = function (event) {
+  return new Promise((resolve, reject) => {
+    axios;
+    event.positions = event.positionsMap;
+    axios
+      .put(`${import.meta.env.VITE_API_BASE_URL}/events/${event._id}`, event, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      })
+      .then((resp) => {
+        var updatedEvent = resp.data.event;
+        resolve(updatedEvent);
+      })
+      .catch(reject);
+  });
+};
 
 export function deleteEvent(id) {
+  const { events } = useComposition();
   axios
     .delete(`${import.meta.env.VITE_API_BASE_URL}/events/${id}`, {
       headers: {
@@ -175,7 +155,15 @@ export function deleteEvent(id) {
       },
     })
     .then(() => {
-      getEvents();
+      var e = events.value;
+      for (let index = 0; index < e.length; index++) {
+        const ev = e[index];
+        if (ev._id == id) {
+          e.splice(index, 1);
+          events.value = e;
+          break;
+        }
+      }
     })
     .catch((err) => {
       console.error(err);
