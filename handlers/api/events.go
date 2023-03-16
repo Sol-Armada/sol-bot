@@ -12,31 +12,33 @@ import (
 	e "github.com/sol-armada/admin/events"
 )
 
+type Position struct {
+	Name    string `json:"name"`
+	Max     int32  `json:"max"`
+	MinRank int32  `json:"min_rank"`
+}
+
 type CreateEventRequest struct {
-	Name      string    `json:"name"`
-	Start     time.Time `json:"start"`
-	End       time.Time `json:"end"`
-	Repeat    int       `json:"repeat"`
-	AutoStart bool      `json:"auto_start"`
-	Positions map[string]struct {
-		Name    string `json:"name"`
-		Max     int32  `json:"max"`
-		MinRank int32  `json:"min_rank"`
-	} `json:"positions"`
-	Description string `json:"description"`
-	Cover       string `json:"cover"`
+	Name        string     `json:"name"`
+	Start       time.Time  `json:"start"`
+	End         time.Time  `json:"end"`
+	Repeat      int        `json:"repeat"`
+	AutoStart   bool       `json:"auto_start"`
+	Positions   []Position `json:"positions"`
+	Description string     `json:"description"`
+	Cover       string     `json:"cover"`
 }
 
 type UpdateEventRequest struct {
-	Id          string                            `json:"_id"`
-	Name        string                            `json:"name"`
-	Start       time.Time                         `json:"start"`
-	End         time.Time                         `json:"end"`
-	Repeat      int                               `json:"repeat"`
-	AutoStart   bool                              `json:"auto_start"`
-	Positions   map[string]map[string]interface{} `json:"positions"`
-	Description string                            `json:"description"`
-	Cover       string                            `json:"cover"`
+	Id          string     `json:"_id"`
+	Name        string     `json:"name"`
+	Start       time.Time  `json:"start"`
+	End         time.Time  `json:"end"`
+	Repeat      int        `json:"repeat"`
+	AutoStart   bool       `json:"auto_start"`
+	Positions   []Position `json:"positions"`
+	Description string     `json:"description"`
+	Cover       string     `json:"cover"`
 }
 
 type CreateEventResponse struct {

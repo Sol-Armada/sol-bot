@@ -4,7 +4,12 @@ import { createEvent } from "../../api/index";
 import Position from "./PositionComponent.vue";
 import { useComposition } from "../../compositions";
 
+const props = defineProps({
+  event: Object,
+});
+
 const show = ref(false);
+const nevent = ref(props.event);
 const { events } = useComposition();
 
 function hideModal(e) {
@@ -24,7 +29,6 @@ function hideModal(e) {
 function newEvent(e) {
   e.preventDefault();
 
-  var name = document.getElementById("name");
   var start = document.getElementById("start");
   var startDate = new Date(start.value);
   var end = document.getElementById("end");
@@ -33,11 +37,6 @@ function newEvent(e) {
   if (startDate >= endDate) {
     endDate.setDate(endDate.getDate() + 1);
   }
-
-  var autoStart = document.getElementById("auto-start");
-  var autoStartBool = autoStart == "on" ? true : false;
-  var description = document.getElementById("description");
-  var cover = document.getElementById("cover");
 
   var positions = document.querySelectorAll(".position");
   var positionsMap = {};
@@ -51,31 +50,58 @@ function newEvent(e) {
     }
   });
 
-  var newEvent = {
-    name: name.value,
-    start: startDate.toISOString(),
-    end: endDate.toISOString(),
-    auto_start: autoStartBool,
-    positions: positionsMap,
-    description: description.value,
-    cover: cover.value,
-  };
+  nevent.value.start = startDate.toISOString();
+  nevent.value.end = endDate.toISOString();
+  nevent.value.auto_start = document.getElementById("auto-start") == "on";
+  nevent.value.positiions = positions;
 
-  createEvent(newEvent).then((newEvent) => {
+  createEvent(nevent.value).then((newEvent) => {
+    
     events.value.push(newEvent);
   });
 
   show.value = false;
-  name.value = "";
-  start.value = "";
-  end.value = "";
-  autoStart.value = true;
-  description.value = "";
-  cover.value = "";
-  positions.forEach((position) => {
-    position.children[0].value = "";
-    position.children[1].value = "";
-  });
+
+  nevent.value = {
+    name: "",
+    start: null,
+    end: null,
+    description: "",
+    cover: "",
+    auto_start: false,
+    positions: [
+      {
+        name: "",
+        max: null,
+        min_rank: 99,
+      },
+      {
+        name: "",
+        max: null,
+        min_rank: 99,
+      },
+      {
+        name: "",
+        max: null,
+        min_rank: 99,
+      },
+      {
+        name: "",
+        max: null,
+        min_rank: 99,
+      },
+      {
+        name: "",
+        max: null,
+        min_rank: 99,
+      },
+      {
+        name: "",
+        max: null,
+        min_rank: 99,
+      },
+    ],
+  };
 }
 </script>
 <template>
@@ -84,15 +110,33 @@ function newEvent(e) {
       <form v-on:submit="newEvent">
         <div>
           <label for="name">Name: </label>
-          <input type="text" name="name" id="name" required />
+          <input
+            type="text"
+            name="name"
+            id="name"
+            v-model="nevent.name"
+            required
+          />
         </div>
         <div>
           <label for="start">Start: </label>
-          <input type="datetime-local" name="start" id="start" required />
+          <input
+            type="datetime-local"
+            name="start"
+            id="start"
+            v-model="nevent.start"
+            required
+          />
         </div>
         <div>
           <label for="end">End: </label>
-          <input type="time" name="end" id="end" required />
+          <input
+            type="time"
+            name="end"
+            id="end"
+            v-model="nevent.end"
+            required
+          />
         </div>
         <div class="break"></div>
         <div>
@@ -102,45 +146,27 @@ function newEvent(e) {
             cols="45"
             rows="10"
             placeholder="Description of the event"
+            v-model="nevent.description"
           ></textarea>
         </div>
         <div class="break"></div>
         <div>
           <label for="cover">Header Image URL: </label>
-          <input type="url" name="cover" id="cover" />
+          <input type="url" name="cover" id="cover" v-model="nevent.cover" />
         </div>
         <div class="break"></div>
         <div>
           <label for="auto-start">Auto Start: </label>
-          <input type="checkbox" name="auto-start" id="auto-start" checked />
+          <input
+            type="checkbox"
+            name="auto-start"
+            id="auto-start"
+            v-model="nevent.auto_start"
+          />
         </div>
         <div class="break"></div>
         <div class="positions">
-          <Position v-for="n in 6" :key="n" :position="[]" />
-          <!-- <div class="position" v-for="n in 6" :key="n" id="position-{{ n }}">
-            <input
-              type="text"
-              name="position-name-{{n}}"
-              id="position-name-{{n}}"
-              placeholder="Position Name"
-            />
-            <input
-              type="number"
-              name="position-max-{{n}}"
-              id="position-max-{{n}}"
-              placeholder="Max"
-            />
-            <select name="max-rank">
-              <option value="99">Min Rank</option>
-              <option value="6">Recruit</option>
-              <option value="5">Member</option>
-              <option value="4">Technician</option>
-              <option value="3">Specialist</option>
-              <option value="2">Lieutenant</option>
-              <option value="1">Commander</option>
-              <option value="0">Admiral</option>
-            </select>
-          </div> -->
+          <Position v-for="(p, i) in nevent.positions" :key="i" :position="p" />
         </div>
         <div class="button-wrapper">
           <button type="submit">Create</button>

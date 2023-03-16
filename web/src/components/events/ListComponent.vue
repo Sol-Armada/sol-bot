@@ -1,6 +1,5 @@
 <script setup>
 import Card from "./CardComponent.vue";
-import NewEvent from "./NewEventComponent.vue";
 
 defineProps({
   admin: Object,
@@ -12,7 +11,6 @@ defineProps({
   <div class="list">
     <Card v-for="event in events" :key="event._id" :event="event" />
   </div>
-  <NewEvent />
 </template>
 
 <style lang="scss" scoped>

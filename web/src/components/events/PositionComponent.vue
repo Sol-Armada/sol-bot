@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from "vue";
+import { ref, onUpdated } from "vue";
 
 const id = ref(
   Math.random()
@@ -7,10 +7,20 @@ const id = ref(
     .substring(2, 10 + 2)
 );
 
-defineProps({
+const props = defineProps({
   position: {
-    name: String,
-    max: Number,
+    name: {
+      type: String,
+      default() {
+        return "";
+      },
+    },
+    max: {
+      type: Number,
+      default() {
+        return null;
+      },
+    },
     min_rank: {
       type: Number,
       default() {
@@ -19,46 +29,54 @@ defineProps({
     },
   },
 });
+
+const nposition = ref(props.position);
+
+onUpdated(() => {
+  if (typeof nposition.value.min_rank == "string") {
+    nposition.value.min_rank = parseInt(nposition.value.min_rank);
+  }
+});
 </script>
 <template>
   <div :id="'position-' + id" class="position">
     <input
       type="text"
-      name="position-name"
-      id="position-name"
+      :name="'position-name-' + id"
+      :id="'position-name-' + id"
       placeholder="Position Name"
-      :value="position.name"
+      v-model="nposition.name"
     />
     <input
       type="number"
       name="position-max"
       id="position-max"
       placeholder="Max"
-      :value="position.max"
+      v-model="nposition.max"
     />
-    <select name="min_rank">
-      <option value="99" :selected="position.min_rank >= 99 ? true : false">
+    <select name="min_rank" v-model="nposition.min_rank">
+      <option value="99" :selected="nposition.min_rank >= 99 ? true : false">
         Anyone
       </option>
-      <option value="7" :selected="position.min_rank == 7 ? true : false">
+      <option value="7" :selected="nposition.min_rank == 7 ? true : false">
         Recruit
       </option>
-      <option value="6" :selected="position.min_rank == 6 ? true : false">
+      <option value="6" :selected="nposition.min_rank == 6 ? true : false">
         Member
       </option>
-      <option value="5" :selected="position.min_rank == 5 ? true : false">
+      <option value="5" :selected="nposition.min_rank == 5 ? true : false">
         Technician
       </option>
-      <option value="4" :selected="position.min_rank == 4 ? true : false">
+      <option value="4" :selected="nposition.min_rank == 4 ? true : false">
         Specialist
       </option>
-      <option value="3" :selected="position.min_rank == 3 ? true : false">
+      <option value="3" :selected="nposition.min_rank == 3 ? true : false">
         Lieutenant
       </option>
-      <option value="2" :selected="position.min_rank == 2 ? true : false">
+      <option value="2" :selected="nposition.min_rank == 2 ? true : false">
         Commander
       </option>
-      <option value="1" :selected="position.min_rank == 1 ? true : false">
+      <option value="1" :selected="nposition.min_rank == 1 ? true : false">
         Admiral
       </option>
     </select>

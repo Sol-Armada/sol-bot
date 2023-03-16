@@ -1,7 +1,7 @@
 <script setup>
 import DeleteConfirm from "./DeleteConfirmComponent.vue";
 import Edit from "./EditComponent.vue";
-import { ref } from "vue";
+import { ref, onBeforeMount } from "vue";
 
 const props = defineProps({
   event: Object,
@@ -17,6 +17,23 @@ const handleDelete = () => {
 const handleEdit = () => {
   editRef.value.show = true;
 };
+
+onBeforeMount(() => {
+  const eventRef = ref(props.event);
+  var startDate = new Date(eventRef.value.start);
+  var endDate = new Date(eventRef.value.end);
+
+  eventRef.value.start = startDate;
+  eventRef.value.end = endDate;
+
+  if (startDate.getDate() == endDate.getDate()) {
+    eventRef.value._schedule =
+      startDate.toLocaleString() + " - " + endDate.toLocaleTimeString();
+  } else {
+    eventRef.value._schedule =
+      startDate.toLocaleString() + " - " + endDate.toLocaleString();
+  }
+});
 </script>
 <template>
   <div class="event mdc-card" :key="event._id" :id="event._id">
