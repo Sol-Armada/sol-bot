@@ -3,7 +3,7 @@ module github.com/sol-armada/admin
 go 1.18
 
 require (
-	github.com/bwmarrin/discordgo v0.27.0
+	github.com/bwmarrin/discordgo v0.27.1
 	github.com/gorilla/mux v1.8.0
 	go.mongodb.org/mongo-driver v1.11.0
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9

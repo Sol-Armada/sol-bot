@@ -12,7 +12,20 @@ import (
 )
 
 func (s *Store) GetEvents(filter interface{}) (*mongo.Cursor, error) {
-	return s.events.Find(s.ctx, filter)
+	return s.events.Find(s.ctx, filter, options.Find().SetSort(bson.D{{Key: "start", Value: 1}}))
+}
+
+func (s *Store) GetNextEvent() *mongo.SingleResult {
+	sr := s.events.FindOne(s.ctx, bson.D{
+		{
+			Key: "$and",
+			Value: bson.A{
+				bson.D{{Key: "status", Value: bson.D{{Key: "$lte", Value: 1}}}},
+				bson.D{{Key: "end", Value: bson.D{{Key: "$gt", Value: time.Now()}}}},
+			},
+		},
+	}, options.FindOne().SetSort(bson.D{{Key: "start", Value: 1}}))
+	return sr
 }
 
 func (s *Store) GetEvent(id string) (map[string]interface{}, error) {
@@ -29,19 +42,13 @@ func (s *Store) SaveEvent(e map[string]interface{}) error {
 		return apierrors.ErrMissingId
 	}
 
-	if start, ok := e["start"].(string); ok {
-		t, err := time.Parse(time.RFC3339, start)
-		if err != nil {
-			return err
-		}
+	if start, ok := e["start"].(int64); ok {
+		t := time.UnixMilli(start)
 		e["start"] = primitive.NewDateTimeFromTime(t)
 	}
 
-	if end, ok := e["end"].(string); ok {
-		t, err := time.Parse(time.RFC3339, end)
-		if err != nil {
-			return err
-		}
+	if end, ok := e["end"].(int64); ok {
+		t := time.UnixMilli(end)
 		e["end"] = primitive.NewDateTimeFromTime(t)
 	}
 

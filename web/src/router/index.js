@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import { useComposition } from "../compositions";
 import cookie from "@point-hub/vue-cookie";
 
-const admin = useComposition().admin;
+const { admin } = useComposition();
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

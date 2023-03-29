@@ -90,23 +90,15 @@ export const getEvents = new Promise((resolve, reject) => {
     .then((resp) => {
       var e = resp.data.events;
 
-      // for (let index = 0; index < e.length; index++) {
-      //   const event = e[index];
-
-      //   var startDate = new Date(event.start);
-      //   var endDate = new Date(event.end);
-
-      //   e[index].start = startDate;
-      //   e[index].end = endDate;
-
-      //   if (startDate.getDate() == endDate.getDate()) {
-      //     e[index]._schedule =
-      //       startDate.toLocaleString() + " - " + endDate.toLocaleTimeString();
-      //   } else {
-      //     e[index]._schedule =
-      //       startDate.toLocaleString() + " - " + endDate.toLocaleString();
-      //   }
-      // }
+      e.sort((a, b) => {
+        if (new Date(a.start).getTime() < new Date(b.start).getTime()) {
+          return -1;
+        } else if (new Date(a.start).getTime() > new Date(b.start).getTime()) {
+          return 1;
+        } else {
+          return 0;
+        }
+      });
 
       resolve(e);
     })
@@ -115,16 +107,27 @@ export const getEvents = new Promise((resolve, reject) => {
 
 export function createEvent(event) {
   return new Promise((resolve, reject) => {
+    var originalPos = event.positions;
+    var obj = {};
+    event.positions.forEach(function (value, key) {
+      obj[key] = value;
+    });
+    event.positions = obj;
     axios
-      .post(`${import.meta.env.VITE_API_BASE_URL}/events`, event, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
+      .post(
+        `${import.meta.env.VITE_API_BASE_URL}/events`,
+        JSON.stringify(event),
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      )
       .then((resp) => {
         resolve(resp.data.event);
       })
       .catch(reject);
+    event.positions = originalPos;
   });
 }
 
@@ -169,3 +172,27 @@ export function deleteEvent(id) {
       console.error(err);
     });
 }
+
+export const getRandomNames = function (max, rankLimit) {
+  return new Promise((resolve, reject) => {
+    let names = "";
+    if (max > 0 && rankLimit != undefined) {
+      axios
+        .get(
+          `${
+            import.meta.env.VITE_API_BASE_URL
+          }/users/random?max=${max}&rank_limit=${rankLimit}`
+        )
+        .then((resp) => {
+          resp.data.users.forEach((user, i) => {
+            names += "- " + user.name;
+            if (resp.data.users.length != i + 1) {
+              names += "\n";
+            }
+          });
+          resolve(names);
+        })
+        .catch(reject);
+    }
+  });
+};

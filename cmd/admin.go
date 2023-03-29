@@ -12,6 +12,7 @@ import (
 	"github.com/apex/log/handlers/json"
 	"github.com/sol-armada/admin/bot"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/events"
 	"github.com/sol-armada/admin/server"
 	"github.com/sol-armada/admin/stores"
 )
@@ -63,6 +64,20 @@ func main() {
 	defer func() {
 		doneMonitoring <- true
 		stopMonitoring <- true
+	}()
+
+	// event
+	if config.GetBoolWithDefault("FEATURES.EVENT", false) {
+		log.Info("using event feature")
+
+		// watch the events
+		go events.EventWatcher()
+	}
+	defer func() {
+		e := events.NextEvent()
+		if e != nil {
+			e.Timer.Stop()
+		}
 	}()
 
 	srv, err := server.New()

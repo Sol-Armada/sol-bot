@@ -7,7 +7,10 @@ import (
 	"time"
 
 	"github.com/apex/log"
+	"github.com/pkg/errors"
 	"github.com/rs/xid"
+	"github.com/sol-armada/admin/bot"
+	"github.com/sol-armada/admin/config"
 	apierrors "github.com/sol-armada/admin/errors"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
@@ -51,7 +54,11 @@ type Event struct {
 	Description string       `json:"description" bson:"description"`
 	Cover       string       `json:"cover" bson:"cover"`
 	Positions   []*Position  `json:"positions" bson:"positions"`
+
+	Timer *time.Timer `json:"-"`
 }
+
+var nextEvent *Event
 
 func New(body map[string]interface{}) (*Event, error) {
 	name, ok := body["name"].(string)
@@ -90,7 +97,7 @@ func New(body map[string]interface{}) (*Event, error) {
 		cover = ""
 	}
 
-	positionsRaw, ok := body["positions"].(map[string]interface{})
+	positionsRaw, ok := body["positions"].([]interface{})
 	if !ok {
 		positionsRaw = nil
 	}
@@ -105,7 +112,9 @@ func New(body map[string]interface{}) (*Event, error) {
 		if err := json.Unmarshal(vJson, &position); err != nil {
 			return nil, err
 		}
-		positions = append(positions, position)
+		if position.Name != "" {
+			positions = append(positions, position)
+		}
 	}
 
 	event := &Event{
@@ -146,7 +155,7 @@ func Get(id string) (*Event, error) {
 
 func GetAll() ([]*Event, error) {
 	e := []*Event{}
-	cur, err := stores.Storage.GetEvents(bson.M{})
+	cur, err := stores.Storage.GetEvents(bson.D{{Key: "end", Value: bson.D{{Key: "$gte", Value: time.Now().AddDate(0, 0, -17)}}}})
 	if err != nil {
 		return nil, err
 	}
@@ -170,6 +179,14 @@ func GetAllWithFilter(filter interface{}) ([]*Event, error) {
 	}
 
 	return e, nil
+}
+
+func NextEvent() *Event {
+	return nextEvent
+}
+
+func (e *Event) IsNext() bool {
+	return e.Id == nextEvent.Id
 }
 
 func (e *Event) Update(n map[string]interface{}) error {
@@ -231,5 +248,60 @@ func (e *Event) ToMap() map[string]interface{} {
 		return map[string]interface{}{}
 	}
 
+	mapEvent["start"] = e.Start.UnixMilli()
+	mapEvent["end"] = e.End.UnixMilli()
+
 	return mapEvent
+}
+
+func (e *Event) StartEvent() error {
+	logger := log.WithField("event start", e)
+	logger.Info("starting event")
+
+	// get the bot
+	b, err := bot.GetBot()
+	if err != nil {
+		logger.WithError(err).Error("getting bot")
+		return errors.Wrap(err, "getting bot")
+	}
+
+	if e.Status != Live {
+		e.Status = Live
+		if err := e.Save(); err != nil {
+			return errors.Wrap(err, "saving live event")
+		}
+
+		// alert the event is live
+		if _, err := b.SendMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), "event \""+e.Name+"\" started"); err != nil {
+			return errors.Wrap(err, "sending discord event is live message")
+		}
+	}
+
+	timer := time.NewTimer(time.Until(e.End))
+	<-timer.C
+
+	// stop the event
+
+	// alert the event is over
+	if _, err := b.SendMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), "event over"); err != nil {
+		return errors.Wrap(err, "sending discord event is finished message")
+	}
+
+	e.Status = Finished
+	if err := e.Save(); err != nil {
+		return errors.Wrap(err, "saving finished event")
+	}
+
+	return nil
+}
+
+func (e *Event) Schedule() {
+	nextEvent = e
+	e.Timer = time.NewTimer(time.Until(e.Start))
+	<-e.Timer.C
+
+	nextEvent = nil
+	if err := e.StartEvent(); err != nil {
+		log.WithError(err).Error("starting event")
+	}
 }

@@ -2,7 +2,7 @@
 import { useRouter } from "vue-router";
 import { useComposition } from "@/compositions";
 import cookie from "@point-hub/vue-cookie";
-import List from "../components/users/ListComponent.vue";
+import List from "../components/ranks/ListComponent.vue";
 import { updateUser } from "../api/index";
 
 const { admin, users } = useComposition();

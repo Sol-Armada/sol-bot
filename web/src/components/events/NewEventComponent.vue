@@ -1,16 +1,16 @@
 <script setup>
-import { ref } from "vue";
-import { createEvent } from "../../api/index";
+import { ref, watch } from "vue";
+import { createEvent, getRandomNames } from "../../api/index";
 import Position from "./PositionComponent.vue";
-import { useComposition } from "../../compositions";
+import { error } from "../../utils";
 
 const props = defineProps({
   event: Object,
 });
+const emit = defineEmits(["created"]);
 
-const show = ref(false);
-const nevent = ref(props.event);
-const { events } = useComposition();
+const showRef = ref(false);
+const eventRef = ref(props.event);
 
 function hideModal(e) {
   var modal = document.querySelector(".modal>div");
@@ -22,90 +22,77 @@ function hideModal(e) {
     e.y <= rect.top ||
     e.y >= rect.bottom
   ) {
-    show.value = false;
+    showRef.value = false;
   }
 }
 
 function newEvent(e) {
   e.preventDefault();
-
-  var start = document.getElementById("start");
-  var startDate = new Date(start.value);
-  var end = document.getElementById("end");
-  var endDate = new Date(start.value.slice(0, 10) + "T" + end.value);
+  const startDate = new Date(eventRef.value.start);
+  const endDate = new Date(
+    eventRef.value.start.slice(0, 10) + "T" + eventRef.value.end
+  );
 
   if (startDate >= endDate) {
     endDate.setDate(endDate.getDate() + 1);
   }
 
-  var positions = document.querySelectorAll(".position");
-  var positionsMap = {};
-  positions.forEach((position) => {
-    if (position.children[0].value != "") {
-      positionsMap[position.children[0].value] = {
-        name: position.children[0].value,
-        max: parseInt(position.children[1].value),
-        min_rank: parseInt(position.children[2].value),
+  eventRef.value.start = startDate.toISOString();
+  eventRef.value.end = endDate.toISOString();
+
+  createEvent(eventRef.value)
+    .then((createdEvent) => {
+      showRef.value = false;
+
+      emit("created", createdEvent);
+
+      eventRef.value = {
+        name: "",
+        start: null,
+        end: null,
+        description: "",
+        cover: "",
+        auto_start: false,
+        positions: new Map(),
       };
+    })
+    .catch((err) => {
+      if (err.response.data == "event overlaps existing event") {
+        error("You can not create an event that overlaps another");
+      }
+    });
+}
+
+function addPosition(e) {
+  e.preventDefault();
+  const id = Math.random()
+    .toString(36)
+    .substring(2, 10 + 2);
+  eventRef.value.positions.set(id, {
+    id: id,
+    name: "",
+    max: null,
+    min_rank: 99,
+    _names: "",
+  });
+}
+
+function removePos(id) {
+  eventRef.value.positions.delete(id);
+}
+
+watch(eventRef.value.positions, () => {
+  eventRef.value.positions.forEach((p) => {
+    if (p._names == "" || (p.max > 0 && p._names.split("\n").length != p.max)) {
+      getRandomNames(p.max, p.min_rank).then((names) => {
+        p._names = names;
+      });
     }
   });
-
-  nevent.value.start = startDate.toISOString();
-  nevent.value.end = endDate.toISOString();
-  nevent.value.auto_start = document.getElementById("auto-start") == "on";
-  nevent.value.positiions = positions;
-
-  createEvent(nevent.value).then((newEvent) => {
-    
-    events.value.push(newEvent);
-  });
-
-  show.value = false;
-
-  nevent.value = {
-    name: "",
-    start: null,
-    end: null,
-    description: "",
-    cover: "",
-    auto_start: false,
-    positions: [
-      {
-        name: "",
-        max: null,
-        min_rank: 99,
-      },
-      {
-        name: "",
-        max: null,
-        min_rank: 99,
-      },
-      {
-        name: "",
-        max: null,
-        min_rank: 99,
-      },
-      {
-        name: "",
-        max: null,
-        min_rank: 99,
-      },
-      {
-        name: "",
-        max: null,
-        min_rank: 99,
-      },
-      {
-        name: "",
-        max: null,
-        min_rank: 99,
-      },
-    ],
-  };
-}
+});
 </script>
 <template>
-  <div class="modal" v-on:click="hideModal" v-if="show">
+  <div class="modal" v-on:click="hideModal" v-if="showRef">
     <div>
       <form v-on:submit="newEvent">
         <div>
@@ -114,7 +101,7 @@ function newEvent(e) {
             type="text"
             name="name"
             id="name"
-            v-model="nevent.name"
+            v-model="eventRef.name"
             required
           />
         </div>
@@ -124,7 +111,8 @@ function newEvent(e) {
             type="datetime-local"
             name="start"
             id="start"
-            v-model="nevent.start"
+            v-model="eventRef.start"
+            :min="new Date().toLocaleString().slice(0, 16)"
             required
           />
         </div>
@@ -134,7 +122,7 @@ function newEvent(e) {
             type="time"
             name="end"
             id="end"
-            v-model="nevent.end"
+            v-model="eventRef.end"
             required
           />
         </div>
@@ -146,13 +134,19 @@ function newEvent(e) {
             cols="45"
             rows="10"
             placeholder="Description of the event"
-            v-model="nevent.description"
+            v-model="eventRef.description"
           ></textarea>
         </div>
         <div class="break"></div>
         <div>
           <label for="cover">Header Image URL: </label>
-          <input type="url" name="cover" id="cover" v-model="nevent.cover" />
+          <input
+            type="url"
+            name="cover"
+            id="cover"
+            v-model="eventRef.cover"
+            placeholder="Defaults to logo"
+          />
         </div>
         <div class="break"></div>
         <div>
@@ -161,22 +155,58 @@ function newEvent(e) {
             type="checkbox"
             name="auto-start"
             id="auto-start"
-            v-model="nevent.auto_start"
+            v-model="eventRef.auto_start"
           />
         </div>
         <div class="break"></div>
         <div class="positions">
-          <Position v-for="(p, i) in nevent.positions" :key="i" :position="p" />
+          <Position
+            v-for="[id, p] in eventRef.positions"
+            :key="id"
+            :position="p"
+            :removePos="removePos"
+          />
         </div>
+        <button v-on:click="addPosition">Add</button>
         <div class="button-wrapper">
           <button type="submit">Create</button>
         </div>
       </form>
     </div>
+    <div class="preview">
+      <div class="embed-grid">
+        <div class="grid-title">{{ eventRef.name }}</div>
+        <div class="embed-fields">
+          <div class="embed-field">
+            <div class="embed-field-name">Time</div>
+            <div class="embed-field-value">
+              <span class="timestamp">{{ eventRef.start }}</span>
+              -
+              <span class="timestamp">{{ eventRef.end }}</span>
+              <span class="timestamp">until</span>
+            </div>
+          </div>
+
+          <div
+            class="embed-field embed-field-inline"
+            v-for="[k, p] in eventRef.positions"
+            :key="k"
+          >
+            <div class="embed-field-name">{{ p.name }}</div>
+            <div class="embed-field-value">
+              <div class="blockquote-container">
+                <div class="blockquote-divider"></div>
+                <blockquote>{{ p._names }}</blockquote>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
   <button
     class="new-event-btn mdc-fab mdc-fab--extended"
-    v-on:click="show = true"
+    v-on:click="showRef = true"
   >
     <div class="mdc-fab__ripple"></div>
     <span class="material-icons mdc-fab__icon">add</span>
@@ -198,11 +228,8 @@ function newEvent(e) {
 
   > div {
     color: var(--mdc-theme-on-surface);
-    position: absolute;
     max-width: 500px;
-    min-height: 220px;
     background-color: var(--mdc-theme-surface);
-    grid-template-rows: 25% 75%;
 
     > form {
       display: flex;
@@ -249,11 +276,96 @@ function newEvent(e) {
       }
     }
   }
+
+  > div.preview {
+    margin-left: 10px;
+    display: flex;
+
+    > .embed-grid {
+      border-left: 4px solid black;
+      overflow: hidden;
+      padding: 0.5rem 1rem 1rem 0.75rem;
+      display: grid;
+      grid-template-columns: auto;
+      grid-template-rows: auto;
+      max-width: 516px;
+
+      > .grid-title {
+        min-width: 0;
+        color: fff;
+        font-size: 1rem;
+        font-weight: 600;
+        display: inline-block;
+        grid-column: 1/1;
+      }
+
+      > .embed-fields {
+        min-width: 0;
+        display: flex;
+        margin-top: 8px;
+        flex-wrap: wrap;
+
+        > .embed-field.embed-field-inline {
+          flex-basis: 33.33333%;
+        }
+        > .embed-field {
+          font-size: 0.875rem;
+          line-height: 1.125rem;
+          min-width: 0;
+          font-weight: 400;
+          flex-basis: 100%;
+          flex-grow: 1;
+          margin-bottom: 8px;
+
+          > .embed-field-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+            font-size: 0.875rem;
+            line-height: 1.125rem;
+            min-width: 0;
+          }
+
+          > .embed-field-value {
+            font-size: 0.875rem;
+            line-height: 1.125rem;
+            font-weight: 400;
+            white-space: pre-line;
+            min-width: 0;
+
+            > .blockquote-container {
+              display: flex;
+
+              > .blockquote-divider {
+                width: 4px;
+                border-radius: 4px;
+                background-color: grey;
+              }
+
+              > blockquote {
+                max-width: 100%;
+                padding: 0 8px 0 12px;
+                box-sizing: border-box;
+                text-indent: 0;
+                text-overflow: ellipsis;
+
+                white-space: pre-wrap;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+.timestamp {
+  background-color: rgba(78, 80, 88, 0.48);
 }
 
 .new-event-btn {
   position: fixed;
   bottom: 20px;
   right: 35px;
+  z-index: 100;
 }
 </style>

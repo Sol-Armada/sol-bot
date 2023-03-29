@@ -6,12 +6,17 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/handlers/api"
 	"github.com/sol-armada/admin/web"
 )
 
 func New() (*echo.Echo, error) {
 	e := echo.New()
+
+	if config.GetBool("LOG.DEBUG") {
+		e.Debug = true
+	}
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -31,6 +36,7 @@ func New() (*echo.Echo, error) {
 	e.GET("/events", echo.WrapHandler(http.StripPrefix("/events", indexHandler)))
 	e.GET("/login", echo.WrapHandler(http.StripPrefix("/login", indexHandler)))
 	e.GET("/favicon.ico", echo.WrapHandler(indexHandler))
+	e.GET("/logo.png", echo.WrapHandler(indexHandler))
 	e.GET("/assets/*", echo.WrapHandler(indexHandler))
 
 	apiGroup := e.Group("/api")
@@ -40,6 +46,7 @@ func New() (*echo.Echo, error) {
 	apiGetUsersHandler := echo.HandlerFunc(api.GetUsers)
 	apiGetUserHandler := echo.HandlerFunc(api.GetUser)
 	apiUpdateUserHandler := echo.HandlerFunc(api.UpdateUser)
+	apiGetRandomUsersHandler := echo.HandlerFunc(api.GetRandomUsers)
 
 	apiGetEventsHandler := echo.HandlerFunc(api.GetEvents)
 	apiCreateEventsHandler := echo.HandlerFunc(api.CreateEvent)
@@ -54,6 +61,7 @@ func New() (*echo.Echo, error) {
 	users.GET("", apiGetUsersHandler)
 	users.GET("/:id", apiGetUserHandler)
 	users.PUT("/:id", apiUpdateUserHandler)
+	users.GET("/random", apiGetRandomUsersHandler)
 
 	events := apiGroup.Group("/events")
 	events.GET("", apiGetEventsHandler)

@@ -7,6 +7,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/bot/handlers/bank"
 	"github.com/sol-armada/admin/bot/handlers/onboarding"
 	"github.com/sol-armada/admin/config"
@@ -25,6 +26,7 @@ var bot *Bot
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"onboarding": onboarding.OnboardingCommandHandler,
 	"bank":       bank.BankCommandHandler,
+	"attendance": handlers.AttendanceCommandHandler,
 }
 
 // event hanlders
@@ -100,7 +102,14 @@ func GetBot() (*Bot, error) {
 	return bot, nil
 }
 
+func ready(s *discordgo.Session, event *discordgo.Ready) {
+	s.State.TrackVoice = true
+}
+
 func (b *Bot) Open() error {
+	// setup state when bot is ready
+	bot.s.AddHandler(ready)
+
 	if err := b.s.Open(); err != nil {
 		return errors.Wrap(err, "starting the bot")
 	}
@@ -134,7 +143,6 @@ func (b *Bot) Open() error {
 		}); err != nil {
 			return errors.Wrap(err, "failed creating oboarding command")
 		}
-
 		// watch for server join
 		bot.s.AddHandler(onboarding.JoinServerHandler)
 		// watch for server leave
@@ -259,4 +267,12 @@ func (b *Bot) Close() error {
 		return errors.Wrap(err, "failed deleting oboarding command")
 	}
 	return b.s.Close()
+}
+
+func (b *Bot) SendMessage(channelId string, message string) (*discordgo.Message, error) {
+	return b.s.ChannelMessageSend(channelId, message)
+}
+
+func (b *Bot) SendComplexMessage(channelId string, message *discordgo.MessageSend) (*discordgo.Message, error) {
+	return b.s.ChannelMessageSendComplex(channelId, message)
 }

@@ -18,6 +18,13 @@ const handleEdit = () => {
   editRef.value.show = true;
 };
 
+function openEvent(e) {
+  const card = document.querySelector("#" + e);
+  if (card.classList.contains("finished")) {
+    console.log("true, something will happen here eventually");
+  }
+}
+
 onBeforeMount(() => {
   const eventRef = ref(props.event);
   var startDate = new Date(eventRef.value.start);
@@ -28,15 +35,50 @@ onBeforeMount(() => {
 
   if (startDate.getDate() == endDate.getDate()) {
     eventRef.value._schedule =
-      startDate.toLocaleString() + " - " + endDate.toLocaleTimeString();
+      startDate.getMonth() +
+      "/" +
+      startDate.getDate() +
+      "/" +
+      startDate.getFullYear() +
+      ", " +
+      startDate.getHours() +
+      ":" +
+      startDate.getMinutes() +
+      " - " +
+      endDate.getHours() +
+      ":" +
+      endDate.getMinutes();
   } else {
     eventRef.value._schedule =
-      startDate.toLocaleString() + " - " + endDate.toLocaleString();
+      startDate.getMonth() +
+      "/" +
+      startDate.getDate() +
+      "/" +
+      startDate.getFullYear() +
+      ", " +
+      startDate.getHours() +
+      ":" +
+      startDate.getMinutes() +
+      " - " +
+      endDate.getMonth() +
+      "/" +
+      endDate.getDate() +
+      "/" +
+      endDate.getFullYear() +
+      ", " +
+      endDate.getHours() +
+      ":" +
+      endDate.getMinutes();
   }
 });
 </script>
 <template>
-  <div class="event mdc-card" :key="event._id" :id="event._id">
+  <div
+    class="event mdc-card"
+    :key="event._id"
+    :id="event._id"
+    v-on:click="openEvent(event._id)"
+  >
     <div
       class="my-card__media mdc-card__media mdc-card__media--16-9"
       :style="{ backgroundImage: 'url(' + event.cover + ')' }"
@@ -50,7 +92,7 @@ onBeforeMount(() => {
         {{ event.description }}
       </div>
     </div>
-    <div class="mdc-card__actions">
+    <div class="mdc-card__actions" v-if="event.status <= 1">
       <button
         class="mdc-button mdc-button--leading mdc-card__action mdc-card__action--icon"
         title="Edit"
@@ -79,10 +121,12 @@ onBeforeMount(() => {
 <style lang="scss" scoped>
 @use "@material/card";
 @use "@material/button";
+@import "../../assets/shadows.scss";
 
 .event {
   width: 335px;
   color: var(--mdc-theme-on-surface);
+  @include full_box_shadow(2, false);
 
   .description {
     flex-grow: 1;

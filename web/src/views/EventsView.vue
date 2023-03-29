@@ -15,38 +15,7 @@ const newEvent = ref({
   description: "",
   cover: "",
   auto_start: false,
-  positions: [
-    {
-      name: "",
-      max: null,
-      min_rank: 99,
-    },
-    {
-      name: "",
-      max: null,
-      min_rank: 99,
-    },
-    {
-      name: "",
-      max: null,
-      min_rank: 99,
-    },
-    {
-      name: "",
-      max: null,
-      min_rank: 99,
-    },
-    {
-      name: "",
-      max: null,
-      min_rank: 99,
-    },
-    {
-      name: "",
-      max: null,
-      min_rank: 99,
-    },
-  ],
+  positions: new Map(),
 });
 
 if (cookie.get("admin") != undefined && admin.value == undefined) {
@@ -56,9 +25,15 @@ if (cookie.get("admin") != undefined && admin.value == undefined) {
 if (admin.value == undefined || admin.value.username == "") {
   router.push("/");
 }
+
+function eventCreated(e) {
+  e.start = new Date(e.start);
+  e.end = new Date(e.end);
+  events.value.push(e);
+}
 </script>
 
 <template>
   <List :admin="admin" :events="events" />
-  <NewEvent :event="newEvent" />
+  <NewEvent :event="newEvent" @created="eventCreated" />
 </template>

@@ -182,7 +182,6 @@ onMounted(() => {
       id="search"
       type="search"
       placeholder="Search..."
-      autofocus
       v-model="searchFor"
     />
     <select name="sort" id="sort" v-model="sortBy">

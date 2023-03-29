@@ -84,6 +84,16 @@ export function filterForRank(rank, users) {
   return users;
 }
 
+export function error(message) {
+  var errDiv = document.querySelector("div.error");
+  errDiv.classList.toggle("pop-in-and-out");
+  errDiv.innerText = message;
+  errDiv.addEventListener("animationend", () => {
+    errDiv.classList.remove("pop-in-and-out");
+    errDiv.innerText = "";
+  });
+}
+
 function mostRepeated(array) {
   // Create an empty object
   let frequency = {};

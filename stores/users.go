@@ -37,6 +37,24 @@ func (s *Store) GetUsers() (*mongo.Cursor, error) {
 	return s.users.Find(s.ctx, bson.M{})
 }
 
+func (s *Store) GetRandomUsers(max int, maxRank int) (*mongo.Cursor, error) {
+	return s.users.Aggregate(s.ctx, bson.A{
+		bson.D{
+			{Key: "$match",
+				Value: bson.D{
+					{Key: "rank",
+						Value: bson.D{
+							{Key: "$lte", Value: maxRank},
+							{Key: "$ne", Value: 0},
+						},
+					},
+				},
+			},
+		},
+		bson.D{{Key: "$sample", Value: bson.D{{Key: "size", Value: max}}}},
+	})
+}
+
 func (s *Store) DeleteUser(id string) error {
 	filter := bson.D{{Key: "_id", Value: id}}
 	if _, err := s.users.DeleteOne(s.ctx, filter); err != nil {

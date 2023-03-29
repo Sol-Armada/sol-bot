@@ -17,14 +17,14 @@ onUpdated(() => {
     var startEle = document.getElementById("start");
     var startDate = new Date(props.event.start);
     startEle.value = new Date(
-      startDate.getTime() + now.getTimezoneOffset() * 60000
+      startDate.getTime() - now.getTimezoneOffset() * 60000
     )
       .toISOString()
       .slice(0, 16);
 
     var endEle = document.getElementById("end");
     var endDate = new Date(props.event.end);
-    endEle.value = new Date(endDate.getTime() + now.getTimezoneOffset() * 60000)
+    endEle.value = new Date(endDate.getTime() - now.getTimezoneOffset() * 60000)
       .toISOString()
       .slice(11, 16);
   }
@@ -129,7 +129,13 @@ defineExpose({ show });
         <div class="break"></div>
         <div>
           <label for="cover">Header Image URL: </label>
-          <input type="url" name="cover" id="cover" :value="event.cover" />
+          <input
+            type="url"
+            name="cover"
+            id="cover"
+            :value="event.cover != '/logo.png' ? event.cover : ''"
+            placeholder="Defaults to logo"
+          />
         </div>
         <div class="break"></div>
         <div>
@@ -243,5 +249,100 @@ defineExpose({ show });
   position: fixed;
   bottom: 20px;
   right: 35px;
+}
+
+.embed {
+  border-radius: 0 3px 3px 0;
+  background: rgba(46,48,54,.3);
+  border-color: rgba(46,48,54,.6);
+  display: flex;
+  padding: 8px 10px;
+  color: rgba(255,255,255,0.6);
+  font-size: 14px;
+
+  .card-block {
+    padding: 0;
+    display: flex;
+    margin-bottom: 10px;
+  }
+  a {
+    color: #0096cf;
+  }
+  img.embed-thumb {
+    max-height: 80px;
+    max-width: 80px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    width: auto;
+    object-fit: contain;
+    margin-left: 20px;
+  }
+  .embed-footer {
+    font-size: 12px;
+    span {
+      color: rgba(255,255,255,0.6);
+    }
+  }
+  .embed-inner {
+    .embed-title {
+      color: #fff;
+    }
+    .embed-author {
+      display: flex;
+      align-items: center;
+      margin-bottom: 5px;
+
+      img.embed-author-icon {
+        margin-right: 9px;
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        border-radius: 50%;
+      }
+      .embed-author-name {
+        display: inline-block;
+        font-weight: 600;
+        font-size: 14px;
+        color: #fff !important;
+      }
+    }
+    .fields {
+      display: flex;
+      flex-wrap: wrap;
+      flex-direction: row;
+      box-lines: miltiple;
+      margin-top: -10px;
+
+      .field {
+        flex: 0;
+        box-flex: 1;
+        padding-top: 10px;
+        max-width: 506px;
+        min-width: 100%;
+
+        &.inline {
+          box-flex: 1;
+          flex: 1;
+          min-width: 150px;
+          flex-basis: auto;
+        }
+        .field-name {
+          color: #fff;
+          font-size: 14px;
+          margin-bottom: 4px;
+          font-weight: 600;
+        }
+        .field-value {
+          color: rgba(255,255,255,0.7);
+          font-size: 14px;
+          font-weight: 500;
+          line-height: 1.1em;
+          white-space: pre-wrap;
+          margin-top: 6px;
+          word-wrap: break-word;
+        }
+      }
+    }
+  }
 }
 </style>
