@@ -5,5 +5,4 @@ import (
 )
 
 func JoinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-	onboarding(s, m.Member)
 }

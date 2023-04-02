@@ -11,35 +11,29 @@ import (
 
 func LeaveServerHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	logging := log.WithField("handler", "OnLeave")
-	channels, err := s.GuildChannels(m.GuildID)
+
+	// Update the notification thread
+	onboardingChannelId := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	messages, err := s.ChannelMessages(onboardingChannelId, 100, "", "", "")
 	if err != nil {
-		logging.WithError(err).Error("getting all channels")
+		logging.WithError(err).Error("getting all onboarding notification messages")
 		return
 	}
 
-	for _, c := range channels {
-		if c.Name == fmt.Sprintf("onboarding-%s", strings.ToLower(strings.ReplaceAll(m.User.Username, " ", "-"))) {
-			if _, err := s.ChannelDelete(c.ID); err != nil {
-				logging.WithError(err).Error("deleting old onboarding channel")
-				return
-			}
-		}
-
-		if c.ID == config.GetString("DISCORDGO.CHANNELS.ONBOARDING") {
-			messages, err := s.ChannelMessages(c.ID, 100, "", "", "")
-			if err != nil {
-				logging.WithError(err).Error("getting messages in onboarding channel")
-				return
-			}
-
-			for _, message := range messages {
-				if strings.Contains(message.Content, m.User.Username) {
-					if _, err := s.ChannelMessageEdit(message.ChannelID, message.ID, fmt.Sprintf("Onboarding %s (left the server)", m.User.Username)); err != nil {
-						logging.WithError(err).Error("updating onboarding thread message")
-						return
-					}
+	for _, message := range messages {
+		if strings.Contains(message.Content, m.User.Username) {
+			if message.Thread != nil {
+				if _, err := s.ChannelMessageSend(message.Thread.ID, fmt.Sprintf("%s has left the server", m.User.Username)); err != nil {
+					logging.WithError(err).Error("replying to thread on leave")
+					return
 				}
+				break
 			}
+			if err := s.ChannelMessageDelete(message.ChannelID, message.ID); err != nil {
+				logging.WithError(err).Error("deleting onboarding notification message")
+				return
+			}
+			break
 		}
 	}
 }

@@ -34,8 +34,8 @@ var eventInteractionHandlers = map[string]func(s *discordgo.Session, i *discordg
 
 // onboarding handlers
 var onboardingInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"choice":     onboarding.ChoiceButtonHandler,
-	"start_over": onboarding.StartOverHandler,
+	"choice":               onboarding.ChoiceButtonHandler,
+	"try_rsi_handle_again": onboarding.TryAgainHandler,
 }
 var onboardingModalHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"rsi_handle": onboarding.RSIModalHandler,
@@ -275,4 +275,60 @@ func (b *Bot) SendMessage(channelId string, message string) (*discordgo.Message,
 
 func (b *Bot) SendComplexMessage(channelId string, message *discordgo.MessageSend) (*discordgo.Message, error) {
 	return b.s.ChannelMessageSendComplex(channelId, message)
+}
+
+func (b *Bot) SetupOnboarding() error {
+	channels, err := b.s.GuildChannels(b.GuildId)
+	if err != nil {
+		return err
+	}
+
+	for _, channel := range channels {
+		if channel.ParentID == config.GetString("DISCORD.CATEGORIES.AIRLOCK") && channel.Name == "onboarding" {
+			return nil
+		}
+	}
+
+	newChannel, err := b.s.GuildChannelCreateComplex(b.GuildId, discordgo.GuildChannelCreateData{
+		Name:     "onboarding",
+		Type:     discordgo.ChannelTypeGuildText,
+		ParentID: config.GetString("DISCORD.CATEGORIES.AIRLOCK"),
+	})
+	if err != nil {
+		return err
+	}
+
+	m := `Welcome to Sol Armada!
+	
+Select a reason you joined below. We will ask a few questions then assign you a role.`
+
+	if _, err := b.s.ChannelMessageSendComplex(newChannel.ID, &discordgo.MessageSend{
+		Content: m,
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "A member recruited me",
+						CustomID: "onboarding:choice:recruited",
+					},
+					discordgo.Button{
+						Label:    "Found Sol Armada on RSI",
+						CustomID: "onboarding:choice:rsi",
+					},
+					discordgo.Button{
+						Label:    "Some other way",
+						CustomID: "onboarding:choice:other",
+					},
+					discordgo.Button{
+						Label:    "Just visiting",
+						CustomID: "onboarding:choice:visiting",
+					},
+				},
+			},
+		},
+	}); err != nil {
+		return err
+	}
+
+	return nil
 }
