@@ -362,6 +362,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	// send a wait while we process everything else
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -373,6 +374,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	// create the notification thread if we don't have one
 	if originalThreadMessage == nil {
 		originalThreadMessage, err = s.ChannelMessageSend(onboardingChannelID, fmt.Sprintf("Onboarding %s", i.Member.User.Username))
 		if err != nil {
@@ -397,6 +399,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	// build the notification embed
 	em := &discordgo.MessageEmbed{
 		Type:  discordgo.EmbedTypeArticle,
 		Title: "Information",
@@ -458,6 +461,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// finish up
+
 	// setup to update the member
 	params := &discordgo.GuildMemberParams{
 		Nick: processingUsers[i.Member.User.ID].Handle,
@@ -472,7 +476,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// update their nick
 	if _, err := s.GuildMemberEditComplex(i.GuildID, i.Member.User.ID, params); err != nil {
 		logger.WithError(err).Error("editing the member")
-		handlers.ErrorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the admins now. Please standby. Use this channel if you need any other assistance.")
+		handlers.ErrorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the Officers now. Please standby. Use the airlock if you need any other assistance.")
 		return
 	}
 
@@ -480,7 +484,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 		Flags:    discordgo.MessageFlagsEphemeral,
-		Content:  fmt.Sprintf("If you have any other questions, please ask an @Officer for help in the %s!\n\nRead our %s and enjoy the Sol Armada community!", airlockName, rulesName),
+		Content:  fmt.Sprintf("Your name has been updated to your RSI handle.\n\nIf you have any other questions, please ask an @Officer for help in the %s!\n\nIf you have not already, please check out our handbook and see if you want to join Sol Aramada.\n\nHandbook: https://handbook.solarmada.space/\nJoin us: https://join.solarmada.space/\n\nRead our %s and enjoy the Sol Armada community!", airlockName, rulesName),
 		Username: i.Member.User.Username,
 	}); err != nil {
 		logger.WithError(err).Error("sending followup message")

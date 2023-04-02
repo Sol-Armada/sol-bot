@@ -4,5 +4,4 @@ import (
 	"github.com/bwmarrin/discordgo"
 )
 
-func JoinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
-}
+func JoinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {}
