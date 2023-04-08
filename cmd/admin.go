@@ -94,6 +94,16 @@ func main() {
 		}
 	}()
 
+	// setup onboarding
+	if config.GetBoolWithDefault("FEATURES.ONBOARDING", false) {
+		log.Info("using onboarding feature")
+
+		if err := b.SetupOnboarding(); err != nil {
+			log.WithError(err).Error("failed to setup onboarding")
+			return
+		}
+	}
+
 	// start the web server now that everything is running
 	if err := srv.Start(); err != nil {
 		if !errors.Is(err, http.ErrServerClosed) {
