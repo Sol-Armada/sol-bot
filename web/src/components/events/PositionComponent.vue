@@ -1,5 +1,9 @@
 <script setup>
 import { ref, onUpdated } from "vue";
+import EmojiConvertor from "emoji-js";
+
+var emoji = new EmojiConvertor();
+emoji.img_sets.apple.path = "/emojis/";
 
 const props = defineProps({
   position: Object,
@@ -15,6 +19,12 @@ function removeSelf(id) {
 }
 
 onUpdated(() => {
+  positionRef.value.emojiconv = "";
+  if (positionRef.value.emoji != "") {
+    positionRef.value.emojiconv = emoji.replace_colons(
+      ":" + positionRef.value.emoji.toLowerCase() + ":"
+    );
+  }
   if (typeof positionRef.value.min_rank == "string") {
     positionRef.value.min_rank = parseInt(positionRef.value.min_rank);
   }
@@ -22,6 +32,13 @@ onUpdated(() => {
 </script>
 <template>
   <div :id="'position-' + position.id" class="position">
+    <input
+      type="text"
+      name="position-emoji"
+      :id="'position-emoji-' + position.id"
+      placeholder="Emoji"
+      v-model="positionRef.emoji"
+    />
     <input
       type="text"
       :name="'position-name-' + position.id"
@@ -68,26 +85,18 @@ onUpdated(() => {
   </div>
 </template>
 <style lang="scss" scoped>
-// .position {
-//   display: grid;
-//   grid-template-columns: 70% 15%;
-//   margin: 2px 0;
-
-//   > input:last-child {
-//     grid-column-start: 2;
-//   }
-
-//   > button {
-//     padding: 0.5vh;
-//   }
-// }
 .position {
   display: grid;
-  grid-template-columns: 60% 10% 20% 10%;
+  grid-template-columns: 10% auto 8% 15% 8%;
+  justify-content: center;
   margin: 2px 0;
   flex-basis: 100%;
   .material-symbols-outlined {
     font-variation-settings: "FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24;
+  }
+
+  > input[name="position-emoji"] {
+    text-transform: lowercase;
   }
 }
 </style>

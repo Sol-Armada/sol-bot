@@ -7,10 +7,7 @@ import (
 	"time"
 
 	"github.com/apex/log"
-	"github.com/pkg/errors"
 	"github.com/rs/xid"
-	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/config"
 	apierrors "github.com/sol-armada/admin/errors"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
@@ -37,28 +34,30 @@ const (
 )
 
 type Position struct {
+	Id      string     `json:"id" bson:"id"`
 	Name    string     `json:"name" bson:"name"`
 	Max     int32      `json:"max" bson:"max"`
 	MinRank ranks.Rank `json:"min_rank" bson:"min_rank"`
+	Members []string   `json:"members" bson:"members"`
+	Emoji   string     `json:"emoji" bson:"emoji"`
 }
 
 type Event struct {
-	Id          string       `json:"_id" bson:"_id"`
-	Name        string       `json:"name" bson:"name"`
-	Start       time.Time    `json:"start" bson:"start"`
-	End         time.Time    `json:"end" bson:"end"`
-	Repeat      Repeat       `json:"repeat" bson:"repeat"`
-	AutoStart   bool         `json:"auto_start" bson:"auto_start"`
-	Attendees   []*user.User `json:"attendees" bson:"attendees"`
-	Status      Status       `json:"status" bson:"status"`
-	Description string       `json:"description" bson:"description"`
-	Cover       string       `json:"cover" bson:"cover"`
-	Positions   []*Position  `json:"positions" bson:"positions"`
+	Id          string               `json:"_id" bson:"_id"`
+	Name        string               `json:"name" bson:"name"`
+	Start       time.Time            `json:"start" bson:"start"`
+	End         time.Time            `json:"end" bson:"end"`
+	Repeat      Repeat               `json:"repeat" bson:"repeat"`
+	AutoStart   bool                 `json:"auto_start" bson:"auto_start"`
+	Attendees   []*user.User         `json:"attendees" bson:"attendees"`
+	Status      Status               `json:"status" bson:"status"`
+	Description string               `json:"description" bson:"description"`
+	Cover       string               `json:"cover" bson:"cover"`
+	Positions   map[string]*Position `json:"positions" bson:"positions"`
+	MessageId   string               `json:"message_id" bson:"message_id"`
 
 	Timer *time.Timer `json:"-"`
 }
-
-var nextEvent *Event
 
 func New(body map[string]interface{}) (*Event, error) {
 	name, ok := body["name"].(string)
@@ -97,12 +96,12 @@ func New(body map[string]interface{}) (*Event, error) {
 		cover = ""
 	}
 
-	positionsRaw, ok := body["positions"].([]interface{})
+	positionsRaw, ok := body["positions"].(map[string]interface{})
 	if !ok {
 		positionsRaw = nil
 	}
 
-	positions := []*Position{}
+	positions := map[string]*Position{}
 	for _, v := range positionsRaw {
 		position := &Position{}
 		vJson, err := json.Marshal(v)
@@ -113,7 +112,7 @@ func New(body map[string]interface{}) (*Event, error) {
 			return nil, err
 		}
 		if position.Name != "" {
-			positions = append(positions, position)
+			positions[position.Id] = position
 		}
 	}
 
@@ -167,6 +166,26 @@ func GetAll() ([]*Event, error) {
 	return e, nil
 }
 
+func GetByMessageId(messageId string) (*Event, error) {
+	cur, err := stores.Storage.GetEvents(bson.D{{Key: "status", Value: bson.D{{Key: "$lte", Value: 1}}}})
+	if err != nil {
+		return nil, err
+	}
+
+	events := []*Event{}
+	if err := cur.All(context.Background(), &events); err != nil {
+		return nil, err
+	}
+
+	for _, e := range events {
+		if e.MessageId == messageId {
+			return e, nil
+		}
+	}
+
+	return nil, nil
+}
+
 func GetAllWithFilter(filter interface{}) ([]*Event, error) {
 	e := []*Event{}
 	cur, err := stores.Storage.GetEvents(filter)
@@ -179,14 +198,6 @@ func GetAllWithFilter(filter interface{}) ([]*Event, error) {
 	}
 
 	return e, nil
-}
-
-func NextEvent() *Event {
-	return nextEvent
-}
-
-func (e *Event) IsNext() bool {
-	return e.Id == nextEvent.Id
 }
 
 func (e *Event) Update(n map[string]interface{}) error {
@@ -202,7 +213,7 @@ func (e *Event) Update(n map[string]interface{}) error {
 		positionsRaw = nil
 	}
 
-	positions := []*Position{}
+	positions := map[string]*Position{}
 	for _, v := range positionsRaw {
 		position := &Position{}
 		vJson, err := json.Marshal(v)
@@ -212,7 +223,7 @@ func (e *Event) Update(n map[string]interface{}) error {
 		if err := json.Unmarshal(vJson, &position); err != nil {
 			return err
 		}
-		positions = append(positions, position)
+		positions[position.Id] = position
 	}
 
 	e.Positions = positions
@@ -254,54 +265,10 @@ func (e *Event) ToMap() map[string]interface{} {
 	return mapEvent
 }
 
-func (e *Event) StartEvent() error {
-	logger := log.WithField("event start", e)
-	logger.Info("starting event")
-
-	// get the bot
-	b, err := bot.GetBot()
-	if err != nil {
-		logger.WithError(err).Error("getting bot")
-		return errors.Wrap(err, "getting bot")
+func (e *Event) Exists() bool {
+	if _, err := stores.Storage.GetEvent(e.Id); err != nil {
+		return false
 	}
 
-	if e.Status != Live {
-		e.Status = Live
-		if err := e.Save(); err != nil {
-			return errors.Wrap(err, "saving live event")
-		}
-
-		// alert the event is live
-		if _, err := b.SendMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), "event \""+e.Name+"\" started"); err != nil {
-			return errors.Wrap(err, "sending discord event is live message")
-		}
-	}
-
-	timer := time.NewTimer(time.Until(e.End))
-	<-timer.C
-
-	// stop the event
-
-	// alert the event is over
-	if _, err := b.SendMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), "event over"); err != nil {
-		return errors.Wrap(err, "sending discord event is finished message")
-	}
-
-	e.Status = Finished
-	if err := e.Save(); err != nil {
-		return errors.Wrap(err, "saving finished event")
-	}
-
-	return nil
-}
-
-func (e *Event) Schedule() {
-	nextEvent = e
-	e.Timer = time.NewTimer(time.Until(e.Start))
-	<-e.Timer.C
-
-	nextEvent = nil
-	if err := e.StartEvent(); err != nil {
-		log.WithError(err).Error("starting event")
-	}
+	return true
 }

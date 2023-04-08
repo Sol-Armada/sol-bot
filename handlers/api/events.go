@@ -8,6 +8,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
+	"github.com/sol-armada/admin/bot"
 	apierrors "github.com/sol-armada/admin/errors"
 	e "github.com/sol-armada/admin/events"
 	"github.com/sol-armada/admin/stores"
@@ -16,9 +17,11 @@ import (
 )
 
 type Position struct {
+	Id      string `json:"id"`
 	Name    string `json:"name"`
 	Max     int32  `json:"max"`
 	MinRank int32  `json:"min_rank"`
+	Emoji   string `json:"emoji"`
 }
 
 type CreateEventRequest struct {
@@ -129,8 +132,20 @@ func CreateEvent(c echo.Context) error {
 		logger.WithError(err).Error("request to map")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
+
 	if err := event.Save(); err != nil {
 		logger.WithError(err).Error("request to map")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	bot, err := bot.GetBot()
+	if err != nil {
+		logger.WithError(err).Error("getting bot for new event")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	if err := bot.NotifyOfEvent(event); err != nil {
+		logger.WithError(err).Error("notifying of event")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
@@ -188,6 +203,17 @@ func DeleteEvent(c echo.Context) error {
 
 	if err := event.Delete(); err != nil {
 		logger.WithError(err).Error("deleting event")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	bot, err := bot.GetBot()
+	if err != nil {
+		logger.WithError(err).Error("getting bot for new event")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	if err := bot.DeleteEventMessage(event.MessageId); err != nil {
+		logger.WithError(err).Error("deleting event message")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 

@@ -185,7 +185,7 @@ export const getRandomNames = function (max, rankLimit) {
         )
         .then((resp) => {
           resp.data.users.forEach((user, i) => {
-            names += "- " + user.name;
+            names += "- " + String(user.name).slice(0, 10);
             if (resp.data.users.length != i + 1) {
               names += "\n";
             }

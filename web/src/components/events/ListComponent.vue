@@ -107,7 +107,7 @@ defineExpose({
       10px;
     display: flex;
     align-items: center;
-    z-index: 10;
+    z-index: 3;
     @include box_shadow(2, false);
 
     > h2 {

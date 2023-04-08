@@ -38,6 +38,7 @@ func New() (*echo.Echo, error) {
 	e.GET("/favicon.ico", echo.WrapHandler(indexHandler))
 	e.GET("/logo.png", echo.WrapHandler(indexHandler))
 	e.GET("/assets/*", echo.WrapHandler(indexHandler))
+	e.GET("/emojis/*", echo.WrapHandler(indexHandler))
 
 	apiGroup := e.Group("/api")
 
@@ -55,6 +56,8 @@ func New() (*echo.Echo, error) {
 
 	apiGetBankBalanceHandler := echo.HandlerFunc(api.GetBankBalance)
 
+	apiGetEmojisHandler := echo.HandlerFunc(api.GetEmojisHandler)
+
 	apiGroup.POST("/login", apiLoginHandler)
 
 	users := apiGroup.Group("/users")
@@ -71,6 +74,9 @@ func New() (*echo.Echo, error) {
 
 	bank := apiGroup.Group("/bank")
 	bank.GET("/balance", apiGetBankBalanceHandler)
+
+	emojis := apiGroup.Group("/emojis")
+	emojis.GET("", apiGetEmojisHandler)
 
 	return e, nil
 }

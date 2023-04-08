@@ -54,7 +54,6 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 		},
 	}); err != nil {
 		logging.WithError(err).Error("getting command user for permissions")
-		handlers.ErrorResponse(s, i.Interaction, "internal server error")
 		return
 	}
 
@@ -62,12 +61,10 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	u := &user.User{}
 	if err := storage.GetUser(i.Member.User.ID).Decode(u); err != nil {
 		logging.WithError(err).Error("getting command user for permissions")
-		handlers.ErrorResponse(s, i.Interaction, "internal server error")
 		return
 	}
 
 	if u.Rank > ranks.Lieutenant {
-		handlers.ErrorResponse(s, i.Interaction, "You don't have permission for this command.")
 		return
 	}
 

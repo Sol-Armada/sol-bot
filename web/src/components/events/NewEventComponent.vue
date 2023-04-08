@@ -40,6 +40,8 @@ function newEvent(e) {
   eventRef.value.start = startDate.toISOString();
   eventRef.value.end = endDate.toISOString();
 
+  console.log(eventRef.value.positions);
+
   createEvent(eventRef.value)
     .then((createdEvent) => {
       showRef.value = false;
@@ -70,8 +72,9 @@ function addPosition(e) {
     .substring(2, 10 + 2);
   eventRef.value.positions.set(id, {
     id: id,
+    emoji: "",
     name: "",
-    max: null,
+    max: 1,
     min_rank: 99,
     _names: "",
   });
@@ -192,7 +195,10 @@ watch(eventRef.value.positions, () => {
             v-for="[k, p] in eventRef.positions"
             :key="k"
           >
-            <div class="embed-field-name">{{ p.name }}</div>
+            <div class="embed-field-name">
+              <span v-if="p.emojiconv" v-html="p.emojiconv"></span>
+              {{ p.name }} <span v-if="p.max">({{ p.max }}/{{ p.max }})</span>
+            </div>
             <div class="embed-field-value">
               <div class="blockquote-container">
                 <div class="blockquote-divider"></div>
@@ -223,8 +229,9 @@ watch(eventRef.value.positions, () => {
   left: 0;
   display: flex;
   align-items: center;
-  justify-content: center;
+  justify-content: left;
   z-index: 100;
+  padding-left: 275px;
 
   > div {
     color: var(--mdc-theme-on-surface);

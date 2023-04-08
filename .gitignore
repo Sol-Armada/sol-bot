@@ -5,3 +5,4 @@ config.*
 !config.example.toml
 .env*
 *.exe
+web/public/emojis/

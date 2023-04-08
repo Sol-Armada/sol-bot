@@ -3,14 +3,18 @@ package bot
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
+	"github.com/kyokomi/emoji/v2"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/bot/handlers/bank"
+	"github.com/sol-armada/admin/bot/handlers/event"
 	"github.com/sol-armada/admin/bot/handlers/onboarding"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/events"
 )
 
 type Bot struct {
@@ -22,6 +26,8 @@ type Bot struct {
 
 var bot *Bot
 
+var NextEvent *events.Event
+
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"onboarding": onboarding.OnboardingCommandHandler,
@@ -30,7 +36,9 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 }
 
 // event hanlders
-var eventInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){}
+var eventInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+	"position": event.PositionHandler,
+}
 
 // onboarding handlers
 var onboardingInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -258,6 +266,13 @@ func (b *Bot) Open() error {
 		}
 	}
 
+	// events
+	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
+		log.Info("using events feature")
+
+		b.s.AddHandler(event.EventReactionAdd)
+	}
+
 	return nil
 }
 
@@ -275,4 +290,139 @@ func (b *Bot) SendMessage(channelId string, message string) (*discordgo.Message,
 
 func (b *Bot) SendComplexMessage(channelId string, message *discordgo.MessageSend) (*discordgo.Message, error) {
 	return b.s.ChannelMessageSendComplex(channelId, message)
+}
+
+func (b *Bot) StartEvent(e *events.Event) error {
+	logger := log.WithField("event start", e)
+	logger.Info("starting event")
+
+	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
+
+	message, err := b.s.ChannelMessage(eventChannelId, e.MessageId)
+	if err != nil {
+		return errors.Wrap(err, "getting original event message")
+	}
+
+	thread, err := b.s.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
+		Name: "Event Started!",
+		Type: discordgo.ChannelTypeGuildPublicThread,
+	})
+	if err != nil {
+		return errors.Wrap(err, "starting event thread")
+	}
+
+	if e.Status != events.Live {
+		e.Status = events.Live
+		if err := e.Save(); err != nil {
+			return errors.Wrap(err, "saving live event")
+		}
+
+		// alert the event is live
+		if _, err := b.s.ChannelMessageSend(thread.ID, "Event Starting"); err != nil {
+			return errors.Wrap(err, "sending event starting message")
+		}
+	}
+
+	timer := time.NewTimer(time.Until(e.End))
+	<-timer.C
+
+	// stop the event
+
+	// alert the event is over
+	if _, err := b.s.ChannelMessageSend(thread.ID, "Event Over"); err != nil {
+		return errors.Wrap(err, "sending event over message")
+	}
+
+	e.Status = events.Finished
+	if err := e.Save(); err != nil {
+		return errors.Wrap(err, "saving finished event")
+	}
+
+	message.Embeds[0].Fields[0].Value = fmt.Sprintf("<t:%d> - <t:%d:t>", e.Start.Unix(), e.End.Unix())
+
+	if _, err := b.s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		ID:         message.ID,
+		Channel:    message.ChannelID,
+		Components: []discordgo.MessageComponent{},
+		Embeds:     message.Embeds,
+	}); err != nil {
+		return errors.Wrap(err, "updating original event message")
+	}
+
+	return nil
+}
+
+func (b *Bot) NotifyOfEvent(e *events.Event) error {
+	fields := []*discordgo.MessageEmbedField{
+		{
+			Name:  "Time",
+			Value: fmt.Sprintf("<t:%d> - <t:%d:t>\n:timer: <t:%d:R>", e.Start.Unix(), e.End.Unix(), e.Start.Unix()),
+		},
+	}
+
+	emojis := emoji.CodeMap()
+
+	for _, position := range e.Positions {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("%s %s (0/%d)", emojis[":"+position.Emoji+":"], position.Name, position.Max),
+			Value:  "-",
+			Inline: true,
+		})
+	}
+
+	if e.Cover == "/logo.png" || e.Cover == "" {
+		e.Cover = "https://admin.solarmada.space/logo.png"
+	}
+
+	message, err := b.SendComplexMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), &discordgo.MessageSend{
+		Embeds: []*discordgo.MessageEmbed{
+			{
+				Type:        discordgo.EmbedTypeArticle,
+				Title:       e.Name,
+				Description: e.Description,
+				Fields:      fields,
+				Image: &discordgo.MessageEmbedImage{
+					URL: e.Cover,
+				},
+			},
+		},
+	})
+	if err != nil {
+		return err
+	}
+
+	time.Sleep(1 * time.Second)
+
+	for _, p := range e.Positions {
+		if err := b.s.MessageReactionAdd(message.ChannelID, message.ID, emojis[":"+p.Emoji+":"]); err != nil {
+			// return err
+			fmt.Println(err.Error())
+		}
+	}
+
+	e.MessageId = message.ID
+	if err := e.Save(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (b *Bot) ScheduleEvent(e *events.Event) {
+	NextEvent = e
+	e.Timer = time.NewTimer(time.Until(e.Start))
+	<-e.Timer.C
+
+	NextEvent = nil
+	if err := b.StartEvent(e); err != nil {
+		log.WithError(err).Error("starting event")
+	}
+}
+
+func (b *Bot) GetEmojis() ([]*discordgo.Emoji, error) {
+	return b.s.GuildEmojis(b.GuildId)
+}
+
+func (b *Bot) DeleteEventMessage(id string) error {
+	return b.s.ChannelMessageDelete(config.GetString("DISCORD.CHANNELS.EVENTS"), id)
 }

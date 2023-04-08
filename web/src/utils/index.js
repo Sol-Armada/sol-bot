@@ -121,3 +121,20 @@ function mostRepeated(array) {
   // Return the most repeated value
   return maxValue;
 }
+
+export function numberToWord(number) {
+  const words = [
+    "zero",
+    "one",
+    "two",
+    "three",
+    "four",
+    "five",
+    "six",
+    "seven",
+    "eight",
+    "nine",
+    "ten",
+  ];
+  return number.toString().map((digit) => words[digit]);
+}

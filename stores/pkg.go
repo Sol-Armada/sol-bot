@@ -39,6 +39,10 @@ func New(ctx context.Context) (*Store, error) {
 		return nil, errors.Wrap(err, "creating new store")
 	}
 
+	// if err := client.Connect(ctx); err != nil {
+	// 	return nil, err
+	// }
+
 	usersCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users")
 	eventsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("events")
 	transactionsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("transactions")
