@@ -20,6 +20,7 @@ func main() {
 	defer func() {
 		log.Info("gracefully shutdown")
 	}()
+
 	config.SetConfigName("config")
 	config.AddConfigPath(".")
 	config.AddConfigPath("../")
@@ -47,7 +48,7 @@ func main() {
 		return
 	}
 
-	if err := b.Open(); err != nil {
+	if err := b.Setup(); err != nil {
 		log.WithError(err).Error("failed to start the bot")
 		return
 	}
@@ -65,22 +66,19 @@ func main() {
 		stopMonitoring <- true
 	}()
 
-	// event
-	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
-		// watch the events
-		go b.EventWatcher()
-	}
-	defer func() {
-		e := bot.NextEvent
-		if e != nil {
-			e.Timer.Stop()
-		}
-	}()
-
+	// start the web server now that everything is running
 	srv, err := server.New()
 	if err != nil {
 		log.WithError(err).Error("starting web server")
 		return
+	}
+	if err := srv.Start(); err != nil {
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.WithError(err).Error("failed to start the web server")
+			return
+		}
+
+		log.Info("shut down web server")
 	}
 
 	c := make(chan os.Signal, 1)
@@ -93,27 +91,4 @@ func main() {
 			return
 		}
 	}()
-
-	// setup onboarding
-	if config.GetBoolWithDefault("FEATURES.ONBOARDING", false) {
-		log.Info("using onboarding feature")
-
-		if err := b.SetupOnboarding(); err != nil {
-			log.WithError(err).Error("failed to setup onboarding")
-			return
-		}
-	}
-
-	// start the web server now that everything is running
-	if err := srv.Start(); err != nil {
-		if !errors.Is(err, http.ErrServerClosed) {
-			log.WithError(err).Error("failed to start the web server")
-			return
-		}
-
-		log.Info("shut down web server")
-	}
-
-	// wait for the montoring to finish
-	<-doneMonitoring
 }

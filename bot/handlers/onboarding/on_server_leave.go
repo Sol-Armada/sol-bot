@@ -27,12 +27,10 @@ func LeaveServerHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 					logging.WithError(err).Error("replying to thread on leave")
 					return
 				}
+
 				break
 			}
-			if err := s.ChannelMessageDelete(message.ChannelID, message.ID); err != nil {
-				logging.WithError(err).Error("deleting onboarding notification message")
-				return
-			}
+
 			break
 		}
 	}

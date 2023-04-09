@@ -7,12 +7,12 @@ import (
 	"github.com/sol-armada/admin/events"
 )
 
-func EventReactionAdd(s *discordgo.Session, mra *discordgo.MessageReactionAdd) {
-	if mra.ChannelID != config.GetString("DISCORD.CHANNELS.EVENTS") {
+func EventReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
+	if r.ChannelID != config.GetString("DISCORD.CHANNELS.EVENTS") {
 		return
 	}
 
-	e, err := events.GetByMessageId(mra.MessageID)
+	e, err := events.GetByMessageId(r.MessageID)
 	if err != nil {
 		log.WithError(err).Error("event reaction add")
 		return

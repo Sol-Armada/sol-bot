@@ -37,10 +37,10 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 				}
 
 				// rate limit protection
-				rateBucket := b.s.Ratelimiter.GetBucket("guild_member_check")
+				rateBucket := b.Ratelimiter.GetBucket("guild_member_check")
 				if rateBucket.Remaining == 0 {
 					log.Warn("hit a rate limit. relaxing until it goes away")
-					time.Sleep(b.s.Ratelimiter.GetWaitTime(rateBucket, 0))
+					time.Sleep(b.Ratelimiter.GetWaitTime(rateBucket, 0))
 					continue
 				}
 
@@ -97,7 +97,7 @@ func (b *Bot) UpdateMember() error {
 }
 
 func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
-	members, err := b.s.GuildMembers(b.GuildId, "", 1000)
+	members, err := b.GuildMembers(b.GuildId, "", 1000)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting guild members")
 	}
@@ -106,7 +106,7 @@ func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
 }
 
 func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
-	member, err := b.s.GuildMember(b.GuildId, id)
+	member, err := b.GuildMember(b.GuildId, id)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting guild member")
 	}

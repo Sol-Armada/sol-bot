@@ -75,6 +75,7 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
+	found := false
 	for _, message := range messages {
 		if strings.Contains(message.Content, m.User.Username) {
 			if message.Thread != nil {
@@ -82,13 +83,30 @@ func OnboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 					logging.WithError(err).Error("replying to thread for re-onboarding")
 					return
 				}
+
 				break
 			}
-			if err := s.ChannelMessageDelete(message.ChannelID, message.ID); err != nil {
-				logging.WithError(err).Error("deleting onboarding notification message")
-				return
-			}
+
+			found = true
 			break
+		}
+	}
+
+	if !found {
+		onboardingMessage, err := s.ChannelMessageSend(config.GetString("DISCORD.CHANNELS.ONBOARDING"), m.User.Username+" joined")
+		if err != nil {
+			log.WithError(err).Error("on join onboarding")
+			return
+		}
+
+		if _, err := s.MessageThreadStartComplex(onboardingMessage.ChannelID, onboardingMessage.ID, &discordgo.ThreadStart{
+			Name:                "Re-onboarding",
+			AutoArchiveDuration: 60,
+			Invitable:           false,
+			RateLimitPerUser:    10,
+		}); err != nil {
+			log.WithError(err).Error("starting thread on onboarding message")
+			return
 		}
 	}
 
@@ -347,7 +365,6 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Username: i.Member.User.Username,
 		}); err != nil {
 			logger.WithError(err).Error("sending followup message")
-			handlers.ErrorResponse(s, i.Interaction, "Ran into an issue in the backend. An officer should be here to help soon.")
 			return
 		}
 
@@ -373,11 +390,6 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	// create the notification thread if we don't have one
 	if originalThreadMessage == nil {
-		originalThreadMessage, err = s.ChannelMessageSend(onboardingChannelID, fmt.Sprintf("Onboarding %s", i.Member.User.Username))
-		if err != nil {
-			log.WithError(err).Error("sending onboarding message")
-			return
-		}
 		if _, err := s.MessageThreadStartComplex(onboardingChannelID, originalThreadMessage.ID, &discordgo.ThreadStart{
 			Name:                "Onboarding",
 			AutoArchiveDuration: 60,

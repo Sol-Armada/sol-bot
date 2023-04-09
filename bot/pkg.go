@@ -21,7 +21,7 @@ type Bot struct {
 	GuildId  string
 	ClientId string
 
-	s *discordgo.Session
+	*discordgo.Session
 }
 
 var bot *Bot
@@ -50,49 +50,22 @@ var onboardingModalHandlers = map[string]func(s *discordgo.Session, i *discordgo
 }
 
 func New() (*Bot, error) {
-	if bot == nil {
-		log.Info("creating discord bot")
-		b, err := discordgo.New(fmt.Sprintf("Bot %s", config.GetString("DISCORD.BOT_TOKEN")))
-		if err != nil {
-			return nil, err
-		}
+	log.Info("creating discord bot")
+	b, err := discordgo.New(fmt.Sprintf("Bot %s", config.GetString("DISCORD.BOT_TOKEN")))
+	if err != nil {
+		return nil, err
+	}
 
-		bot = &Bot{
-			config.GetString("DISCORD.GUILD_ID"),
-			config.GetString("DISCORD.CLIENT_ID"),
-			b,
-		}
+	if _, err := b.Guild(config.GetString("DISCORD.GUILD_ID")); err != nil {
+		return nil, err
+	}
 
-		if _, err := bot.s.Guild(bot.GuildId); err != nil {
-			return nil, err
-		}
+	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates
 
-		bot.s.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates
-
-		bot.s.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-			switch i.Type {
-			case discordgo.InteractionApplicationCommand:
-				if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-					h(s, i)
-				}
-			case discordgo.InteractionMessageComponent:
-				id := strings.Split(i.MessageComponentData().CustomID, ":")
-
-				switch id[0] {
-				case "event":
-					eventInteractionHandlers[id[1]](s, i)
-				case "onboarding":
-					onboardingInteractionHandlers[id[1]](s, i)
-				}
-			case discordgo.InteractionModalSubmit:
-				id := strings.Split(i.ModalSubmitData().CustomID, ":")
-
-				switch id[0] {
-				case "onboarding":
-					onboardingModalHandlers[id[1]](s, i)
-				}
-			}
-		})
+	bot = &Bot{
+		config.GetString("DISCORD.GUILD_ID"),
+		config.GetString("DISCORD.CLIENT_ID"),
+		b,
 	}
 
 	return bot, nil
@@ -112,20 +85,48 @@ func GetBot() (*Bot, error) {
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	s.State.TrackVoice = true
+	log.Debug("bot is ready")
 }
 
-func (b *Bot) Open() error {
-	// setup state when bot is ready
-	bot.s.AddHandler(ready)
+func (b *Bot) Setup() error {
+	defer func() {
+		if err := b.Open(); err != nil {
+			log.WithError(err).Error("starting the bot")
+		}
+	}()
 
-	if err := b.s.Open(); err != nil {
-		return errors.Wrap(err, "starting the bot")
-	}
+	// setup state when bot is ready
+	b.AddHandler(ready)
+
+	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		switch i.Type {
+		case discordgo.InteractionApplicationCommand:
+			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
+				h(s, i)
+			}
+		case discordgo.InteractionMessageComponent:
+			id := strings.Split(i.MessageComponentData().CustomID, ":")
+
+			switch id[0] {
+			case "event":
+				eventInteractionHandlers[id[1]](s, i)
+			case "onboarding":
+				onboardingInteractionHandlers[id[1]](s, i)
+			}
+		case discordgo.InteractionModalSubmit:
+			id := strings.Split(i.ModalSubmitData().CustomID, ":")
+
+			switch id[0] {
+			case "onboarding":
+				onboardingModalHandlers[id[1]](s, i)
+			}
+		}
+	})
 
 	// register commands
 
 	// misc commands
-	if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "attendance",
 		Description: "Get your attendance count",
 	}); err != nil {
@@ -135,7 +136,12 @@ func (b *Bot) Open() error {
 	// onboarding
 	if config.GetBoolWithDefault("FEATURES.ONBOARDING", false) {
 		log.Info("using onboarding feature")
-		if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+
+		if err := b.SetupOnboarding(); err != nil {
+			return errors.Wrap(err, "failed to setup onboarding")
+		}
+
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "onboarding",
 			Description: "Start onboarding process for someone",
 			Type:        discordgo.ChatApplicationCommand,
@@ -152,14 +158,14 @@ func (b *Bot) Open() error {
 			return errors.Wrap(err, "failed creating oboarding command")
 		}
 		// watch for server join
-		bot.s.AddHandler(onboarding.JoinServerHandler)
+		b.AddHandler(onboarding.JoinServerHandler)
 		// watch for server leave
-		bot.s.AddHandler(onboarding.LeaveServerHandler)
+		b.AddHandler(onboarding.LeaveServerHandler)
 	} else {
-		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
+		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
 			log.WithError(err).Warn("deleting onboarding command")
 		}
-		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "join"); err != nil {
+		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, "join"); err != nil {
 			log.WithError(err).Warn("deleting join command")
 		}
 	}
@@ -167,7 +173,7 @@ func (b *Bot) Open() error {
 	// bank
 	if config.GetBoolWithDefault("FEATURES.BANK", false) {
 		log.Info("using bank feature")
-		if _, err := b.s.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "bank",
 			Description: "Manage the bank",
 			Type:        discordgo.ChatApplicationCommand,
@@ -257,11 +263,11 @@ func (b *Bot) Open() error {
 		}
 
 		// watch for server join
-		bot.s.AddHandler(onboarding.JoinServerHandler)
+		bot.AddHandler(onboarding.JoinServerHandler)
 		// watch for server leave
-		bot.s.AddHandler(onboarding.LeaveServerHandler)
+		bot.AddHandler(onboarding.LeaveServerHandler)
 	} else {
-		if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "bank"); err != nil {
+		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, "bank"); err != nil {
 			log.WithError(err).Warn("deleting bank command")
 		}
 	}
@@ -269,8 +275,10 @@ func (b *Bot) Open() error {
 	// events
 	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
 		log.Info("using events feature")
+		b.AddHandler(event.EventReactionAdd)
 
-		b.s.AddHandler(event.EventReactionAdd)
+		// watch the events
+		go b.EventWatcher()
 	}
 
 	return nil
@@ -278,18 +286,18 @@ func (b *Bot) Open() error {
 
 func (b *Bot) Close() error {
 	log.Info("stopping bot")
-	if err := b.s.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
+	if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
 		return errors.Wrap(err, "failed deleting oboarding command")
 	}
-	return b.s.Close()
+	return b.Close()
 }
 
 func (b *Bot) SendMessage(channelId string, message string) (*discordgo.Message, error) {
-	return b.s.ChannelMessageSend(channelId, message)
+	return b.ChannelMessageSend(channelId, message)
 }
 
 func (b *Bot) SendComplexMessage(channelId string, message *discordgo.MessageSend) (*discordgo.Message, error) {
-	return b.s.ChannelMessageSendComplex(channelId, message)
+	return b.ChannelMessageSendComplex(channelId, message)
 }
 
 func (b *Bot) StartEvent(e *events.Event) error {
@@ -298,12 +306,12 @@ func (b *Bot) StartEvent(e *events.Event) error {
 
 	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
 
-	message, err := b.s.ChannelMessage(eventChannelId, e.MessageId)
+	message, err := b.ChannelMessage(eventChannelId, e.MessageId)
 	if err != nil {
 		return errors.Wrap(err, "getting original event message")
 	}
 
-	thread, err := b.s.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
+	thread, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
 		Name: "Event Started!",
 		Type: discordgo.ChannelTypeGuildPublicThread,
 	})
@@ -318,7 +326,7 @@ func (b *Bot) StartEvent(e *events.Event) error {
 		}
 
 		// alert the event is live
-		if _, err := b.s.ChannelMessageSend(thread.ID, "Event Starting"); err != nil {
+		if _, err := b.ChannelMessageSend(thread.ID, "Event Starting"); err != nil {
 			return errors.Wrap(err, "sending event starting message")
 		}
 	}
@@ -329,7 +337,7 @@ func (b *Bot) StartEvent(e *events.Event) error {
 	// stop the event
 
 	// alert the event is over
-	if _, err := b.s.ChannelMessageSend(thread.ID, "Event Over"); err != nil {
+	if _, err := b.ChannelMessageSend(thread.ID, "Event Over"); err != nil {
 		return errors.Wrap(err, "sending event over message")
 	}
 
@@ -340,7 +348,7 @@ func (b *Bot) StartEvent(e *events.Event) error {
 
 	message.Embeds[0].Fields[0].Value = fmt.Sprintf("<t:%d> - <t:%d:t>", e.Start.Unix(), e.End.Unix())
 
-	if _, err := b.s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		ID:         message.ID,
 		Channel:    message.ChannelID,
 		Components: []discordgo.MessageComponent{},
@@ -394,7 +402,7 @@ func (b *Bot) NotifyOfEvent(e *events.Event) error {
 	time.Sleep(1 * time.Second)
 
 	for _, p := range e.Positions {
-		if err := b.s.MessageReactionAdd(message.ChannelID, message.ID, emojis[":"+p.Emoji+":"]); err != nil {
+		if err := b.MessageReactionAdd(message.ChannelID, message.ID, emojis[":"+p.Emoji+":"]); err != nil {
 			// return err
 			fmt.Println(err.Error())
 		}
@@ -409,7 +417,7 @@ func (b *Bot) NotifyOfEvent(e *events.Event) error {
 }
 
 func (b *Bot) SetupOnboarding() error {
-	channels, err := b.s.GuildChannels(b.GuildId)
+	channels, err := b.GuildChannels(b.GuildId)
 	if err != nil {
 		return err
 	}
@@ -420,7 +428,7 @@ func (b *Bot) SetupOnboarding() error {
 		}
 	}
 
-	newChannel, err := b.s.GuildChannelCreateComplex(b.GuildId, discordgo.GuildChannelCreateData{
+	newChannel, err := b.GuildChannelCreateComplex(b.GuildId, discordgo.GuildChannelCreateData{
 		Name:     "onboarding",
 		Type:     discordgo.ChannelTypeGuildText,
 		ParentID: config.GetString("DISCORD.CATEGORIES.AIRLOCK"),
@@ -433,7 +441,7 @@ func (b *Bot) SetupOnboarding() error {
 	
 Select a reason you joined below. We will ask a few questions then assign you a role.`
 
-	if _, err := b.s.ChannelMessageSendComplex(newChannel.ID, &discordgo.MessageSend{
+	if _, err := b.ChannelMessageSendComplex(newChannel.ID, &discordgo.MessageSend{
 		Content: m,
 		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
@@ -476,9 +484,9 @@ func (b *Bot) ScheduleEvent(e *events.Event) {
 }
 
 func (b *Bot) GetEmojis() ([]*discordgo.Emoji, error) {
-	return b.s.GuildEmojis(b.GuildId)
+	return b.GuildEmojis(b.GuildId)
 }
 
 func (b *Bot) DeleteEventMessage(id string) error {
-	return b.s.ChannelMessageDelete(config.GetString("DISCORD.CHANNELS.EVENTS"), id)
+	return b.ChannelMessageDelete(config.GetString("DISCORD.CHANNELS.EVENTS"), id)
 }
