@@ -92,7 +92,7 @@ onBeforeMount(() => {
         {{ event.description }}
       </div>
     </div>
-    <div class="mdc-card__actions" v-if="event.status <= 1">
+    <div class="mdc-card__actions" v-if="event.status <= 2">
       <button
         class="mdc-button mdc-button--leading mdc-card__action mdc-card__action--icon"
         title="Edit"

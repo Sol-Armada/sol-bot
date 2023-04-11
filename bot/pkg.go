@@ -15,6 +15,7 @@ import (
 	"github.com/sol-armada/admin/bot/handlers/onboarding"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events"
+	"github.com/sol-armada/admin/events/status"
 )
 
 type Bot struct {
@@ -26,18 +27,13 @@ type Bot struct {
 
 var bot *Bot
 
-var NextEvent *events.Event
+var nextEvent *events.Event
 
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"onboarding": onboarding.OnboardingCommandHandler,
 	"bank":       bank.BankCommandHandler,
 	"attendance": handlers.AttendanceCommandHandler,
-}
-
-// event hanlders
-var eventInteractionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"position": event.PositionHandler,
 }
 
 // onboarding handlers
@@ -60,7 +56,7 @@ func New() (*Bot, error) {
 		return nil, err
 	}
 
-	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates
+	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions
 
 	bot = &Bot{
 		config.GetString("DISCORD.GUILD_ID"),
@@ -108,8 +104,6 @@ func (b *Bot) Setup() error {
 			id := strings.Split(i.MessageComponentData().CustomID, ":")
 
 			switch id[0] {
-			case "event":
-				eventInteractionHandlers[id[1]](s, i)
 			case "onboarding":
 				onboardingInteractionHandlers[id[1]](s, i)
 			}
@@ -276,6 +270,7 @@ func (b *Bot) Setup() error {
 	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
 		log.Info("using events feature")
 		b.AddHandler(event.EventReactionAdd)
+		b.AddHandler(event.EventReactionRemove)
 
 		// watch the events
 		go b.EventWatcher()
@@ -311,24 +306,18 @@ func (b *Bot) StartEvent(e *events.Event) error {
 		return errors.Wrap(err, "getting original event message")
 	}
 
-	thread, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
-		Name: "Event Started!",
-		Type: discordgo.ChannelTypeGuildPublicThread,
-	})
-	if err != nil {
-		return errors.Wrap(err, "starting event thread")
+	message.Embeds[0].Fields[0].Value = fmt.Sprintf("<t:%d> - <t:%d:t>\nLive!", e.Start.Unix(), e.End.Unix())
+
+	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		ID:      message.ID,
+		Channel: message.ChannelID,
+		Embeds:  message.Embeds,
+	}); err != nil {
+		return errors.Wrap(err, "updating original event message")
 	}
 
-	if e.Status != events.Live {
-		e.Status = events.Live
-		if err := e.Save(); err != nil {
-			return errors.Wrap(err, "saving live event")
-		}
-
-		// alert the event is live
-		if _, err := b.ChannelMessageSend(thread.ID, "Event Starting"); err != nil {
-			return errors.Wrap(err, "sending event starting message")
-		}
+	if err := b.MessageReactionsRemoveAll(message.ChannelID, message.ID); err != nil {
+		return errors.Wrap(err, "removing all emojis")
 	}
 
 	timer := time.NewTimer(time.Until(e.End))
@@ -336,12 +325,7 @@ func (b *Bot) StartEvent(e *events.Event) error {
 
 	// stop the event
 
-	// alert the event is over
-	if _, err := b.ChannelMessageSend(thread.ID, "Event Over"); err != nil {
-		return errors.Wrap(err, "sending event over message")
-	}
-
-	e.Status = events.Finished
+	e.Status = status.Finished
 	if err := e.Save(); err != nil {
 		return errors.Wrap(err, "saving finished event")
 	}
@@ -349,10 +333,9 @@ func (b *Bot) StartEvent(e *events.Event) error {
 	message.Embeds[0].Fields[0].Value = fmt.Sprintf("<t:%d> - <t:%d:t>", e.Start.Unix(), e.End.Unix())
 
 	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:         message.ID,
-		Channel:    message.ChannelID,
-		Components: []discordgo.MessageComponent{},
-		Embeds:     message.Embeds,
+		ID:      message.ID,
+		Channel: message.ChannelID,
+		Embeds:  message.Embeds,
 	}); err != nil {
 		return errors.Wrap(err, "updating original event message")
 	}
@@ -360,7 +343,126 @@ func (b *Bot) StartEvent(e *events.Event) error {
 	return nil
 }
 
+func (b *Bot) ReminderOfEventDay() {
+	logger := log.WithField("method", "ReminderOfEventDay")
+
+	if nextEvent.Status >= status.Notified_DAY {
+		return
+	}
+
+	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
+
+	message, err := b.ChannelMessage(eventChannelId, nextEvent.MessageId)
+	if err != nil {
+		logger.WithError(err).Error("getting original event message")
+		return
+	}
+
+	timer := time.NewTimer(time.Until(nextEvent.Start.Add(-24 * time.Hour)))
+	<-timer.C
+
+	if nextEvent.Status != status.Live {
+		participents := ""
+		for _, position := range nextEvent.Positions {
+			for ind, m := range position.Members {
+				participents += "<@" + m + ">"
+				if ind+1 < len(position.Members) {
+					participents += ", "
+				}
+			}
+		}
+
+		if message.Thread == nil {
+			thread, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
+				Name:                "Event Notification",
+				Type:                discordgo.ChannelTypeGuildPrivateThread,
+				AutoArchiveDuration: 60,
+			})
+			if err != nil {
+				logger.WithError(err).Error("starting event thread")
+				return
+			}
+
+			message.Thread = thread
+		}
+
+		nextEvent.Status = status.Notified_DAY
+		if err := nextEvent.Save(); err != nil {
+			logger.WithError(err).Error("saving notification day event")
+			return
+		}
+
+		// alert the event is live
+		if participents != "" {
+			if _, err := b.ChannelMessageSend(message.Thread.ID, participents+"\n\nReminder that this event is happening tomorrow!"); err != nil {
+				logger.WithError(err).Error("sending event starting message")
+				return
+			}
+		}
+	}
+}
+
+func (b *Bot) ReminderOfEventHour() {
+	logger := log.WithField("method", "ReminderOfEventHour")
+
+	if nextEvent.Status >= status.Notified_HOUR {
+		return
+	}
+
+	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
+
+	message, err := b.ChannelMessage(eventChannelId, nextEvent.MessageId)
+	if err != nil {
+		logger.WithError(err).Error("getting original event message")
+		return
+	}
+
+	timer := time.NewTimer(time.Until(nextEvent.Start.Add(-1 * time.Hour)))
+	<-timer.C
+
+	if nextEvent.Status != status.Live {
+		participents := ""
+		for _, position := range nextEvent.Positions {
+			for ind, m := range position.Members {
+				participents += "<@" + m + ">"
+				if ind+1 < len(position.Members) {
+					participents += ", "
+				}
+			}
+		}
+
+		if message.Thread == nil {
+			thread, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
+				Name:                "Event Notification",
+				Type:                discordgo.ChannelTypeGuildPrivateThread,
+				AutoArchiveDuration: 60,
+			})
+			if err != nil {
+				logger.WithError(err).Error("starting event thread")
+				return
+			}
+
+			message.Thread = thread
+		}
+
+		nextEvent.Status = status.Notified_HOUR
+		if err := nextEvent.Save(); err != nil {
+			logger.WithError(err).Error("saving notification hour event")
+			return
+		}
+
+		// alert the event is live
+		if participents != "" {
+			if _, err := b.ChannelMessageSend(message.Thread.ID, participents+"\n\nReminder that this event is happening in an hour!"); err != nil {
+				logger.WithError(err).Error("sending event starting message")
+				return
+			}
+		}
+	}
+}
+
 func (b *Bot) NotifyOfEvent(e *events.Event) error {
+	logging := log.WithField("method", "NotifyOfEvent")
 	fields := []*discordgo.MessageEmbedField{
 		{
 			Name:  "Time",
@@ -372,7 +474,7 @@ func (b *Bot) NotifyOfEvent(e *events.Event) error {
 
 	for _, position := range e.Positions {
 		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   fmt.Sprintf("%s %s (0/%d)", emojis[":"+position.Emoji+":"], position.Name, position.Max),
+			Name:   fmt.Sprintf("%s %s (0/%d)", emojis[":"+strings.ToLower(position.Emoji)+":"], position.Name, position.Max),
 			Value:  "-",
 			Inline: true,
 		})
@@ -399,16 +501,14 @@ func (b *Bot) NotifyOfEvent(e *events.Event) error {
 		return err
 	}
 
-	time.Sleep(1 * time.Second)
-
 	for _, p := range e.Positions {
-		if err := b.MessageReactionAdd(message.ChannelID, message.ID, emojis[":"+p.Emoji+":"]); err != nil {
-			// return err
-			fmt.Println(err.Error())
+		if err := b.MessageReactionAdd(message.ChannelID, message.ID, emojis[":"+strings.ToLower(p.Emoji)+":"]); err != nil {
+			logging.WithError(err).Error("sending reaction")
 		}
 	}
 
 	e.MessageId = message.ID
+	e.Status = status.Announced
 	if err := e.Save(); err != nil {
 		return err
 	}
@@ -472,13 +572,16 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 	return nil
 }
 
-func (b *Bot) ScheduleEvent(e *events.Event) {
-	NextEvent = e
-	e.Timer = time.NewTimer(time.Until(e.Start))
-	<-e.Timer.C
+func (b *Bot) ScheduleNextEvent() {
+	go b.ReminderOfEventDay()
 
-	NextEvent = nil
-	if err := b.StartEvent(e); err != nil {
+	go b.ReminderOfEventHour()
+
+	timer := time.NewTimer(time.Until(nextEvent.Start))
+	<-timer.C
+
+	nextEvent = nil
+	if err := b.StartEvent(nextEvent); err != nil {
 		log.WithError(err).Error("starting event")
 	}
 }

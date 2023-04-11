@@ -9,6 +9,7 @@ import (
 	"github.com/apex/log"
 	"github.com/rs/xid"
 	apierrors "github.com/sol-armada/admin/errors"
+	"github.com/sol-armada/admin/events/status"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,16 +22,6 @@ const (
 	Daily
 	Weekly
 	Monthly
-)
-
-type Status int
-
-const (
-	Created Status = iota
-	Announced
-	Live
-	Finished
-	Cancelled
 )
 
 type Position struct {
@@ -50,7 +41,7 @@ type Event struct {
 	Repeat      Repeat               `json:"repeat" bson:"repeat"`
 	AutoStart   bool                 `json:"auto_start" bson:"auto_start"`
 	Attendees   []*user.User         `json:"attendees" bson:"attendees"`
-	Status      Status               `json:"status" bson:"status"`
+	Status      status.Status        `json:"status" bson:"status"`
 	Description string               `json:"description" bson:"description"`
 	Cover       string               `json:"cover" bson:"cover"`
 	Positions   map[string]*Position `json:"positions" bson:"positions"`
@@ -123,7 +114,7 @@ func New(body map[string]interface{}) (*Event, error) {
 		End:         end,
 		Repeat:      Repeat(repeat),
 		Attendees:   []*user.User{},
-		Status:      Created,
+		Status:      status.Created,
 		AutoStart:   autoStart,
 		Description: description,
 		Cover:       cover,

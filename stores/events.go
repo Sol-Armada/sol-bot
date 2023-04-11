@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 	apierrors "github.com/sol-armada/admin/errors"
+	"github.com/sol-armada/admin/events/status"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -20,7 +21,7 @@ func (s *Store) GetNextEvent() *mongo.SingleResult {
 		{
 			Key: "$and",
 			Value: bson.A{
-				bson.D{{Key: "status", Value: bson.D{{Key: "$lte", Value: 1}}}},
+				bson.D{{Key: "status", Value: bson.D{{Key: "$lt", Value: status.Live}}}},
 				bson.D{{Key: "end", Value: bson.D{{Key: "$gt", Value: time.Now()}}}},
 			},
 		},

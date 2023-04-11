@@ -146,7 +146,6 @@ func CreateEvent(c echo.Context) error {
 
 	if err := bot.NotifyOfEvent(event); err != nil {
 		logger.WithError(err).Error("notifying of event")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
 	return c.JSON(http.StatusOK, CreateEventResponse{Event: event})
@@ -214,7 +213,6 @@ func DeleteEvent(c echo.Context) error {
 
 	if err := bot.DeleteEventMessage(event.MessageId); err != nil {
 		logger.WithError(err).Error("deleting event message")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
 	return c.NoContent(http.StatusOK)

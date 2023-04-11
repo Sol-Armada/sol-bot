@@ -13,14 +13,16 @@ const showRef = ref(false);
 const eventRef = ref(props.event);
 
 function hideModal(e) {
-  var modal = document.querySelector(".modal>div");
-  var rect = modal.getBoundingClientRect();
+  var modal1 = document.querySelector(".modal>div");
+  var rect1 = modal1.getBoundingClientRect();
+  var modal2 = document.querySelector(".modal .preview");
+  var rect2 = modal2.getBoundingClientRect();
 
   if (
-    e.x <= rect.left ||
-    e.x >= rect.right ||
-    e.y <= rect.top ||
-    e.y >= rect.bottom
+    e.x <= rect1.left ||
+    e.x >= rect2.right ||
+    e.y <= rect1.top ||
+    e.y >= rect1.bottom
   ) {
     showRef.value = false;
   }
@@ -37,12 +39,16 @@ function newEvent(e) {
     endDate.setDate(endDate.getDate() + 1);
   }
 
-  eventRef.value.start = startDate.toISOString();
-  eventRef.value.end = endDate.toISOString();
+  if (startDate <= new Date()) {
+    return;
+  }
 
-  console.log(eventRef.value.positions);
+  var newEvent = eventRef.value;
 
-  createEvent(eventRef.value)
+  newEvent.start = startDate.toISOString();
+  newEvent.end = endDate.toISOString();
+
+  createEvent(newEvent)
     .then((createdEvent) => {
       showRef.value = false;
 
@@ -152,7 +158,7 @@ watch(eventRef.value.positions, () => {
           />
         </div>
         <div class="break"></div>
-        <div>
+        <!-- <div>
           <label for="auto-start">Auto Start: </label>
           <input
             type="checkbox"
@@ -160,7 +166,7 @@ watch(eventRef.value.positions, () => {
             id="auto-start"
             v-model="eventRef.auto_start"
           />
-        </div>
+        </div> -->
         <div class="break"></div>
         <div class="positions">
           <Position
@@ -179,6 +185,7 @@ watch(eventRef.value.positions, () => {
     <div class="preview">
       <div class="embed-grid">
         <div class="grid-title">{{ eventRef.name }}</div>
+        <div class="grid-description">{{ eventRef.description }}</div>
         <div class="embed-fields">
           <div class="embed-field">
             <div class="embed-field-name">Time</div>
@@ -186,7 +193,6 @@ watch(eventRef.value.positions, () => {
               <span class="timestamp">{{ eventRef.start }}</span>
               -
               <span class="timestamp">{{ eventRef.end }}</span>
-              <span class="timestamp">until</span>
             </div>
           </div>
 

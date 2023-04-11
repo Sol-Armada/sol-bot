@@ -10,7 +10,7 @@ function upcommingEvents() {
   if (props.events != undefined) {
     var e = [];
     props.events.forEach((ev) => {
-      if (ev.status == 0) {
+      if (ev.status <= 2) {
         e.push(ev);
       }
     });
@@ -25,7 +25,7 @@ function finishedEvents() {
   if (props.events != undefined) {
     var e = [];
     props.events.forEach((ev) => {
-      if (ev.status == 3) {
+      if (ev.status >= 4) {
         e.push(ev);
       }
     });
