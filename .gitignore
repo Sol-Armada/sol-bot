@@ -6,3 +6,4 @@ config.*
 .env*
 *.exe
 web/public/emojis/
+Jenkinsfile

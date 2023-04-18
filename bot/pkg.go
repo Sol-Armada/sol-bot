@@ -573,9 +573,13 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 }
 
 func (b *Bot) ScheduleNextEvent() {
-	go b.ReminderOfEventDay()
+	if time.Now().Add(-24 * time.Hour).Before(nextEvent.End) {
+		go b.ReminderOfEventDay()
+	}
 
-	go b.ReminderOfEventHour()
+	if time.Now().Add(-1 * time.Hour).Before(nextEvent.End) {
+		go b.ReminderOfEventHour()
+	}
 
 	timer := time.NewTimer(time.Until(nextEvent.Start))
 	<-timer.C
