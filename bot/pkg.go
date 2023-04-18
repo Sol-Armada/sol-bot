@@ -516,6 +516,7 @@ func (b *Bot) NotifyOfEvent(e *events.Event) error {
 	return nil
 }
 
+// SetupOnboarding ...
 func (b *Bot) SetupOnboarding() error {
 	channels, err := b.GuildChannels(b.GuildId)
 	if err != nil {
