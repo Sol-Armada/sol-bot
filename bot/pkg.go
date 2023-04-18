@@ -572,6 +572,7 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 	return nil
 }
 
+// ScheduleNextEvent ...
 func (b *Bot) ScheduleNextEvent() {
 	// Remind a day before, if we are not within that day already
 	if time.Now().Add(-24 * time.Hour).Before(nextEvent.End) {
