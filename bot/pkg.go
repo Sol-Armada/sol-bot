@@ -583,6 +583,7 @@ func (b *Bot) ScheduleNextEvent() {
 		go b.ReminderOfEventHour()
 	}
 
+	// Alert that the event has started
 	timer := time.NewTimer(time.Until(nextEvent.Start))
 	<-timer.C
 
