@@ -140,7 +140,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	amount := int32(i.ApplicationCommandData().Options[0].Options[1].Value.(float64))
 	notes := ""
 	if len(i.ApplicationCommandData().Options[0].Options) == 3 {
-		notes = i.ApplicationCommandData().Options[0].Options[3].Value.(string)
+		notes = i.ApplicationCommandData().Options[0].Options[2].Value.(string)
 	}
 
 	if amount <= 0 {
@@ -203,7 +203,7 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	amount := int32(i.ApplicationCommandData().Options[0].Options[1].Value.(float64))
 	notes := ""
 	if len(i.ApplicationCommandData().Options[0].Options) == 3 {
-		notes = i.ApplicationCommandData().Options[0].Options[3].Value.(string)
+		notes = i.ApplicationCommandData().Options[0].Options[2].Value.(string)
 	}
 
 	if amount <= 0 {
