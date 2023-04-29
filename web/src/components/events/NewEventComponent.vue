@@ -47,7 +47,6 @@ function newEvent(e) {
 
   newEvent.start = startDate.toISOString();
   newEvent.end = endDate.toISOString();
-
   createEvent(newEvent)
     .then((createdEvent) => {
       showRef.value = false;

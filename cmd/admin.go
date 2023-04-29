@@ -11,7 +11,9 @@ import (
 	"github.com/apex/log/handlers/cli"
 	"github.com/apex/log/handlers/json"
 	"github.com/sol-armada/admin/bot"
+	"github.com/sol-armada/admin/bot/handlers/event"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/events"
 	"github.com/sol-armada/admin/server"
 	"github.com/sol-armada/admin/stores"
 )
@@ -65,6 +67,16 @@ func main() {
 		doneMonitoring <- true
 		stopMonitoring <- true
 	}()
+
+	// events
+	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
+		log.Info("using events feature")
+		b.AddHandler(event.EventReactionAdd)
+		b.AddHandler(event.EventReactionRemove)
+
+		// watch the events
+		go events.EventWatcher()
+	}
 
 	// start the web server now that everything is running
 	srv, err := server.New()

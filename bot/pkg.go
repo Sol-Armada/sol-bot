@@ -3,19 +3,14 @@ package bot
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
-	"github.com/kyokomi/emoji/v2"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/bot/handlers/bank"
-	"github.com/sol-armada/admin/bot/handlers/event"
 	"github.com/sol-armada/admin/bot/handlers/onboarding"
 	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/events"
-	"github.com/sol-armada/admin/events/status"
 )
 
 type Bot struct {
@@ -26,8 +21,6 @@ type Bot struct {
 }
 
 var bot *Bot
-
-var nextEvent *events.Event
 
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -266,16 +259,6 @@ func (b *Bot) Setup() error {
 		}
 	}
 
-	// events
-	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
-		log.Info("using events feature")
-		b.AddHandler(event.EventReactionAdd)
-		b.AddHandler(event.EventReactionRemove)
-
-		// watch the events
-		go b.EventWatcher()
-	}
-
 	return nil
 }
 
@@ -293,227 +276,6 @@ func (b *Bot) SendMessage(channelId string, message string) (*discordgo.Message,
 
 func (b *Bot) SendComplexMessage(channelId string, message *discordgo.MessageSend) (*discordgo.Message, error) {
 	return b.ChannelMessageSendComplex(channelId, message)
-}
-
-func (b *Bot) StartEvent(e *events.Event) error {
-	logger := log.WithField("event start", e)
-	logger.Info("starting event")
-
-	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
-
-	message, err := b.ChannelMessage(eventChannelId, e.MessageId)
-	if err != nil {
-		return errors.Wrap(err, "getting original event message")
-	}
-
-	message.Embeds[0].Fields[0].Value = fmt.Sprintf("<t:%d> - <t:%d:t>\nLive!", e.Start.Unix(), e.End.Unix())
-
-	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:      message.ID,
-		Channel: message.ChannelID,
-		Embeds:  message.Embeds,
-	}); err != nil {
-		return errors.Wrap(err, "updating original event message")
-	}
-
-	if err := b.MessageReactionsRemoveAll(message.ChannelID, message.ID); err != nil {
-		return errors.Wrap(err, "removing all emojis")
-	}
-
-	timer := time.NewTimer(time.Until(e.End))
-	<-timer.C
-
-	// stop the event
-
-	e.Status = status.Finished
-	if err := e.Save(); err != nil {
-		return errors.Wrap(err, "saving finished event")
-	}
-
-	message.Embeds[0].Fields[0].Value = fmt.Sprintf("<t:%d> - <t:%d:t>", e.Start.Unix(), e.End.Unix())
-
-	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:      message.ID,
-		Channel: message.ChannelID,
-		Embeds:  message.Embeds,
-	}); err != nil {
-		return errors.Wrap(err, "updating original event message")
-	}
-
-	return nil
-}
-
-func (b *Bot) ReminderOfEventDay() {
-	logger := log.WithField("method", "ReminderOfEventDay")
-
-	if nextEvent.Status >= status.Notified_DAY {
-		return
-	}
-
-	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
-
-	message, err := b.ChannelMessage(eventChannelId, nextEvent.MessageId)
-	if err != nil {
-		logger.WithError(err).Error("getting original event message")
-		return
-	}
-
-	timer := time.NewTimer(time.Until(nextEvent.Start.Add(-24 * time.Hour)))
-	<-timer.C
-
-	if nextEvent.Status != status.Live {
-		participents := ""
-		for _, position := range nextEvent.Positions {
-			for ind, m := range position.Members {
-				participents += "<@" + m + ">"
-				if ind+1 < len(position.Members) {
-					participents += ", "
-				}
-			}
-		}
-
-		if message.Thread == nil {
-			thread, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
-				Name:                "Event Notification",
-				Type:                discordgo.ChannelTypeGuildPrivateThread,
-				AutoArchiveDuration: 60,
-			})
-			if err != nil {
-				logger.WithError(err).Error("starting event thread")
-				return
-			}
-
-			message.Thread = thread
-		}
-
-		nextEvent.Status = status.Notified_DAY
-		if err := nextEvent.Save(); err != nil {
-			logger.WithError(err).Error("saving notification day event")
-			return
-		}
-
-		// alert the event is live
-		if participents != "" {
-			if _, err := b.ChannelMessageSend(message.Thread.ID, participents+"\n\nReminder that this event is happening tomorrow!"); err != nil {
-				logger.WithError(err).Error("sending event starting message")
-				return
-			}
-		}
-	}
-}
-
-func (b *Bot) ReminderOfEventHour() {
-	logger := log.WithField("method", "ReminderOfEventHour")
-
-	if nextEvent.Status >= status.Notified_HOUR {
-		return
-	}
-
-	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
-
-	message, err := b.ChannelMessage(eventChannelId, nextEvent.MessageId)
-	if err != nil {
-		logger.WithError(err).Error("getting original event message")
-		return
-	}
-
-	timer := time.NewTimer(time.Until(nextEvent.Start.Add(-1 * time.Hour)))
-	<-timer.C
-
-	if nextEvent.Status != status.Live {
-		participents := ""
-		for _, position := range nextEvent.Positions {
-			for ind, m := range position.Members {
-				participents += "<@" + m + ">"
-				if ind+1 < len(position.Members) {
-					participents += ", "
-				}
-			}
-		}
-
-		if message.Thread == nil {
-			thread, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
-				Name:                "Event Notification",
-				Type:                discordgo.ChannelTypeGuildPrivateThread,
-				AutoArchiveDuration: 60,
-			})
-			if err != nil {
-				logger.WithError(err).Error("starting event thread")
-				return
-			}
-
-			message.Thread = thread
-		}
-
-		nextEvent.Status = status.Notified_HOUR
-		if err := nextEvent.Save(); err != nil {
-			logger.WithError(err).Error("saving notification hour event")
-			return
-		}
-
-		// alert the event is live
-		if participents != "" {
-			if _, err := b.ChannelMessageSend(message.Thread.ID, participents+"\n\nReminder that this event is happening in an hour!"); err != nil {
-				logger.WithError(err).Error("sending event starting message")
-				return
-			}
-		}
-	}
-}
-
-func (b *Bot) NotifyOfEvent(e *events.Event) error {
-	logging := log.WithField("method", "NotifyOfEvent")
-	fields := []*discordgo.MessageEmbedField{
-		{
-			Name:  "Time",
-			Value: fmt.Sprintf("<t:%d> - <t:%d:t>\n:timer: <t:%d:R>", e.Start.Unix(), e.End.Unix(), e.Start.Unix()),
-		},
-	}
-
-	emojis := emoji.CodeMap()
-
-	for _, position := range e.Positions {
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   fmt.Sprintf("%s %s (0/%d)", emojis[":"+strings.ToLower(position.Emoji)+":"], position.Name, position.Max),
-			Value:  "-",
-			Inline: true,
-		})
-	}
-
-	if e.Cover == "/logo.png" || e.Cover == "" {
-		e.Cover = "https://admin.solarmada.space/logo.png"
-	}
-
-	message, err := b.SendComplexMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), &discordgo.MessageSend{
-		Embeds: []*discordgo.MessageEmbed{
-			{
-				Type:        discordgo.EmbedTypeArticle,
-				Title:       e.Name,
-				Description: e.Description,
-				Fields:      fields,
-				Image: &discordgo.MessageEmbedImage{
-					URL: e.Cover,
-				},
-			},
-		},
-	})
-	if err != nil {
-		return err
-	}
-
-	for _, p := range e.Positions {
-		if err := b.MessageReactionAdd(message.ChannelID, message.ID, emojis[":"+strings.ToLower(p.Emoji)+":"]); err != nil {
-			logging.WithError(err).Error("sending reaction")
-		}
-	}
-
-	e.MessageId = message.ID
-	e.Status = status.Announced
-	if err := e.Save(); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 // SetupOnboarding ...
@@ -571,28 +333,6 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 	}
 
 	return nil
-}
-
-// ScheduleNextEvent ...
-func (b *Bot) ScheduleNextEvent() {
-	// Remind a day before, if we are not within that day already
-	if time.Now().Add(-24 * time.Hour).Before(nextEvent.End) {
-		go b.ReminderOfEventDay()
-	}
-
-	// Remind an hour before, if we are not within that hour already
-	if time.Now().Add(-1 * time.Hour).Before(nextEvent.End) {
-		go b.ReminderOfEventHour()
-	}
-
-	// Alert that the event has started
-	timer := time.NewTimer(time.Until(nextEvent.Start))
-	<-timer.C
-
-	nextEvent = nil
-	if err := b.StartEvent(nextEvent); err != nil {
-		log.WithError(err).Error("starting event")
-	}
 }
 
 func (b *Bot) GetEmojis() ([]*discordgo.Emoji, error) {

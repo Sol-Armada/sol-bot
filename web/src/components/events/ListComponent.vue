@@ -10,7 +10,22 @@ function upcommingEvents() {
   if (props.events != undefined) {
     var e = [];
     props.events.forEach((ev) => {
-      if (ev.status <= 2) {
+      if (ev.status <= 3) {
+        e.push(ev);
+      }
+    });
+
+    return e;
+  }
+
+  return [];
+}
+
+function liveEvents() {
+  if (props.events != undefined) {
+    var e = [];
+    props.events.forEach((ev) => {
+      if (ev.status == 4) {
         e.push(ev);
       }
     });
@@ -25,7 +40,7 @@ function finishedEvents() {
   if (props.events != undefined) {
     var e = [];
     props.events.forEach((ev) => {
-      if (ev.status >= 4) {
+      if (ev.status >= 5) {
         e.push(ev);
       }
     });
@@ -44,6 +59,18 @@ defineExpose({
 
 <template>
   <div class="list">
+    <div class="cards">
+      <span>
+        <h1>Live</h1>
+      </span>
+      <Card
+        v-for="event in liveEvents()"
+        :key="event._id"
+        :event="event"
+      />
+      <div class="none" v-if="liveEvents().length == 0"><h2>None</h2></div>
+    </div>
+
     <div class="cards">
       <span>
         <h1>Upcomming</h1>

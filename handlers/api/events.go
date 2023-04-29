@@ -83,7 +83,7 @@ func CreateEvent(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, "internal server error")
 	}
 
-	if req.Cover != "" {
+	if req.Cover == "" {
 		req.Cover = "/logo.png"
 	}
 
@@ -123,7 +123,7 @@ func CreateEvent(c echo.Context) error {
 		return c.JSON(http.StatusConflict, "event overlaps existing event")
 	}
 
-	event, err := e.New(reqMap)
+	e, err := e.New(reqMap)
 	if err != nil {
 		if errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrMissingDuration) || errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrStartWrongFormat) || errors.Is(err, apierrors.ErrMissingId) {
 			return c.JSON(http.StatusBadRequest, "internal server error")
@@ -133,22 +133,16 @@ func CreateEvent(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	if err := event.Save(); err != nil {
+	if err := e.Save(); err != nil {
 		logger.WithError(err).Error("request to map")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	bot, err := bot.GetBot()
-	if err != nil {
-		logger.WithError(err).Error("getting bot for new event")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
-
-	if err := bot.NotifyOfEvent(event); err != nil {
+	if err := e.NotifyOfEvent(); err != nil {
 		logger.WithError(err).Error("notifying of event")
 	}
 
-	return c.JSON(http.StatusOK, CreateEventResponse{Event: event})
+	return c.JSON(http.StatusOK, CreateEventResponse{Event: e})
 }
 
 func UpdateEvent(c echo.Context) error {
