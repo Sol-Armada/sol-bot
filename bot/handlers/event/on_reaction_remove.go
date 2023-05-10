@@ -30,6 +30,7 @@ func EventReactionRemove(s *discordgo.Session, r *discordgo.MessageReactionRemov
 		return
 	}
 
+	event.Lock()
 	for _, position := range event.Positions {
 		positionEmoji := emoji.CodeMap()[":"+strings.ToLower(position.Emoji)+":"]
 
@@ -43,6 +44,7 @@ func EventReactionRemove(s *discordgo.Session, r *discordgo.MessageReactionRemov
 			position.Members = membersInPos
 		}
 	}
+	event.Unlock()
 
 	if err := event.Save(); err != nil {
 		logger.WithError(err).Error("saving event")

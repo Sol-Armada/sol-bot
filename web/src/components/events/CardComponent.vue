@@ -14,9 +14,9 @@ const handleDelete = () => {
   deleteRef.value.openDeleteDialog(props.event._id);
 };
 
-const handleEdit = () => {
-  editRef.value.show = true;
-};
+// const handleEdit = () => {
+//   editRef.value.show = true;
+// };
 
 function openEvent(e) {
   const card = document.querySelector("#" + e);
@@ -93,7 +93,7 @@ onBeforeMount(() => {
       </div>
     </div>
     <div class="mdc-card__actions" v-if="event.status <= 3">
-      <button
+      <!-- <button
         class="mdc-button mdc-button--leading mdc-card__action mdc-card__action--icon"
         title="Edit"
         v-on:click="handleEdit"
@@ -101,7 +101,7 @@ onBeforeMount(() => {
         <span class="mdc-button__ripple"></span>
         <i class="material-icons mdc-button__icon" aria-hidden="true">edit</i>
         <span class="mdc-button__label">Edit</span>
-      </button>
+      </button> -->
       <button
         class="delete-icon-button mdc-button mdc-button--raised mdc-button--leading mdc-card__action mdc-card__action--icon"
         title="Delete"

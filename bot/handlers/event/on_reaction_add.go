@@ -8,6 +8,7 @@ import (
 	"github.com/kyokomi/emoji/v2"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events"
+	"github.com/sol-armada/admin/user"
 )
 
 func EventReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
@@ -30,11 +31,33 @@ func EventReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 		return
 	}
 
+	// get the user via the user id
+	user, err := user.Get(r.UserID)
+	if err != nil {
+		logger.WithError(err).Error("getting user")
+		return
+	}
+
+	event.Lock()
 	for _, position := range event.Positions {
 		positionEmoji := emoji.CodeMap()[":"+strings.ToLower(position.Emoji)+":"]
 
 		// the intended position reaction
 		if r.Emoji.Name == positionEmoji {
+			// see if they meet the rank floor limit
+			if user.Rank > position.MinRank {
+				logger.WithFields(log.Fields{
+					"user": user.Name,
+					"rank": user.Rank,
+					"min":  position.MinRank,
+				}).Debug("user is not ranked high enough")
+				if err := s.MessageReactionRemove(r.ChannelID, r.MessageID, positionEmoji, r.UserID); err != nil {
+					logger.WithError(err).Error("removing reaction from event message")
+				}
+
+				return
+			}
+
 			// see if the position is full
 			if len(position.Members) == int(position.Max) {
 				if err := s.MessageReactionRemove(r.ChannelID, r.MessageID, positionEmoji, r.UserID); err != nil {
@@ -68,6 +91,7 @@ func EventReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 			return
 		}
 	}
+	event.Unlock()
 
 	if err := event.Save(); err != nil {
 		logger.WithError(err).Error("saving event")

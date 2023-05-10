@@ -9,11 +9,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events"
+	"github.com/sol-armada/admin/user"
+	"golang.org/x/exp/slices"
 )
 
 func updateEventMessage(s *discordgo.Session, event *events.Event) error {
 	// get the event message
-	message, err := s.ChannelMessage(config.GetString("DISCORD.CHANNELS.ANNOUNCEMENTS"), event.MessageId)
+	message, err := s.ChannelMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), event.MessageId)
 	if err != nil {
 		return errors.Wrap(err, "getting event message")
 	}
@@ -27,8 +29,25 @@ func updateEventMessage(s *discordgo.Session, event *events.Event) error {
 			if strings.Contains(ef.Name, positionEmoji) {
 				ef.Name = fmt.Sprintf("%s %s (%d/%d)", positionEmoji, position.Name, len(position.Members), position.Max)
 
+				// sort the members by rank
+				pm := position.Members
+				slices.SortFunc(pm, func(i, j string) bool {
+					// get the member
+					iMember, err := user.Get(i)
+					if err != nil {
+						return true
+					}
+
+					jMember, err := user.Get(j)
+					if err != nil {
+						return true
+					}
+
+					return iMember.Rank < jMember.Rank
+				})
+
 				names := ""
-				for _, memberId := range position.Members {
+				for _, memberId := range pm {
 					// get the member
 					member, err := s.GuildMember(config.GetString("DISCORD.GUILD_ID"), memberId)
 					if err != nil {
@@ -36,7 +55,7 @@ func updateEventMessage(s *discordgo.Session, event *events.Event) error {
 					}
 
 					if member.Nick != "" {
-						names += member.Nick
+						names += member.Nick + "\n"
 						continue
 					}
 

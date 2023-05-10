@@ -17,17 +17,17 @@ import (
 )
 
 type User struct {
-	ID             string            `json:"id" bson:"_id"`
-	Name           string            `json:"name" bson:"name"`
-	Rank           ranks.Rank        `json:"rank" bson:"rank"`
-	Notes          string            `json:"notes" bson:"notes"`
-	Events         int64             `json:"events" bson:"events"`
-	PrimaryOrg     string            `json:"primary_org" bson:"primary_org"`
-	RSIMember      bool              `json:"rsi_member" bson:"rsi_member"`
-	BadAffiliation bool              `json:"bad_affiliation" bson:"bad_affiliation"`
-	Discord        *discordgo.Member `json:"discord" bson:"discord"`
+	ID             string     `json:"id" bson:"_id"`
+	Name           string     `json:"name" bson:"name"`
+	Rank           ranks.Rank `json:"rank" bson:"rank"`
+	Notes          string     `json:"notes" bson:"notes"`
+	Events         int64      `json:"events" bson:"events"`
+	PrimaryOrg     string     `json:"primary_org" bson:"primary_org"`
+	RSIMember      bool       `json:"rsi_member" bson:"rsi_member"`
+	BadAffiliation bool       `json:"bad_affiliation" bson:"bad_affiliation"`
 
-	Access *auth.UserAccess `json:"access" bson:"access"`
+	Discord *discordgo.Member `json:"-" bson:"-"`
+	Access  *auth.UserAccess  `json:"-" bson:"-"`
 }
 
 func New(m *discordgo.Member) *User {

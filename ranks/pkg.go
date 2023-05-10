@@ -60,3 +60,40 @@ func GetRankByRSIRankName(name string) Rank {
 		return Guest
 	}
 }
+
+// String returns the string representation of the rank.
+func (r Rank) String() string {
+	switch r {
+	case Admiral:
+		return "Admiral"
+	case Commander:
+		return "Commander"
+	case Lieutenant:
+		return "Lieutenant"
+	case Specialist:
+		return "Specialist"
+	case Technician:
+		return "Technician"
+	case Member:
+		return "Member"
+	case Recruit:
+		return "Recruit"
+	}
+	return "Unknown"
+}
+
+func (r Rank) ShortString() string {
+	switch r {
+	case Admiral:
+		return "ADM"
+	case Commander:
+		return "COM"
+	case Lieutenant:
+		return "LT"
+	case Specialist:
+		return "SPC"
+	case Technician:
+		return "TEC"
+	}
+	return "UNK"
+}

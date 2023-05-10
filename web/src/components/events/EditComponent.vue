@@ -109,11 +109,11 @@ defineExpose({ show });
         </div>
         <div>
           <label for="start">Start: </label>
-          <input type="datetime-local" name="start" id="start" required />
+          <input type="datetime-local" name="start" id="start" required disabled/>
         </div>
         <div>
           <label for="end">End: </label>
-          <input type="time" name="end" id="end" required />
+          <input type="time" name="end" id="end" required disabled/>
         </div>
         <div class="break"></div>
         <div>
@@ -137,7 +137,7 @@ defineExpose({ show });
             placeholder="Defaults to logo"
           />
         </div>
-        <div class="break"></div>
+        <!-- <div class="break"></div>
         <div>
           <label for="auto-start">Auto Start: </label>
           <input
@@ -146,15 +146,14 @@ defineExpose({ show });
             id="auto-start"
             :checked="event.auto_start"
           />
-        </div>
+        </div> -->
         <div class="break"></div>
         <div class="positions">
           <Position
-            v-for="n in 6"
-            :key="n"
-            :position="
-              event.positions[n - 1] == null ? [] : event.positions[n - 1]
-            "
+            v-for="[id, p] in event.positions"
+            :key="id"
+            :position="p"
+            :removePos="removePos"
           />
         </div>
         <div class="button-wrapper">
