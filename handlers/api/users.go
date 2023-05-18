@@ -162,3 +162,83 @@ func UpdateUser(c echo.Context) error {
 
 	return c.NoContent(http.StatusOK)
 }
+
+type incrementEventRequest struct {
+	Id string `json:"id"`
+}
+
+func (r *incrementEventRequest) bind(c echo.Context) error {
+	if err := c.Bind(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func IncrementEvent(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "IncrementEvent",
+	})
+	logger.Debug("incrementing event count")
+
+	req := &incrementEventRequest{}
+	if err := req.bind(c); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	u, err := user.Get(req.Id)
+	if err != nil {
+		logger.WithError(err).Error("returning status")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	u.Events++
+
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("returning status")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+type decrementEventRequest struct {
+	Id string `json:"id"`
+}
+
+func (r *decrementEventRequest) bind(c echo.Context) error {
+	if err := c.Bind(r); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DecrementEvent(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "DecrementEvent",
+	})
+	logger.Debug("decrementing event count")
+
+	req := &decrementEventRequest{}
+	if err := req.bind(c); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	u, err := user.Get(req.Id)
+	if err != nil {
+		logger.WithError(err).Error("returning status")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	u.Events--
+
+	if u.Events < 0 {
+		u.Events = 0
+	}
+
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("returning status")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	return c.NoContent(http.StatusOK)
+}

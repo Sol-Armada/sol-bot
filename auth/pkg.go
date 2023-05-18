@@ -64,11 +64,15 @@ func Authenticate(code string) (*UserAccess, error) {
 
 	if resp.StatusCode == http.StatusBadRequest {
 		errorMessage, _ := ioutil.ReadAll(resp.Body)
-		logger.WithFields(log.Fields{
-			"status code": resp.StatusCode,
-			"message":     string(errorMessage),
-		}).Error("bad request sent to discord auth")
-		return nil, errors.New("internal server error")
+		type ErrorMessage struct {
+			ErrorType   string `json:"error"`
+			Description string `json:"error_description"`
+		}
+		errMsg := ErrorMessage{}
+		if err := json.Unmarshal(errorMessage, &errMsg); err != nil {
+			return nil, err
+		}
+		return nil, errors.New(errMsg.ErrorType)
 	}
 
 	access := map[string]interface{}{}

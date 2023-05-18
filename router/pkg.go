@@ -23,6 +23,8 @@ func New() (*echo.Echo, error) {
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "x-user-id"},
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
+	e.Use(middleware.Logger())
+	e.Use(middleware.Recover())
 
 	fsys, err := fs.Sub(web.StaticFiles, "dist")
 	if err != nil {
@@ -48,6 +50,8 @@ func New() (*echo.Echo, error) {
 	apiGetUserHandler := echo.HandlerFunc(api.GetUser)
 	apiUpdateUserHandler := echo.HandlerFunc(api.UpdateUser)
 	apiGetRandomUsersHandler := echo.HandlerFunc(api.GetRandomUsers)
+	apiIncrementEventHandler := echo.HandlerFunc(api.IncrementEvent)
+	apiDecrementEventHandler := echo.HandlerFunc(api.DecrementEvent)
 
 	apiGetEventsHandler := echo.HandlerFunc(api.GetEvents)
 	apiCreateEventsHandler := echo.HandlerFunc(api.CreateEvent)
@@ -65,6 +69,8 @@ func New() (*echo.Echo, error) {
 	users.GET("/:id", apiGetUserHandler)
 	users.PUT("/:id", apiUpdateUserHandler)
 	users.GET("/random", apiGetRandomUsersHandler)
+	users.PUT("/:id/increment", apiIncrementEventHandler)
+	users.PUT("/:id/decrement", apiDecrementEventHandler)
 
 	events := apiGroup.Group("/events")
 	events.GET("", apiGetEventsHandler)

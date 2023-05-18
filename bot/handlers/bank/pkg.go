@@ -11,6 +11,8 @@ import (
 	"github.com/sol-armada/admin/transaction"
 	"github.com/sol-armada/admin/user"
 	"golang.org/x/exp/slices"
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 var handlers = map[string]func(*discordgo.Session, *discordgo.InteractionCreate){
@@ -58,11 +60,13 @@ func balanceHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		balance += transaction.Amount
 	}
 
+	p := message.NewPrinter(language.English)
+
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: fmt.Sprintf("%d", balance),
+			Content: p.Sprintf("%d aUEC", balance),
 		},
 	}); err != nil {
 		h.ErrorResponse(s, i.Interaction, "backend error responding to the interaction")

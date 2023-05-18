@@ -130,6 +130,8 @@ func updateMembers(m []*discordgo.Member, storedUsers []*user.User) error {
 			}
 		}
 
+		u.Avatar = member.Avatar
+
 		// get the user's primary org, if the nickname is an RSI handle
 		trueNick := u.GetTrueNick()
 		po, ao, rank, err := rsi.GetOrgInfo(trueNick)

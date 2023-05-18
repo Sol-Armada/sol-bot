@@ -44,6 +44,10 @@ func Login(c echo.Context) error {
 	// create the user
 	u := &user.User{}
 	if err := u.Login(req.Code); err != nil {
+		if err.Error() == "invalid_grant" {
+			return c.JSON(http.StatusBadRequest, err.Error())
+		}
+
 		log.WithError(err).Error("authenicating user")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}

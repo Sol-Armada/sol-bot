@@ -20,6 +20,11 @@ func updateEventMessage(s *discordgo.Session, event *events.Event) error {
 		return errors.Wrap(err, "getting event message")
 	}
 
+	message.Embeds[0].Fields[0] = &discordgo.MessageEmbedField{
+		Name:  "Time",
+		Value: fmt.Sprintf("<t:%d> - <t:%d:t>\n:timer: <t:%d:R>", event.Start.Unix(), event.End.Unix(), event.Start.Unix()),
+	}
+
 	// update the message
 	embedFeilds := message.Embeds[0].Fields[1:]
 	for _, ef := range embedFeilds {
@@ -74,6 +79,15 @@ func updateEventMessage(s *discordgo.Session, event *events.Event) error {
 				continue
 			}
 		}
+	}
+
+	limits := ""
+	for _, position := range event.Positions {
+		limits += position.Name + " - " + position.MinRank.String() + "\n"
+	}
+	message.Embeds[0].Fields[len(message.Embeds[0].Fields)-1] = &discordgo.MessageEmbedField{
+		Name:  "Rank Limits",
+		Value: limits,
 	}
 
 	if _, err := s.ChannelMessageEditEmbeds(message.ChannelID, message.ID, message.Embeds); err != nil {

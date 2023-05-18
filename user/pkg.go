@@ -25,9 +25,10 @@ type User struct {
 	PrimaryOrg     string     `json:"primary_org" bson:"primary_org"`
 	RSIMember      bool       `json:"rsi_member" bson:"rsi_member"`
 	BadAffiliation bool       `json:"bad_affiliation" bson:"bad_affiliation"`
+	Avatar         string     `json:"avatar" bson:"avatar"`
 
-	Discord *discordgo.Member `json:"-" bson:"-"`
-	Access  *auth.UserAccess  `json:"-" bson:"-"`
+	Discord *discordgo.Member `json:"-" bson:"discord"`
+	Access  *auth.UserAccess  `json:"-" bson:"access"`
 }
 
 func New(m *discordgo.Member) *User {
@@ -45,6 +46,7 @@ func New(m *discordgo.Member) *User {
 		RSIMember:      true,
 		Discord:        m,
 		BadAffiliation: false,
+		Avatar:         m.User.Avatar,
 	}
 	u.Name = u.GetTrueNick()
 
@@ -133,28 +135,23 @@ func (u *User) Login(code string) error {
 		if resp.StatusCode == 401 {
 			return errors.New("Unauthorized")
 		}
+
 		errorMessage, _ := ioutil.ReadAll(resp.Body)
-		log.WithField("message", errorMessage).Error(string(errorMessage))
-		return errors.New("Internal Error")
+		return errors.New(string(errorMessage))
 	}
 
-	loggedInUser := discordgo.User{}
-	if err := json.NewDecoder(resp.Body).Decode(&loggedInUser); err != nil {
+	discordUser := &discordgo.User{}
+	if err := json.NewDecoder(resp.Body).Decode(&discordUser); err != nil {
 		return err
 	}
 
-	// id, ok := loggedInUser["id"].(string)
-	// if !ok {
-	// 	return errors.New("logged in user did not have an ID")
-	// }
-
-	storedUser := &User{}
-	if err := stores.Storage.GetUser(loggedInUser.ID).Decode(&storedUser); err != nil {
+	if err := stores.Storage.GetUser(discordUser.ID).Decode(&u); err != nil {
 		return errors.Wrap(err, "getting stored user")
 	}
 
-	if storedUser != nil {
-		u.Update(storedUser)
+	u.Avatar = discordUser.Avatar
+	if err := u.Save(); err != nil {
+		return errors.Wrap(err, "saving stored user")
 	}
 
 	return nil
@@ -180,5 +177,5 @@ func (u *User) Update(ui *User) {
 	u.Notes = ui.Notes
 	u.Events = ui.Events
 	u.PrimaryOrg = ui.PrimaryOrg
-	u.Discord = ui.Discord
+	u.Avatar = ui.Avatar
 }

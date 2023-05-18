@@ -78,6 +78,8 @@ func (r Rank) String() string {
 		return "Member"
 	case Recruit:
 		return "Recruit"
+	case Ally:
+		return "Anyone"
 	}
 	return "Unknown"
 }
