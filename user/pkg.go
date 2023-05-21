@@ -96,7 +96,7 @@ func (u *User) UpdateEventCount(count int64) error {
 }
 
 func (u *User) IsAdmin() bool {
-	logger := log.WithField("id", u.Discord.User.ID)
+	logger := log.WithField("id", u.ID)
 	logger.Debug("checking if admin")
 	if u.Rank <= ranks.Lieutenant {
 		return true

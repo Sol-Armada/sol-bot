@@ -86,7 +86,7 @@ func Authenticate(code string) (*UserAccess, error) {
 		RefreshToken: access["refresh_token"].(string),
 	}
 
-	logger.WithField("user access", *userAccess).Info("created new user access")
+	logger.WithField("user access", *userAccess).Debug("created new user access")
 
 	return userAccess, nil
 }
