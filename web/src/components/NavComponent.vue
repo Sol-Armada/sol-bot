@@ -18,7 +18,7 @@ onMounted(() => {
     "https://cdn.discordapp.com/avatars/" +
     admin.value.id +
     "/" +
-    admin.value.discord.user.avatar +
+    admin.value.avatar +
     ".png";
   img.onload = function () {
     var rgb = averageColor(img);
@@ -37,17 +37,13 @@ onMounted(() => {
           'url(https://cdn.discordapp.com/avatars/' +
           admin.id +
           '/' +
-          admin.discord.user.avatar +
+          admin.avatar +
           '.png)',
       }"
     ></div>
     <div class="mdc-drawer__header">
       <h3 class="mdc-drawer__title">
-        {{
-          admin.discord.nick != ""
-            ? admin.discord.nick
-            : admin.discord.user.username
-        }}
+        {{ admin.name }}
       </h3>
       <h6 class="mdc-drawer__subtitle">{{ getRankName(admin.rank) }}</h6>
     </div>
