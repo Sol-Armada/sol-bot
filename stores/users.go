@@ -3,6 +3,7 @@ package stores
 import (
 	"github.com/apex/log"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/admin/ranks"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -33,8 +34,12 @@ func (s *Store) GetUser(id string) *mongo.SingleResult {
 	return s.users.FindOne(s.ctx, filter)
 }
 
-func (s *Store) GetUsers() (*mongo.Cursor, error) {
-	return s.users.Find(s.ctx, bson.M{})
+func (s *Store) GetUsers(rank *ranks.Rank) (*mongo.Cursor, error) {
+	filter := bson.M{}
+	if rank != nil {
+		filter["rank"] = rank
+	}
+	return s.users.Find(s.ctx, filter)
 }
 
 func (s *Store) GetRandomUsers(max int, maxRank int) (*mongo.Cursor, error) {

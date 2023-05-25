@@ -1,16 +1,10 @@
 package event
 
 import (
-	"fmt"
-	"strings"
-
 	"github.com/bwmarrin/discordgo"
-	"github.com/kyokomi/emoji/v2"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events"
-	"github.com/sol-armada/admin/user"
-	"golang.org/x/exp/slices"
 )
 
 func updateEventMessage(s *discordgo.Session, event *events.Event) error {
@@ -20,77 +14,14 @@ func updateEventMessage(s *discordgo.Session, event *events.Event) error {
 		return errors.Wrap(err, "getting event message")
 	}
 
-	message.Embeds[0].Fields[0] = &discordgo.MessageEmbedField{
-		Name:  "Time",
-		Value: fmt.Sprintf("<t:%d> - <t:%d:t>\n:timer: <t:%d:R>", event.Start.Unix(), event.End.Unix(), event.Start.Unix()),
+	embeds, err := event.GetEmbeds()
+	if err != nil {
+		return errors.Wrap(err, "getting embeds")
 	}
 
-	// update the message
-	embedFeilds := message.Embeds[0].Fields[1:]
-	for _, ef := range embedFeilds {
-		// iterate over the positions in the event
-		for _, position := range event.Positions {
-			positionEmoji := emoji.CodeMap()[":"+strings.ToLower(position.Emoji)+":"]
-			if strings.Contains(ef.Name, positionEmoji) {
-				ef.Name = fmt.Sprintf("%s %s (%d/%d)", positionEmoji, position.Name, len(position.Members), position.Max)
-
-				// sort the members by rank
-				pm := position.Members
-				slices.SortFunc(pm, func(i, j string) bool {
-					// get the member
-					iMember, err := user.Get(i)
-					if err != nil {
-						return true
-					}
-
-					jMember, err := user.Get(j)
-					if err != nil {
-						return true
-					}
-
-					return iMember.Rank < jMember.Rank
-				})
-
-				names := ""
-				for _, memberId := range pm {
-					// get the member
-					member, err := s.GuildMember(config.GetString("DISCORD.GUILD_ID"), memberId)
-					if err != nil {
-						return errors.Wrap(err, "getting member")
-					}
-
-					if member.Nick != "" {
-						names += member.Nick + "\n"
-						continue
-					}
-
-					// at the member to the list
-					names += member.User.Username + "\n"
-				}
-
-				// if we have no names, change it to '-'
-				if names == "" {
-					names = "-"
-				}
-
-				// update the field value with the names
-				ef.Value = names
-
-				continue
-			}
-		}
-	}
-
-	limits := ""
-	for _, position := range event.Positions {
-		limits += position.Name + " - " + position.MinRank.String() + "\n"
-	}
-	message.Embeds[0].Fields[len(message.Embeds[0].Fields)-1] = &discordgo.MessageEmbedField{
-		Name:  "Rank Limits",
-		Value: limits,
-	}
-
-	if _, err := s.ChannelMessageEditEmbeds(message.ChannelID, message.ID, message.Embeds); err != nil {
+	if _, err := s.ChannelMessageEditEmbeds(message.ChannelID, message.ID, []*discordgo.MessageEmbed{
+		embeds,
+	}); err != nil {
 		return errors.Wrap(err, "updating embeds")
 	}
 

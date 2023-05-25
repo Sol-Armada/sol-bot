@@ -10,4 +10,5 @@ const (
 	Live
 	Finished
 	Cancelled
+	Deleted
 )

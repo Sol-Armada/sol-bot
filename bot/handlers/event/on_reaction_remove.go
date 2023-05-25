@@ -32,7 +32,7 @@ func EventReactionRemove(s *discordgo.Session, r *discordgo.MessageReactionRemov
 
 	event.Lock()
 	for _, position := range event.Positions {
-		positionEmoji := emoji.CodeMap()[":"+strings.ToLower(position.Emoji)+":"]
+		positionEmoji := emoji.CodeMap()[strings.ToLower(position.Emoji)]
 
 		if r.Emoji.Name == positionEmoji {
 			membersInPos := []string{}

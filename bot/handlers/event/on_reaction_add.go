@@ -40,10 +40,20 @@ func EventReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 
 	event.Lock()
 	for _, position := range event.Positions {
-		positionEmoji := emoji.CodeMap()[":"+strings.ToLower(position.Emoji)+":"]
+		positionEmoji := emoji.CodeMap()[strings.ToLower(position.Emoji)]
 
 		// the intended position reaction
 		if r.Emoji.Name == positionEmoji {
+
+			// if max is 0, limit until all others are filled
+			if position.Max == 0 && !event.AllPositionsFilled() {
+				if err := s.MessageReactionRemove(r.ChannelID, r.MessageID, positionEmoji, r.UserID); err != nil {
+					logger.WithError(err).Error("removing reaction from event message")
+				}
+
+				return
+			}
+
 			// see if they meet the rank floor limit
 			if user.Rank > position.MinRank {
 				logger.WithFields(log.Fields{

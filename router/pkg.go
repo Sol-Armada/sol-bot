@@ -62,6 +62,8 @@ func New() (*echo.Echo, error) {
 
 	apiGetEmojisHandler := echo.HandlerFunc(api.GetEmojisHandler)
 
+	apiUtilGetXIDHandler := echo.HandlerFunc(api.GenerateXID)
+
 	apiGroup.POST("/login", apiLoginHandler)
 
 	users := apiGroup.Group("/users")
@@ -83,6 +85,10 @@ func New() (*echo.Echo, error) {
 
 	emojis := apiGroup.Group("/emojis")
 	emojis.GET("", apiGetEmojisHandler)
+
+	utils := apiGroup.Group("/utilities")
+	utils.GET("", nil)
+	utils.GET("/xid", apiUtilGetXIDHandler)
 
 	return e, nil
 }

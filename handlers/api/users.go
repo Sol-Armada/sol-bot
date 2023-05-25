@@ -15,16 +15,19 @@ import (
 	"github.com/sol-armada/admin/user"
 )
 
+type getUsersRequest struct {
+	Rank string `json:"rank"`
+}
+
+func (r *getUsersRequest) bind(c echo.Context) error {
+	if err := c.Bind(r); err != nil {
+		return err
+	}
+	return nil
+}
+
 type usersResponse struct {
 	Users []user.User `json:"users"`
-}
-
-type getUserResponse struct {
-	User *user.User `json:"user"`
-}
-
-type updateUserRequest struct {
-	User map[string]interface{} `json:"user"`
 }
 
 func GetUsers(c echo.Context) error {
@@ -33,8 +36,19 @@ func GetUsers(c echo.Context) error {
 	})
 	logger.Debug("getting users")
 
+	req := &getUsersRequest{}
+	if err := req.bind(c); err != nil {
+		return c.JSON(http.StatusBadRequest, err.Error())
+	}
+
+	var rank *ranks.Rank
+	if req.Rank != "" {
+		r := ranks.GetRankByName(req.Rank)
+		rank = &r
+	}
+
 	users := []user.User{}
-	cur, err := stores.Storage.GetUsers()
+	cur, err := stores.Storage.GetUsers(rank)
 	if err != nil {
 		logger.WithError(err).Error("getting users")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -47,13 +61,17 @@ func GetUsers(c echo.Context) error {
 	return c.JSON(http.StatusOK, usersResponse{Users: users})
 }
 
+type getUserResponse struct {
+	User *user.User `json:"user"`
+}
+
 func GetUser(c echo.Context) error {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "GetUser",
 	})
 
 	storedUser := &user.User{}
-	if err := stores.Storage.GetUser(c.Param("userid")).Decode(&storedUser); err != nil {
+	if err := stores.Storage.GetUser(c.Param("id")).Decode(&storedUser); err != nil {
 		logger.WithError(err).Error("getting user")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
@@ -121,6 +139,10 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+type updateUserRequest struct {
+	User map[string]interface{} `json:"user"`
+}
+
 func (r *updateUserRequest) bind(c echo.Context) error {
 	if err := c.Bind(r); err != nil {
 		return err
@@ -163,29 +185,13 @@ func UpdateUser(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-type incrementEventRequest struct {
-	Id string `json:"id"`
-}
-
-func (r *incrementEventRequest) bind(c echo.Context) error {
-	if err := c.Bind(r); err != nil {
-		return err
-	}
-	return nil
-}
-
 func IncrementEvent(c echo.Context) error {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "IncrementEvent",
 	})
 	logger.Debug("incrementing event count")
 
-	req := &incrementEventRequest{}
-	if err := req.bind(c); err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error())
-	}
-
-	u, err := user.Get(req.Id)
+	u, err := user.Get(c.Param("id"))
 	if err != nil {
 		logger.WithError(err).Error("returning status")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -198,18 +204,10 @@ func IncrementEvent(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	return c.NoContent(http.StatusOK)
-}
-
-type decrementEventRequest struct {
-	Id string `json:"id"`
-}
-
-func (r *decrementEventRequest) bind(c echo.Context) error {
-	if err := c.Bind(r); err != nil {
-		return err
-	}
-	return nil
+	// return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, getUserResponse{
+		User: u,
+	})
 }
 
 func DecrementEvent(c echo.Context) error {
@@ -218,12 +216,7 @@ func DecrementEvent(c echo.Context) error {
 	})
 	logger.Debug("decrementing event count")
 
-	req := &decrementEventRequest{}
-	if err := req.bind(c); err != nil {
-		return c.JSON(http.StatusBadRequest, err.Error())
-	}
-
-	u, err := user.Get(req.Id)
+	u, err := user.Get(c.Param("id"))
 	if err != nil {
 		logger.WithError(err).Error("returning status")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -240,5 +233,8 @@ func DecrementEvent(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	return c.NoContent(http.StatusOK)
+	// return c.NoContent(http.StatusOK)
+	return c.JSON(http.StatusOK, getUserResponse{
+		User: u,
+	})
 }

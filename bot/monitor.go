@@ -53,7 +53,7 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 
 				// get the stored members
 				storedUsers := []*user.User{}
-				cur, err := stores.Storage.GetUsers()
+				cur, err := stores.Storage.GetUsers(nil)
 				if err != nil {
 					log.WithError(err).Error("getting users for updating")
 					return

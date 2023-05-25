@@ -16,25 +16,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
-type Position struct {
-	Id      string `json:"id"`
-	Name    string `json:"name"`
-	Max     int32  `json:"max"`
-	MinRank int32  `json:"min_rank"`
-	Emoji   string `json:"emoji"`
-}
-
-type CreateEventRequest struct {
-	Name        string              `json:"name"`
-	Start       time.Time           `json:"start"`
-	End         time.Time           `json:"end"`
-	Repeat      int                 `json:"repeat"`
-	AutoStart   bool                `json:"auto_start"`
-	Positions   map[string]Position `json:"positions"`
-	Description string              `json:"description"`
-	Cover       string              `json:"cover"`
-}
-
 type UpdateEventRequest struct {
 	Id          string              `json:"_id"`
 	Name        string              `json:"name"`
@@ -45,10 +26,6 @@ type UpdateEventRequest struct {
 	Positions   map[string]Position `json:"positions"`
 	Description string              `json:"description"`
 	Cover       string              `json:"cover"`
-}
-
-type CreateEventResponse struct {
-	Event *e.Event `json:"event"`
 }
 
 type getEventsResponse struct {
@@ -72,6 +49,31 @@ func GetEvents(c echo.Context) error {
 	})
 }
 
+type Position struct {
+	Id       string `json:"id"`
+	Name     string `json:"name"`
+	Max      int32  `json:"max"`
+	MinRank  int32  `json:"min_rank"`
+	Emoji    string `json:"emoji"`
+	Order    int32  `json:"order"`
+	FillLast bool   `json:"fill_last"`
+}
+
+type CreateEventRequest struct {
+	Name        string     `json:"name"`
+	Start       time.Time  `json:"start"`
+	End         time.Time  `json:"end"`
+	Repeat      int        `json:"repeat"`
+	AutoStart   bool       `json:"auto_start"`
+	Positions   []Position `json:"positions"`
+	Description string     `json:"description"`
+	Cover       string     `json:"cover"`
+}
+
+type CreateEventResponse struct {
+	Event *e.Event `json:"event"`
+}
+
 func CreateEvent(c echo.Context) error {
 	logger := log.WithFields(log.Fields{
 		"endpoint": "CreateEvent",
@@ -80,6 +82,7 @@ func CreateEvent(c echo.Context) error {
 
 	req := &CreateEventRequest{}
 	if err := req.bind(c); err != nil {
+		logger.WithError(err).Error("binding the create event request")
 		return c.JSON(http.StatusBadRequest, "internal server error")
 	}
 
@@ -87,14 +90,8 @@ func CreateEvent(c echo.Context) error {
 		req.Cover = "/logo.png"
 	}
 
-	reqMap, err := req.toMap()
-	if err != nil {
-		logger.WithError(err).Error("request to map")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
-
-	pTimeStart := primitive.NewDateTimeFromTime(reqMap["end"].(time.Time))
-	pTimeEnd := primitive.NewDateTimeFromTime(reqMap["start"].(time.Time))
+	pTimeStart := primitive.NewDateTimeFromTime(req.Start)
+	pTimeEnd := primitive.NewDateTimeFromTime(req.End)
 
 	cur, err := stores.Storage.GetEvents(
 		bson.D{
@@ -121,6 +118,12 @@ func CreateEvent(c echo.Context) error {
 
 	if len(possibleOverlapEvents) > 0 {
 		return c.JSON(http.StatusConflict, "event overlaps existing event")
+	}
+
+	reqMap, err := req.toMap()
+	if err != nil {
+		logger.WithError(err).Error("request to map")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
 	e, err := e.New(reqMap)
