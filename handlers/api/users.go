@@ -204,7 +204,6 @@ func IncrementEvent(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	// return c.NoContent(http.StatusOK)
 	return c.JSON(http.StatusOK, getUserResponse{
 		User: u,
 	})

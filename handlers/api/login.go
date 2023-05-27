@@ -3,8 +3,10 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/apex/log"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
 	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/stores"
@@ -16,7 +18,8 @@ type loginRequest struct {
 }
 
 type loginResponse struct {
-	User *user.User `json:"user"`
+	User  *user.User `json:"user"`
+	Token string     `json:"token"`
 }
 
 func (r *loginRequest) bind(c echo.Context) error {
@@ -57,9 +60,24 @@ func Login(c echo.Context) error {
 		return c.JSON(http.StatusUnauthorized, "unauthorized")
 	}
 
+	token, err := createToken(u.ID)
+	if err != nil {
+		log.WithError(err).Error("creating token")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
 	return c.JSON(http.StatusOK, loginResponse{
-		User: u,
+		User:  u,
+		Token: token,
 	})
+}
+
+func createToken(id string) (string, error) {
+	token := jwt.New(jwt.SigningMethodHS256)
+	claims := token.Claims.(jwt.MapClaims)
+	claims["id"] = id
+	claims["exp"] = time.Now().AddDate(0, 0, 7).Unix()
+	return token.SignedString([]byte("secret"))
 }
 
 func CheckLogin(w http.ResponseWriter, r *http.Request) {

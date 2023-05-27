@@ -3,8 +3,9 @@ package router
 import (
 	"io/fs"
 	"net/http"
+	"strings"
 
-	"github.com/apex/log"
+	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sol-armada/admin/config"
@@ -23,12 +24,18 @@ func New() (*echo.Echo, error) {
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
-		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "x-user-id"},
+		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-Token-Auth"},
 		AllowMethods: []string{echo.GET, echo.HEAD, echo.PUT, echo.PATCH, echo.POST, echo.DELETE},
 	}))
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
-	e.Use(ipWhiteList)
+	e.Use(echojwt.WithConfig(echojwt.Config{
+		SigningKey: []byte("secret"),
+		ContextKey: "token",
+		Skipper: func(c echo.Context) bool {
+			return c.Request().URL.Path == "/api/login" || !strings.Contains(c.Request().URL.Path, "api")
+		},
+	}))
 
 	fsys, err := fs.Sub(web.StaticFiles, "dist")
 	if err != nil {
@@ -38,6 +45,7 @@ func New() (*echo.Echo, error) {
 	indexHandler := http.FileServer(http.FS(fsys))
 
 	e.GET("/", echo.WrapHandler(indexHandler))
+	e.GET("/dashboard", echo.WrapHandler(http.StripPrefix("/dashboard", indexHandler)))
 	e.GET("/ranks", echo.WrapHandler(http.StripPrefix("/ranks", indexHandler)))
 	e.GET("/events", echo.WrapHandler(http.StripPrefix("/events", indexHandler)))
 	e.GET("/login", echo.WrapHandler(http.StripPrefix("/login", indexHandler)))
@@ -95,12 +103,4 @@ func New() (*echo.Echo, error) {
 	utils.GET("/xid", apiUtilGetXIDHandler)
 
 	return e, nil
-}
-
-func ipWhiteList(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		ip := c.Request().Header.Get("X-Forwared-For")
-		log.Info(ip)
-		return next(c)
-	}
 }
