@@ -44,17 +44,17 @@ func GetRankByName(name string) Rank {
 
 func GetRankByRSIRankName(name string) Rank {
 	switch strings.ToUpper(name) {
-	case "DIRECTOR":
+	case "ADMIRAL":
 		return Admiral
 	case "COMMANDER":
 		return Commander
 	case "LIEUTENANT":
 		return Lieutenant
-	case "CHIEF":
-		return Specialist
 	case "SPECIALIST":
+		return Specialist
+	case "TECHNICIAN":
 		return Technician
-	case "INITIATE":
+	case "MEMBER":
 		return Member
 	default:
 		return Guest

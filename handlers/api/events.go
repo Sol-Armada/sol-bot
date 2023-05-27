@@ -1,32 +1,20 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/bot"
+	"github.com/rs/xid"
 	apierrors "github.com/sol-armada/admin/errors"
+	"github.com/sol-armada/admin/events"
 	e "github.com/sol-armada/admin/events"
 	"github.com/sol-armada/admin/stores"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
-
-type UpdateEventRequest struct {
-	Id          string              `json:"_id"`
-	Name        string              `json:"name"`
-	Start       time.Time           `json:"start"`
-	End         time.Time           `json:"end"`
-	Repeat      int                 `json:"repeat"`
-	AutoStart   bool                `json:"auto_start"`
-	Positions   map[string]Position `json:"positions"`
-	Description string              `json:"description"`
-	Cover       string              `json:"cover"`
-}
 
 type getEventsResponse struct {
 	Events []*e.Event `json:"events"`
@@ -59,17 +47,6 @@ type Position struct {
 	FillLast bool   `json:"fill_last"`
 }
 
-type CreateEventRequest struct {
-	Name        string     `json:"name"`
-	Start       time.Time  `json:"start"`
-	End         time.Time  `json:"end"`
-	Repeat      int        `json:"repeat"`
-	AutoStart   bool       `json:"auto_start"`
-	Positions   []Position `json:"positions"`
-	Description string     `json:"description"`
-	Cover       string     `json:"cover"`
-}
-
 type CreateEventResponse struct {
 	Event *e.Event `json:"event"`
 }
@@ -80,18 +57,24 @@ func CreateEvent(c echo.Context) error {
 	})
 	logger.Debug("creating event")
 
-	req := &CreateEventRequest{}
-	if err := req.bind(c); err != nil {
-		logger.WithError(err).Error("binding the create event request")
-		return c.JSON(http.StatusBadRequest, "internal server error")
+	event := &events.Event{
+		Id: xid.New().String(),
+	}
+	if err := c.Bind(&event); err != nil {
+		logger.WithError(err).Error("binding to event")
+		return c.JSON(http.StatusBadRequest, "bad request")
 	}
 
-	if req.Cover == "" {
-		req.Cover = "/logo.png"
+	if event.StartTime.Before(time.Now().UTC()) {
+		return c.JSON(http.StatusBadRequest, "start time can't be in the past")
 	}
 
-	pTimeStart := primitive.NewDateTimeFromTime(req.Start)
-	pTimeEnd := primitive.NewDateTimeFromTime(req.End)
+	if event.Cover == "" {
+		event.Cover = "/logo.png"
+	}
+
+	pTimeStart := primitive.NewDateTimeFromTime(event.StartTime)
+	pTimeEnd := primitive.NewDateTimeFromTime(event.EndTime)
 
 	cur, err := stores.Storage.GetEvents(
 		bson.D{
@@ -120,32 +103,17 @@ func CreateEvent(c echo.Context) error {
 		return c.JSON(http.StatusConflict, "event overlaps existing event")
 	}
 
-	reqMap, err := req.toMap()
-	if err != nil {
+	if err := event.Save(); err != nil {
 		logger.WithError(err).Error("request to map")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	e, err := e.New(reqMap)
-	if err != nil {
-		if errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrMissingDuration) || errors.Is(err, apierrors.ErrMissingStart) || errors.Is(err, apierrors.ErrStartWrongFormat) || errors.Is(err, apierrors.ErrMissingId) {
-			return c.JSON(http.StatusBadRequest, "internal server error")
-		}
-
-		logger.WithError(err).Error("request to map")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
-
-	if err := e.Save(); err != nil {
-		logger.WithError(err).Error("request to map")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
-
-	if err := e.NotifyOfEvent(); err != nil {
+	if err := event.NotifyOfEvent(); err != nil {
 		logger.WithError(err).Error("notifying of event")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	return c.JSON(http.StatusOK, CreateEventResponse{Event: e})
+	return c.JSON(http.StatusOK, CreateEventResponse{Event: event})
 }
 
 func UpdateEvent(c echo.Context) error {
@@ -154,27 +122,23 @@ func UpdateEvent(c echo.Context) error {
 	})
 	logger.Debug("update event")
 
-	req := &UpdateEventRequest{}
-	if err := req.bind(c); err != nil {
-		return c.JSON(http.StatusBadRequest, "internal server error")
-	}
-
-	reqMap, err := req.toMap()
-	if err != nil {
-		logger.WithError(err).Error("update request to map")
+	event := &events.Event{}
+	if err := c.Bind(&event); err != nil {
+		logger.WithError(err).Error("binding to event")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	event, err := e.Get(req.Id)
-	if err != nil {
-		logger.WithError(err).Error("getting event for update")
+	if err := event.Save(); err != nil {
+		logger.WithError(err).Error("saving event")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	if err := event.Update(reqMap); err != nil {
-		logger.WithError(err).Error("updating event")
+	if err := event.UpdateMessage(); err != nil {
+		logger.WithError(err).Error("updating message")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
+
+	events.ResetSchedule(event)
 
 	return c.JSON(http.StatusOK, CreateEventResponse{Event: event})
 }
@@ -202,85 +166,7 @@ func DeleteEvent(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	bot, err := bot.GetBot()
-	if err != nil {
-		logger.WithError(err).Error("getting bot for new event")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
-
-	if err := bot.DeleteEventMessage(event.MessageId); err != nil {
-		logger.WithError(err).Error("deleting event message")
-	}
+	events.CancelSchedule(event)
 
 	return c.NoContent(http.StatusOK)
-}
-
-func (r *CreateEventRequest) bind(c echo.Context) error {
-	if err := c.Bind(r); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *UpdateEventRequest) bind(c echo.Context) error {
-	if err := c.Bind(r); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (r *CreateEventRequest) toMap() (map[string]interface{}, error) {
-	jsonRequest, err := json.Marshal(r)
-	if err != nil {
-		return nil, err
-	}
-
-	mapRequest := map[string]interface{}{}
-	if err := json.Unmarshal(jsonRequest, &mapRequest); err != nil {
-		return nil, err
-	}
-
-	start, err := time.Parse(time.RFC3339, mapRequest["start"].(string))
-	if err != nil {
-		return nil, err
-	}
-
-	mapRequest["start"] = start
-
-	end, err := time.Parse(time.RFC3339, mapRequest["end"].(string))
-	if err != nil {
-		return nil, err
-	}
-
-	mapRequest["end"] = end
-
-	return mapRequest, nil
-}
-
-func (r *UpdateEventRequest) toMap() (map[string]interface{}, error) {
-	jsonRequest, err := json.Marshal(r)
-	if err != nil {
-		return nil, err
-	}
-
-	mapRequest := map[string]interface{}{}
-	if err := json.Unmarshal(jsonRequest, &mapRequest); err != nil {
-		return nil, err
-	}
-
-	start, err := time.Parse(time.RFC3339, mapRequest["start"].(string))
-	if err != nil {
-		return nil, err
-	}
-
-	mapRequest["start"] = start
-
-	end, err := time.Parse(time.RFC3339, mapRequest["end"].(string))
-	if err != nil {
-		return nil, err
-	}
-
-	mapRequest["end"] = end
-
-	return mapRequest, nil
 }

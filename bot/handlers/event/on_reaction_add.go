@@ -68,8 +68,8 @@ func EventReactionAdd(s *discordgo.Session, r *discordgo.MessageReactionAdd) {
 				return
 			}
 
-			// see if the position is full
-			if len(position.Members) == int(position.Max) {
+			// see if the position is full and is not extras
+			if len(position.Members) == int(position.Max) && position.Max != 0 {
 				if err := s.MessageReactionRemove(r.ChannelID, r.MessageID, positionEmoji, r.UserID); err != nil {
 					logger.WithError(err).Error("removing reaction from event message")
 				}

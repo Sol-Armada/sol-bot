@@ -29,16 +29,12 @@ func (s *Store) GetNextEvent() *mongo.SingleResult {
 	return sr
 }
 
-func (s *Store) GetEvent(id string) (map[string]interface{}, error) {
-	event := map[string]interface{}{}
-	if err := s.events.FindOne(s.ctx, bson.D{{Key: "_id", Value: id}}).Decode(&event); err != nil {
-		return nil, err
-	}
-	return event, nil
+func (s *Store) GetEvent(id string) *mongo.SingleResult {
+	return s.events.FindOne(s.ctx, bson.D{{Key: "_id", Value: id}})
 }
 
 func (s *Store) SaveEvent(e map[string]interface{}) error {
-	id, ok := e["_id"].(string)
+	id, ok := e["id"].(string)
 	if !ok {
 		return apierrors.ErrMissingId
 	}
