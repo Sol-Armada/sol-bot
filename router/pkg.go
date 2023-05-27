@@ -4,6 +4,7 @@ import (
 	"io/fs"
 	"net/http"
 
+	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/sol-armada/admin/config"
@@ -13,10 +14,12 @@ import (
 
 func New() (*echo.Echo, error) {
 	e := echo.New()
+	e.Debug = false
 
 	if config.GetBool("LOG.DEBUG") {
 		e.Debug = true
 	}
+
 	e.Pre(middleware.RemoveTrailingSlash())
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
@@ -25,6 +28,7 @@ func New() (*echo.Echo, error) {
 	}))
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(ipWhiteList)
 
 	fsys, err := fs.Sub(web.StaticFiles, "dist")
 	if err != nil {
@@ -93,27 +97,10 @@ func New() (*echo.Echo, error) {
 	return e, nil
 }
 
-// func isAdmin(next http.Handler) http.Handler {
-// 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-// 		userId := r.Header.Get("X-User-Id")
-// 		if userId == "" {
-// 			userId = r.Header.Get("x-user-id")
-// 		}
-// 		if userId == "" {
-// 			http.Error(w, "Bad Request", http.StatusBadRequest)
-// 			return
-// 		}
-
-// 		storedUsers := &user.User{}
-// 		if err := stores.Storage.GetUser(userId).Decode(&storedUsers); err != nil {
-// 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-// 			return
-// 		}
-// 		if !storedUsers.IsAdmin() {
-// 			http.Error(w, "Not Authorized", http.StatusUnauthorized)
-// 			return
-// 		}
-
-// 		next.ServeHTTP(w, r)
-// 	})
-// }
+func ipWhiteList(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		ip := c.Request().Header.Get("X-Forwared-For")
+		log.Info(ip)
+		return next(c)
+	}
+}
