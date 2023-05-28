@@ -86,12 +86,48 @@ func GetAll() ([]*Event, error) {
 		return nil, err
 	}
 
-	e := []*Event{}
-	if err := cur.All(context.Background(), &e); err != nil {
+	eventsMap := []map[string]interface{}{}
+	if err := cur.All(context.Background(), &eventsMap); err != nil {
 		return nil, err
 	}
 
+	e := []*Event{}
+	for _, eventMap := range eventsMap {
+		event := &Event{}
+		if err := event.parse(eventMap); err != nil {
+			return nil, err
+		}
+		e = append(e, event)
+	}
+
 	return e, nil
+}
+
+func (e *Event) parse(eventMap map[string]interface{}) error {
+	eventMap["id"] = eventMap["_id"]
+	if startTime, ok := eventMap["start_time"].(float64); ok {
+		eventMap["start_time"] = time.UnixMilli(int64(startTime))
+	}
+	if startTime, ok := eventMap["start_time"].(int64); ok {
+		eventMap["start_time"] = time.UnixMilli(startTime)
+	}
+	if endTime, ok := eventMap["end_time"].(float64); ok {
+		eventMap["end_time"] = time.UnixMilli(int64(endTime))
+	}
+	if endTime, ok := eventMap["end_time"].(int64); ok {
+		eventMap["end_time"] = time.UnixMilli(endTime)
+	}
+
+	jsonEventMap, err := json.Marshal(eventMap)
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(jsonEventMap, &e); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func GetByMessageId(messageId string) (*Event, error) {
@@ -115,14 +151,23 @@ func GetByMessageId(messageId string) (*Event, error) {
 }
 
 func GetAllWithFilter(filter interface{}) ([]*Event, error) {
-	e := []*Event{}
 	cur, err := stores.Storage.GetEvents(filter)
 	if err != nil {
 		return nil, err
 	}
 
-	if err := cur.All(context.Background(), &e); err != nil {
+	eventsMap := []map[string]interface{}{}
+	if err := cur.All(context.Background(), &eventsMap); err != nil {
 		return nil, err
+	}
+
+	e := []*Event{}
+	for _, eventMap := range eventsMap {
+		event := &Event{}
+		if err := event.parse(eventMap); err != nil {
+			return nil, err
+		}
+		e = append(e, event)
 	}
 
 	return e, nil
