@@ -13,12 +13,14 @@ import (
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/user"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/exp/slices"
 )
 
 func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 	log.Info("monitoring discord for users")
-	ticker := time.NewTicker(1 * time.Minute)
+	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
 	lastChecked := time.Now().Add(-30 * time.Minute)
@@ -53,7 +55,7 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 
 				// get the stored members
 				storedUsers := []*user.User{}
-				cur, err := stores.Storage.GetUsers(nil)
+				cur, err := stores.Storage.GetUsers(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
 				if err != nil {
 					log.WithError(err).Error("getting users for updating")
 					return
@@ -64,10 +66,9 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 				}
 
 				// actually do the members update
-				if err := updateMembers(m, storedUsers); err != nil {
+				if err := updateMembers(m); err != nil {
 					if strings.Contains(err.Error(), "Forbidden") {
-						log.Warn("we hit the limit with RSI's website. let's wait and try again...")
-						time.Sleep(30 * time.Minute)
+						lastChecked = time.Now()
 						continue
 					}
 
@@ -114,58 +115,52 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 	return member, nil
 }
 
-func updateMembers(m []*discordgo.Member, storedUsers []*user.User) error {
-	log.Debug("checking users")
+func updateMembers(m []*discordgo.Member) error {
+	log.WithFields(log.Fields{
+		"discord_members": len(m),
+	}).Debug("checking users")
 
 	for _, member := range m {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1 * time.Second)
 
-		u := user.New(member)
-
-		for _, su := range storedUsers {
-			if member.User.ID == su.ID {
-				u.Events = su.Events
-				u.Notes = su.Notes
-				break
-			}
-		}
-
-		u.Avatar = member.Avatar
-
-		// get the user's primary org, if the nickname is an RSI handle
-		trueNick := u.GetTrueNick()
-		po, ao, rank, err := rsi.GetOrgInfo(trueNick)
+		// get the stord user, if we have one
+		u, err := user.Get(member.User.ID)
 		if err != nil {
+			if !errors.Is(err, mongo.ErrNoDocuments) {
+				log.WithError(err).Error("getting user for update")
+				continue
+			}
+
+			u = user.New(member)
+		}
+		u.Discord = member
+		u.Name = u.GetTrueNick()
+
+		// rsi related stuff
+		u, err = rsi.GetOrgInfo(u)
+		if err != nil {
+			if strings.Contains(err.Error(), "Forbidden") {
+				log.Warn("rsi limit")
+				continue
+			}
+
 			if !errors.Is(err, rsi.UserNotFound) {
 				return errors.Wrap(err, "getting rsi based rank")
 			}
 
+			log.WithField("user", u).Debug("user not found")
 			u.RSIMember = false
 		}
+
+		// discord related stuff
+		u.Avatar = member.Avatar
 		if slices.Contains(member.Roles, config.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
-			rank = ranks.Recruit
+			u.Rank = ranks.Recruit
 		}
 		if member.User.Bot {
-			rank = ranks.Bot
-		}
-		for _, a := range config.GetStringSlice("allies") {
-			if strings.EqualFold(u.PrimaryOrg, a) {
-				rank = ranks.Ally
-				break
-			}
-		}
-		u.Rank = rank
-
-		u.PrimaryOrg = po
-
-		for _, affiliatedOrg := range ao {
-			if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
-				u.BadAffiliation = true
-				goto SAVE
-			}
+			u.IsBot = true
 		}
 
-	SAVE:
 		if err := u.Save(); err != nil {
 			return errors.Wrap(err, "saving new user")
 		}

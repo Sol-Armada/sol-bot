@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -13,6 +14,8 @@ import (
 	"github.com/sol-armada/admin/request"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/user"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type getUsersRequest struct {
@@ -41,23 +44,21 @@ func GetUsers(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
-	var rank *ranks.Rank
-	if req.Rank != "" {
-		r := ranks.GetRankByName(req.Rank)
-		rank = &r
-	}
-
 	users := []user.User{}
-	cur, err := stores.Storage.GetUsers(rank)
+	cur, err := stores.Storage.GetUsers(bson.D{})
 	if err != nil {
-		logger.WithError(err).Error("getting users")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
+		if !errors.Is(err, mongo.ErrNilDocument) {
+			logger.WithError(err).Error("getting users")
+			return c.JSON(http.StatusInternalServerError, "internal server error")
+		}
+
+		goto RETURN
 	}
 	if err := cur.All(c.Request().Context(), &users); err != nil {
 		logger.WithError(err).Error("getting users from collection")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
-
+RETURN:
 	return c.JSON(http.StatusOK, usersResponse{Users: users})
 }
 

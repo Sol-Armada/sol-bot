@@ -25,7 +25,17 @@ type User struct {
 	PrimaryOrg     string     `json:"primary_org" bson:"primary_org"`
 	RSIMember      bool       `json:"rsi_member" bson:"rsi_member"`
 	BadAffiliation bool       `json:"bad_affiliation" bson:"bad_affiliation"`
+	Affilations    []string   `json:"affiliations" bson:"affilations"`
 	Avatar         string     `json:"avatar" bson:"avatar"`
+	Updated        time.Time  `json:"updated" bson:"updated"`
+	IsBot          bool       `json:"is_bot" bson:"is_bot"`
+	IsAlly         bool       `json:"is_ally" bson:"is_ally"`
+	Validated      bool       `json:"validated" bson:"validated"`
+
+	Playtime  string `json:"playtime" bson:"playtime"`
+	Gameplay  string `json:"gamplay" bson:"gameplay"`
+	Age       int    `json:"age" bson:"age"`
+	Recruiter *User  `json:"recruiter" bson:"recruiter"`
 
 	Discord *discordgo.Member `json:"-" bson:"discord"`
 	Access  *auth.UserAccess  `json:"-" bson:"access"`
@@ -63,6 +73,10 @@ func Get(id string) (*User, error) {
 }
 
 func (u *User) GetTrueNick() string {
+	if u.Discord == nil {
+		return u.Name
+	}
+
 	trueNick := u.Discord.User.Username
 	regRank := regexp.MustCompile(`\[(.*?)\] `)
 	regAlly := regexp.MustCompile(`\{(.*?)\} `)
@@ -77,12 +91,13 @@ func (u *User) GetTrueNick() string {
 }
 
 func (u *User) Save() error {
-	log.WithField("user", u.ToJson()).Debug("saving user")
+	u.Updated = time.Now().UTC()
+	log.WithField("user", u).Debug("saving user")
 	return stores.Storage.SaveUser(u.ID, u)
 }
 
 func (u *User) Load() error {
-	log.WithField("user", u.ToJson()).Debug("loading user")
+	log.WithField("user", u).Debug("loading user")
 	if err := stores.Storage.GetUser(u.Discord.User.ID).Decode(u); err != nil {
 		return errors.Wrap(err, "getting stored user for loading")
 	}
@@ -120,7 +135,7 @@ func (u *User) Login(code string) error {
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", userAccess.AccessToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", u.Access.AccessToken))
 
 	log.Debug("request for login to discord")
 
@@ -159,23 +174,4 @@ func (u *User) Login(code string) error {
 
 func (u *User) StillLoggedIn() bool {
 	return time.Until(u.Access.ExpiresAt) > 0
-}
-
-func (u *User) ToJson() string {
-	jsonUser, err := json.Marshal(u)
-	if err != nil {
-		log.WithError(err).WithField("user", u).Error("user to json")
-		return ""
-	}
-	return string(jsonUser)
-}
-
-func (u *User) Update(ui *User) {
-	u.ID = ui.ID
-	u.Name = ui.Name
-	u.Rank = ui.Rank
-	u.Notes = ui.Notes
-	u.Events = ui.Events
-	u.PrimaryOrg = ui.PrimaryOrg
-	u.Avatar = ui.Avatar
 }

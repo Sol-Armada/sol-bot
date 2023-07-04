@@ -5,7 +5,7 @@ import "strings"
 type Rank int
 
 const (
-	Bot Rank = iota
+	_ Rank = iota
 	Admiral
 	Commander
 	Lieutenant
@@ -16,6 +16,14 @@ const (
 	Guest
 	Ally Rank = 99
 )
+
+var Prefix map[Rank]string = map[Rank]string{
+	Admiral:    "[ADM]",
+	Commander:  "[CDR]",
+	Lieutenant: "[LT]",
+	Specialist: "[SPC]",
+	Technician: "[TEC]",
+}
 
 func GetRankByName(name string) Rank {
 	switch strings.ToUpper(name) {
@@ -35,10 +43,8 @@ func GetRankByName(name string) Rank {
 		return Recruit
 	case "GUEST":
 		return Guest
-	case "BOT":
-		return Bot
 	default:
-		return Recruit
+		return Guest
 	}
 }
 

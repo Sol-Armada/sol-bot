@@ -1,15 +1,13 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/gorilla/mux"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/user"
 )
 
@@ -77,30 +75,5 @@ func createToken(id string) (string, error) {
 	claims := token.Claims.(jwt.MapClaims)
 	claims["id"] = id
 	claims["exp"] = time.Now().AddDate(0, 0, 7).Unix()
-	return token.SignedString([]byte("secret"))
+	return token.SignedString([]byte(config.GetString("SERVER.SECRET")))
 }
-
-func CheckLogin(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	id := vars["id"]
-	if id == "" {
-		http.Error(w, "Bad Request", http.StatusBadRequest)
-		return
-	}
-
-	storedUser := &user.User{}
-	if err := stores.Storage.GetUser(id).Decode(storedUser); err != nil {
-		log.WithError(err).Error("check login return")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	if _, err := fmt.Fprint(w, storedUser.StillLoggedIn()); err != nil {
-		log.WithError(err).Error("check login return")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-	}
-}
-
-func EncryptAccess(w http.ResponseWriter, r *http.Request) {}
-
-func DecryptAccess(w http.ResponseWriter, r *http.Request) {}

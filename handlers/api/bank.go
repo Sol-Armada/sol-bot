@@ -19,13 +19,13 @@ func GetBankBalance(c echo.Context) error {
 	})
 	logger.Debug("getting bank balance")
 
-	transactions := []*transaction.Transaction{}
 	cur, err := stores.Storage.GetTransactions()
 	if err != nil {
 		logger.WithError(err).Error("getting transactions cursor")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
+	transactions := []*transaction.Transaction{}
 	if err := cur.All(c.Request().Context(), &transactions); err != nil {
 		logger.WithError(err).Error("getting transactions from collection")
 		return c.JSON(http.StatusInternalServerError, "internal server error")

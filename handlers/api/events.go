@@ -103,13 +103,13 @@ func CreateEvent(c echo.Context) error {
 		return c.JSON(http.StatusConflict, "event overlaps existing event")
 	}
 
-	if err := event.Save(); err != nil {
-		logger.WithError(err).Error("request to map")
+	if err := event.NotifyOfEvent(); err != nil {
+		logger.WithError(err).Error("notifying of event")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	if err := event.NotifyOfEvent(); err != nil {
-		logger.WithError(err).Error("notifying of event")
+	if err := event.Save(); err != nil {
+		logger.WithError(err).Error("request to map")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 

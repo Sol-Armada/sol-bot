@@ -1,4 +1,4 @@
-package bank
+package handlers
 
 import (
 	"fmt"
@@ -6,8 +6,8 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
-	h "github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/config"
+	customerrors "github.com/sol-armada/admin/errors"
 	"github.com/sol-armada/admin/transaction"
 	"github.com/sol-armada/admin/user"
 	"golang.org/x/exp/slices"
@@ -15,7 +15,7 @@ import (
 	"golang.org/x/text/message"
 )
 
-var handlers = map[string]func(*discordgo.Session, *discordgo.InteractionCreate){
+var bankHandlers = map[string]func(*discordgo.Session, *discordgo.InteractionCreate){
 	"balance": balanceHandler,
 	"add":     addHandler,
 	"remove":  removeHandler,
@@ -35,13 +35,13 @@ func BankCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Content: "You do not have permission for this command",
 			},
 		}); err != nil {
-			h.ErrorResponse(s, i.Interaction, "backend error responding to the interaction")
+			customerrors.ErrorResponse(s, i.Interaction, "backend error responding to the interaction")
 		}
 		return
 	}
 
 	commandOption := i.ApplicationCommandData().Options[0].Name
-	handlers[commandOption](s, i)
+	bankHandlers[commandOption](s, i)
 }
 
 func balanceHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -51,7 +51,7 @@ func balanceHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	transactions, err := transaction.List()
 	if err != nil {
 		logger.WithError(err).Error("getting transactions for balance command")
-		h.ErrorResponse(s, i.Interaction, "backend error getting transactions")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error getting transactions")
 		return
 	}
 
@@ -69,7 +69,7 @@ func balanceHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: p.Sprintf("%d aUEC", balance),
 		},
 	}); err != nil {
-		h.ErrorResponse(s, i.Interaction, "backend error responding to the interaction")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error responding to the interaction")
 	}
 }
 
@@ -92,15 +92,21 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Content: "Amount must be above zero",
 			},
 		}); err != nil {
-			h.ErrorResponse(s, i.Interaction, "backend issue")
+			customerrors.ErrorResponse(s, i.Interaction, "backend issue")
+			return
 		}
 	}
 
 	from, err := user.Get(fromId)
+	if err != nil {
+		logger.WithError(err).Error("getting from user")
+		customerrors.ErrorResponse(s, i.Interaction, "backend issue")
+		return
+	}
 	from.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting from user for bank add")
-		h.ErrorResponse(s, i.Interaction, "backend error getting the from user")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the from user")
 		return
 	}
 
@@ -108,7 +114,7 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	holder.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank add")
-		h.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)")
 		return
 	}
 
@@ -121,7 +127,7 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if err := transaction.Save(); err != nil {
-		h.ErrorResponse(s, i.Interaction, "backend error saving the transaction")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error saving the transaction")
 		return
 	}
 
@@ -132,7 +138,7 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: fmt.Sprintf("Added %d From %s", amount, from.Name),
 		},
 	}); err != nil {
-		h.ErrorResponse(s, i.Interaction, "backend issue")
+		customerrors.ErrorResponse(s, i.Interaction, "backend issue")
 	}
 }
 
@@ -155,7 +161,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Content: "Amount must be above zero",
 			},
 		}); err != nil {
-			h.ErrorResponse(s, i.Interaction, "backend issue")
+			customerrors.ErrorResponse(s, i.Interaction, "backend issue")
 		}
 	}
 
@@ -163,7 +169,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	to.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting to user for bank remove")
-		h.ErrorResponse(s, i.Interaction, "backend error getting the to user")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the to user")
 		return
 	}
 
@@ -171,7 +177,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	holder.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank remove")
-		h.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)")
 		return
 	}
 
@@ -184,7 +190,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if err := transaction.Save(); err != nil {
-		h.ErrorResponse(s, i.Interaction, "backend error saving the transaction")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error saving the transaction")
 		return
 	}
 
@@ -195,7 +201,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: fmt.Sprintf("Removing %d to be for %s", amount, to.Name),
 		},
 	}); err != nil {
-		h.ErrorResponse(s, i.Interaction, "backend issue")
+		customerrors.ErrorResponse(s, i.Interaction, "backend issue")
 	}
 }
 
@@ -218,7 +224,7 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Content: "Amount must be above zero",
 			},
 		}); err != nil {
-			h.ErrorResponse(s, i.Interaction, "backend issue")
+			customerrors.ErrorResponse(s, i.Interaction, "backend issue")
 		}
 	}
 
@@ -226,7 +232,7 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	holder.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank remove")
-		h.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)")
 		return
 	}
 
@@ -239,7 +245,7 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if err := transaction.Save(); err != nil {
-		h.ErrorResponse(s, i.Interaction, "backend error saving the transaction")
+		customerrors.ErrorResponse(s, i.Interaction, "backend error saving the transaction")
 		return
 	}
 
@@ -250,6 +256,6 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			Content: fmt.Sprintf("Spending %d for \"%s\"", amount, spendReason),
 		},
 	}); err != nil {
-		h.ErrorResponse(s, i.Interaction, "backend issue")
+		customerrors.ErrorResponse(s, i.Interaction, "backend issue")
 	}
 }

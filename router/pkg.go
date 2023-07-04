@@ -30,10 +30,16 @@ func New() (*echo.Echo, error) {
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
 	e.Use(echojwt.WithConfig(echojwt.Config{
-		SigningKey: []byte("secret"),
+		SigningKey: []byte(config.GetString("SERVER.SECRET")),
 		ContextKey: "token",
 		Skipper: func(c echo.Context) bool {
 			return c.Request().URL.Path == "/api/login" || !strings.Contains(c.Request().URL.Path, "api")
+		},
+		ErrorHandler: func(c echo.Context, err error) error {
+			if err := c.JSON(http.StatusUnauthorized, "unautorized"); err != nil {
+				return err
+			}
+			return err
 		},
 	}))
 
@@ -49,6 +55,7 @@ func New() (*echo.Echo, error) {
 	e.GET("/ranks", echo.WrapHandler(http.StripPrefix("/ranks", indexHandler)))
 	e.GET("/events", echo.WrapHandler(http.StripPrefix("/events", indexHandler)))
 	e.GET("/events/edit", echo.WrapHandler(http.StripPrefix("/events/edit", indexHandler)))
+	e.GET("/events/new", echo.WrapHandler(http.StripPrefix("/events/new", indexHandler)))
 	e.GET("/login", echo.WrapHandler(http.StripPrefix("/login", indexHandler)))
 	e.GET("/favicon.ico", echo.WrapHandler(indexHandler))
 	e.GET("/logo.png", echo.WrapHandler(indexHandler))

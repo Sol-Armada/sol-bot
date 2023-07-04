@@ -3,7 +3,9 @@ package server
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/router"
@@ -17,6 +19,8 @@ type Server struct {
 
 func New() (*Server, error) {
 	r, err := router.New()
+	r.HideBanner = true
+	r.HidePort = true
 	if err != nil {
 		return nil, err
 	}
@@ -28,7 +32,9 @@ func New() (*Server, error) {
 }
 
 func (s *Server) Start() error {
-	return s.Echo.Start(fmt.Sprintf(":%d", config.GetIntWithDefault("SERVER.PORT", 8080)))
+	port := config.GetIntWithDefault("SERVER.PORT", 8080)
+	log.Info("listening on port " + strconv.Itoa(port))
+	return s.Echo.Start(fmt.Sprintf(":%d", port))
 }
 
 func (s *Server) Stop() error {

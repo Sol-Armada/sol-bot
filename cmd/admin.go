@@ -3,20 +3,31 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
 	"github.com/apex/log/handlers/json"
 	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/bot/handlers/event"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events"
+	"github.com/sol-armada/admin/onboarding"
 	"github.com/sol-armada/admin/server"
 	"github.com/sol-armada/admin/stores"
 )
+
+type customFormatter struct {
+	hander log.Handler
+}
+
+func (f *customFormatter) HandleLog(e *log.Entry) error {
+	e.Message = fmt.Sprintf("[%s][%s] %s", time.Now().Format("15:04:05"), e.Level.String(), e.Message)
+	return f.hander.HandleLog(e)
+}
 
 func main() {
 	defer func() {
@@ -34,7 +45,10 @@ func main() {
 	log.SetHandler(json.New(os.Stdout))
 	if config.GetBool("LOG.DEBUG") {
 		log.SetLevel(log.DebugLevel)
-		log.SetHandler(cli.New(os.Stdout))
+		if config.GetBool("LOG.CLI") {
+			handler := &customFormatter{hander: cli.New(os.Stdout)}
+			log.SetHandler(handler)
+		}
 		log.Debug("debug mode on")
 	}
 
@@ -71,11 +85,19 @@ func main() {
 	// events
 	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
 		log.Info("using events feature")
-		b.AddHandler(event.EventReactionAdd)
-		b.AddHandler(event.EventReactionRemove)
 
-		// watch the events
-		go events.EventWatcher()
+		if err := events.Setup(b); err != nil {
+			log.WithError(err).Error("setting up onboarding")
+		}
+	}
+
+	// onboarding
+	if config.GetBool("FEATURES.ONBOARDING") {
+		log.Info("using onboarding feature")
+
+		if err := onboarding.Setup(b); err != nil {
+			log.WithError(err).Error("setting up onboarding")
+		}
 	}
 
 	// start the web server now that everything is running

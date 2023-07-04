@@ -9,20 +9,18 @@ import (
 	"github.com/gocolly/colly/v2"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/user"
 	"github.com/sol-armada/admin/utils"
 	"golang.org/x/exp/slices"
 )
 
 var (
-	UserNotFound error = errors.New("user was not found")
+	UserNotFound error            = errors.New("user was not found")
+	c            *colly.Collector = colly.NewCollector(colly.AllowURLRevisit())
 )
 
-func GetOrgInfo(username string) (string, []string, ranks.Rank, error) {
-	c := colly.NewCollector()
-
-	rank := ranks.Guest
-	var po string
-	var affiliatedOrgs []string
+func GetOrgInfo(u *user.User) (*user.User, error) {
+	u.Rank = ranks.Guest
 	var err error
 	c.OnResponse(func(r *colly.Response) {
 		if r.StatusCode == 404 {
@@ -30,41 +28,55 @@ func GetOrgInfo(username string) (string, []string, ranks.Rank, error) {
 		}
 	})
 
-	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		rank = ranks.GetRankByRSIRankName(e.Text)
+	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
+		u.PrimaryOrg = e.Text
 	})
 
-	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		po = e.Text
+	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
+		if u.PrimaryOrg == config.GetString("rsi_org_sid") {
+			u.Rank = ranks.GetRankByRSIRankName(e.Text)
+		}
 	})
 
 	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
-		affiliatedOrgs = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
+		u.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
 	})
 
 	c.OnXML(`//div[contains(@class, "org main")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
-		po = "REDACTED"
+		u.PrimaryOrg = "REDACTED"
+		u.Rank = ranks.Guest
 	})
 
-	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", username)); err != nil {
+	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", u.GetTrueNick())); err != nil {
 		if err.Error() == "Not Found" {
-			return po, affiliatedOrgs, ranks.Guest, UserNotFound
+			return u, UserNotFound
 		}
 
-		return po, affiliatedOrgs, ranks.Guest, err
+		return u, err
+	}
+	u.RSIMember = true
+
+	u.BadAffiliation = false
+	for _, affiliatedOrg := range u.Affilations {
+		if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
+			u.BadAffiliation = true
+			break
+		}
 	}
 
-	if po == "REDACTED" || slices.Contains(config.GetStringSlice("ENEMIES"), po) || po != config.GetString("RSI_ORG_SID") {
-		rank = ranks.Guest
+	u.IsAlly = false
+	for _, ally := range config.GetStringSlice("allies") {
+		if strings.EqualFold(u.PrimaryOrg, ally) {
+			u.IsAlly = true
+			break
+		}
 	}
 
 	log.WithFields(log.Fields{
-		"username":    username,
-		"rank":        rank,
-		"primary org": po,
+		"user": u,
 	}).Debug("rsi info")
 
-	return po, affiliatedOrgs, rank, err
+	return u, err
 }
 
 func IsAllyOrg(org string) bool {
@@ -126,4 +138,31 @@ func IsMemberOfOrg(username string, org string) (bool, error) {
 	}
 
 	return false, err
+}
+
+func GetBio(nick string) (string, error) {
+	var err error
+	c.OnResponse(func(r *colly.Response) {
+		if r.StatusCode == 404 {
+			err = UserNotFound
+		}
+	})
+	if err != nil {
+		return "", err
+	}
+
+	bio := ""
+	c.OnXML(`//div[@id="public-profile"]//div[contains(@class, "bio")]/div`, func(e *colly.XMLElement) {
+		bio = e.Text
+	})
+
+	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", nick)); err != nil {
+		if err.Error() == "Not Found" {
+			return "", UserNotFound
+		}
+
+		return "", err
+	}
+
+	return bio, nil
 }

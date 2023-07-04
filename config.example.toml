@@ -19,15 +19,17 @@ rsi_org_sid="MYORG"
 ################################################################
 [server]
 port=8080
-ecryption_key=""
+secret="supersecretkey"
 
 ################################################################
 # log                                                          #
 # ------------------------------------------------------------ #
 # debug | bool | enable debug logs. false by default           #
+# cli   | bool | log to the cli. false by default              #
 ################################################################
 [LOG]
-debug=true
+debug=false
+cli=false
 
 ################################################################
 # mongo                                                        #
@@ -37,9 +39,9 @@ debug=true
 # database | string | name of the database. defaults to "org"  #
 ################################################################
 [mongo]
-host="192.168.1.10"
+host="localhost"
 port="27017"
-database=""
+database="MyOrg"
 
 ################################################################
 # features                                                     #
