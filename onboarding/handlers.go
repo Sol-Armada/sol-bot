@@ -312,7 +312,9 @@ func choiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		customerrors.ErrorResponse(s, i.Interaction, "There was an error! Try again in a little few minutes or let the @Officers know")
 		return
 	}
-	processingUsers[i.Member.User.ID].User = u
+	processingUsers[i.Member.User.ID] = &processing{
+		User: u,
+	}
 
 	processingUsers[i.Member.User.ID] = &processing{
 		Choice: strings.Split(i.MessageComponentData().CustomID, ":")[2],
@@ -575,16 +577,28 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// not a visitor
-	u := processingUsers[i.Member.User.ID].User
+	u, err := user.Get(i.Member.User.ID)
+	if err != nil {
+		logger.WithError(err).Error("getting user for onboarding")
+		customerrors.ErrorResponse(s, i.Interaction, "")
+		return
+	}
+	u.Name = processingUsers[i.Member.User.ID].Handle
+
 	u, err = rsi.GetOrgInfo(u)
 	if err != nil {
-		customerrors.ErrorResponse(s, i.Interaction, "Ran into an issue when getting your RSI information. Please try again in a little bit.")
-		return
+		if !errors.Is(err, rsi.UserNotFound) {
+			logger.WithError(err).Error("getting org info for onboarding")
+			customerrors.ErrorResponse(s, i.Interaction, "")
+			return
+		}
 	}
 
 	age, err := strconv.ParseInt(processingUsers[i.Member.User.ID].Age, 10, 32)
 	if err != nil {
 		log.WithError(err).Error("could not parse age")
+		customerrors.ErrorResponse(s, i.Interaction, "Age must be an actual number! If you don't want us to know your age, just put 0.")
+		return
 	}
 	u.Age = int(age)
 	u.Gameplay = processingUsers[i.Member.User.ID].GamePlay
@@ -593,6 +607,10 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		log.WithError(err).Error("could not save user finishing onboarding")
 	}
 
+	primaryOrgUrl := fmt.Sprintf("https://robertsspaceindustries.com/orgs/%s", u.PrimaryOrg)
+	if u.PrimaryOrg == "None" {
+		primaryOrgUrl = "None"
+	}
 	// build the notification embed
 	em := &discordgo.MessageEmbed{
 		Type:  discordgo.EmbedTypeArticle,
@@ -608,7 +626,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			},
 			{
 				Name:  "Primary Org",
-				Value: u.PrimaryOrg,
+				Value: primaryOrgUrl,
 			},
 			{
 				Name:  "Affiliate Orgs",

@@ -29,6 +29,9 @@ func GetOrgInfo(u *user.User) (*user.User, error) {
 	})
 
 	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
+		if e.Text == "" {
+			e.Text = "None"
+		}
 		u.PrimaryOrg = e.Text
 	})
 
@@ -40,6 +43,9 @@ func GetOrgInfo(u *user.User) (*user.User, error) {
 
 	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
 		u.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
+		if len(u.Affilations) == 0 {
+			u.Affilations = append(u.Affilations, "None")
+		}
 	})
 
 	c.OnXML(`//div[contains(@class, "org main")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {

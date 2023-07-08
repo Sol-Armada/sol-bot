@@ -27,6 +27,11 @@ func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message strin
 			Content: message,
 		},
 	}); err != nil {
-		log.WithError(err).Error("responding to event command interaction")
+		if _, err := s.FollowupMessageCreate(i, false, &discordgo.WebhookParams{
+			Content: message,
+			Flags:   discordgo.MessageFlagsEphemeral,
+		}); err != nil {
+			log.WithError(err).Error("responding to event command interaction")
+		}
 	}
 }
