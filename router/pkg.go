@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/apex/log"
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
@@ -14,14 +15,24 @@ import (
 )
 
 func New() (*echo.Echo, error) {
+	logger := log.WithField("func", "router")
 	e := echo.New()
-	e.Debug = false
-
-	if config.GetBool("LOG.DEBUG") {
-		e.Debug = true
-	}
 
 	e.Pre(middleware.RemoveTrailingSlash())
+	e.Use(middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
+		LogURI:    true,
+		LogStatus: true,
+		LogMethod: true,
+		LogValuesFunc: func(c echo.Context, values middleware.RequestLoggerValues) error {
+			logger.WithFields(log.Fields{
+				"uri":    values.URI,
+				"status": values.Status,
+				"method": values.Method,
+			}).Debug("request")
+
+			return nil
+		},
+	}))
 	e.Use(middleware.CORSWithConfig(middleware.CORSConfig{
 		AllowOrigins: []string{"*"},
 		AllowHeaders: []string{echo.HeaderOrigin, echo.HeaderContentType, echo.HeaderAccept, echo.HeaderAuthorization, "X-Token-Auth"},
@@ -33,7 +44,7 @@ func New() (*echo.Echo, error) {
 		SigningKey: []byte(config.GetString("SERVER.SECRET")),
 		ContextKey: "token",
 		Skipper: func(c echo.Context) bool {
-			return c.Request().URL.Path == "/api/login" || !strings.Contains(c.Request().URL.Path, "api")
+			return c.Request().URL.Path == "/api/health" || c.Request().URL.Path == "/api/login" || !strings.Contains(c.Request().URL.Path, "api")
 		},
 		ErrorHandler: func(c echo.Context, err error) error {
 			if err := c.JSON(http.StatusUnauthorized, "unautorized"); err != nil {
@@ -64,6 +75,8 @@ func New() (*echo.Echo, error) {
 
 	apiGroup := e.Group("/api")
 
+	apiHealthHandler := echo.HandlerFunc(health)
+
 	apiLoginHandler := echo.HandlerFunc(api.Login)
 
 	apiGetUsersHandler := echo.HandlerFunc(api.GetUsers)
@@ -83,6 +96,8 @@ func New() (*echo.Echo, error) {
 	apiGetEmojisHandler := echo.HandlerFunc(api.GetEmojisHandler)
 
 	apiUtilGetXIDHandler := echo.HandlerFunc(api.GenerateXID)
+
+	apiGroup.GET("/health", apiHealthHandler)
 
 	apiGroup.POST("/login", apiLoginHandler)
 

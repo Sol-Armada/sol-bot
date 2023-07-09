@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
@@ -18,8 +19,9 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
-	log.Info("monitoring discord for users")
+func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
+	logger := log.WithField("func", "UserMonitor")
+	logger.Info("monitoring discord for users")
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -27,13 +29,17 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 	for {
 		select {
 		case <-stop:
-			log.Info("stopping monitor")
+			logger.Info("stopping monitor")
 			goto DONE
 		case <-ticker.C:
+			if !health.IsHealthy() {
+				time.Sleep(10 * time.Second)
+				continue
+			}
 			if time.Now().After(lastChecked.Add(30 * time.Minute)) {
-				log.Info("scanning users")
+				logger.Info("scanning users")
 				if stores.Storage == nil {
-					log.Debug("storage not setup, waiting a bit")
+					logger.Debug("storage not setup, waiting a bit")
 					time.Sleep(10 * time.Second)
 					continue
 				}
@@ -41,7 +47,7 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 				// rate limit protection
 				rateBucket := b.Ratelimiter.GetBucket("guild_member_check")
 				if rateBucket.Remaining == 0 {
-					log.Warn("hit a rate limit. relaxing until it goes away")
+					logger.Warn("hit a rate limit. relaxing until it goes away")
 					time.Sleep(b.Ratelimiter.GetWaitTime(rateBucket, 0))
 					continue
 				}
@@ -49,7 +55,7 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 				// get the discord members
 				m, err := b.GetMembers()
 				if err != nil {
-					log.WithError(err).Error("bot getting members")
+					logger.WithError(err).Error("bot getting members")
 					return
 				}
 
@@ -57,11 +63,11 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 				storedUsers := []*user.User{}
 				cur, err := stores.Storage.GetUsers(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
 				if err != nil {
-					log.WithError(err).Error("getting users for updating")
+					logger.WithError(err).Error("getting users for updating")
 					return
 				}
 				if err := cur.All(context.Background(), &storedUsers); err != nil {
-					log.WithError(err).Error("getting users from collection for update")
+					logger.WithError(err).Error("getting users from collection for update")
 					return
 				}
 
@@ -72,13 +78,13 @@ func (b *Bot) Monitor(stop <-chan bool, done chan bool) {
 						continue
 					}
 
-					log.WithError(err).Error("updating members")
+					logger.WithError(err).Error("updating members")
 					return
 				}
 
 				// do some cleaning
 				if err := cleanMembers(m, storedUsers); err != nil {
-					log.WithError(err).Error("cleaning up the members")
+					logger.WithError(err).Error("cleaning up the members")
 					return
 				}
 

@@ -15,6 +15,7 @@ import (
 	"github.com/sol-armada/admin/bot"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events"
+	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/onboarding"
 	"github.com/sol-armada/admin/server"
 	"github.com/sol-armada/admin/stores"
@@ -73,7 +74,7 @@ func main() {
 	doneMonitoring := make(chan bool, 1)
 	stopMonitoring := make(chan bool, 1)
 	if config.GetBoolWithDefault("FEATURES.MONITOR", false) {
-		go b.Monitor(stopMonitoring, doneMonitoring)
+		go b.UserMonitor(stopMonitoring, doneMonitoring)
 	} else {
 		doneMonitoring <- true
 	}
@@ -99,6 +100,9 @@ func main() {
 			log.WithError(err).Error("setting up onboarding")
 		}
 	}
+
+	// monitor health of the server
+	go health.Monitor()
 
 	// start the web server now that everything is running
 	srv, err := server.New()

@@ -16,6 +16,7 @@ import (
 	"github.com/sol-armada/admin/bot"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events/status"
+	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/user"
@@ -177,6 +178,11 @@ func EventWatcher() {
 
 	ticker := time.NewTicker(10 * time.Second)
 	for {
+		if !health.IsHealthy() {
+			logger.Error("not healthy")
+			<-ticker.C
+			continue
+		}
 		// get the events
 		events, err := GetAllWithFilter(
 			bson.D{{Key: "status", Value: bson.D{{Key: "$lt", Value: status.Cancelled}}}},

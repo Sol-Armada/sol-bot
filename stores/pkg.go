@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/pkg/errors"
@@ -34,14 +35,11 @@ func New(ctx context.Context) (*Store, error) {
 		usernamePassword,
 		config.GetStringWithDefault("mongo.host", "localhost"),
 		config.GetIntWithDefault("mongo.port", 27017))
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	clientOptions := options.Client().ApplyURI(uri).SetConnectTimeout(5 * time.Second)
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		return nil, errors.Wrap(err, "creating new store")
 	}
-
-	// if err := client.Connect(ctx); err != nil {
-	// 	return nil, err
-	// }
 
 	usersCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users")
 	eventsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("events")
@@ -62,4 +60,11 @@ func (s *Store) Disconnect() {
 	if err := s.client.Disconnect(s.ctx); err != nil {
 		log.WithError(err).Error("disconnect from store")
 	}
+}
+
+func (s *Store) Connected() bool {
+	if err := s.client.Ping(s.ctx, nil); err != nil {
+		return false
+	}
+	return true
 }
