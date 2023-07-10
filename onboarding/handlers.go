@@ -608,7 +608,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	primaryOrgUrl := fmt.Sprintf("https://robertsspaceindustries.com/orgs/%s", u.PrimaryOrg)
-	if u.PrimaryOrg == "None" {
+	if u.PrimaryOrg == "None" || u.PrimaryOrg == "" {
 		primaryOrgUrl = "None"
 	}
 	// build the notification embed
