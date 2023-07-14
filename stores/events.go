@@ -3,6 +3,7 @@ package stores
 import (
 	"time"
 
+	"github.com/apex/log"
 	"github.com/pkg/errors"
 	apierrors "github.com/sol-armada/admin/errors"
 	"github.com/sol-armada/admin/events/status"
@@ -48,6 +49,8 @@ func (s *Store) SaveEvent(e map[string]interface{}) error {
 		t := time.UnixMilli(end)
 		e["end"] = primitive.NewDateTimeFromTime(t)
 	}
+
+	log.WithField("event", e).Debug("saving event")
 
 	opts := options.Replace().SetUpsert(true)
 	if _, err := s.events.ReplaceOne(s.ctx, bson.D{{Key: "_id", Value: id}}, e, opts); err != nil {

@@ -53,20 +53,21 @@ type Position struct {
 }
 
 type Event struct {
-	Id          string        `json:"id" bson:"_id"`
-	Name        string        `json:"name" bson:"name"`
-	StartTime   time.Time     `json:"start_time" bson:"start_time"`
-	EndTime     time.Time     `json:"end_time" bson:"end_time"`
-	Repeat      Repeat        `json:"repeat" bson:"repeat"`
-	AutoStart   bool          `json:"auto_start" bson:"auto_start"`
-	Attendees   []*user.User  `json:"attendees" bson:"attendees"`
-	Status      status.Status `json:"status" bson:"status"`
-	Description string        `json:"description" bson:"description"`
-	Cover       string        `json:"cover" bson:"cover"`
-	Positions   []*Position   `json:"positions" bson:"positions"`
-	MessageId   string        `json:"message_id" bson:"message_id"`
-	PTU         bool          `json:"ptu" bson:"ptu"`
-	CommsTier   CommsTier     `json:"comms_tier" bson:"comms_tier"`
+	Id          string                         `json:"id" bson:"_id"`
+	Name        string                         `json:"name" bson:"name"`
+	StartTime   time.Time                      `json:"start_time" bson:"start_time"`
+	EndTime     time.Time                      `json:"end_time" bson:"end_time"`
+	Repeat      Repeat                         `json:"repeat" bson:"repeat"`
+	AutoStart   bool                           `json:"auto_start" bson:"auto_start"`
+	Attendees   []*user.User                   `json:"attendees" bson:"attendees"`
+	Status      status.Status                  `json:"status" bson:"status"`
+	Description string                         `json:"description" bson:"description"`
+	Cover       string                         `json:"cover" bson:"cover"`
+	Positions   []*Position                    `json:"positions" bson:"positions"`
+	MessageId   string                         `json:"message_id" bson:"message_id"`
+	PTU         bool                           `json:"ptu" bson:"ptu"`
+	CommsTier   CommsTier                      `json:"comms_tier" bson:"comms_tier"`
+	GuildEvent  *discordgo.GuildScheduledEvent `json:"guild_event" bson:"guild_event"`
 
 	cancel chan bool
 	mu     sync.Mutex
@@ -159,6 +160,8 @@ func GetAllWithFilter(filter interface{}) ([]*Event, error) {
 }
 
 func GetAllParticipents(e *Event) string {
+	e.Lock()
+	defer e.Unlock()
 	participents := ""
 	pInd := 0
 	for _, position := range e.Positions {
@@ -196,11 +199,6 @@ func EventWatcher() {
 		// look over the events
 		for _, e := range events {
 			logger = logger.WithField("event_id", e.Id)
-
-			if err := e.UpdateMessage(); err != nil {
-				logger.WithError(err).Error("updated event message")
-				continue
-			}
 
 			if scheduledEvents[e.Id] == nil {
 				go e.schedule()
@@ -278,7 +276,7 @@ func (e *Event) schedule() {
 			logger.WithField("until", dayBefore.Format(time.RFC3339)).Debug("waiting for day before event")
 			select {
 			case <-timer.C:
-				if err := e.remindParticipents("Reminder that this event is happening tomorrow!"); err != nil {
+				if err := e.remindParticipents("Reminder: This event is happening tomorrow!"); err != nil {
 					logger.WithError(err).Error("reminding participents")
 					return
 				}
@@ -302,14 +300,40 @@ func (e *Event) schedule() {
 			logger.WithField("until", hourBefore.Format(time.RFC3339)).Debug("waiting for hour before event")
 			select {
 			case <-timer.C:
-				if err := e.remindParticipents("Reminder that this event is happening in an hour!"); err != nil {
+				if err := e.remindParticipents("Reminder: This event is happening in an hour!"); err != nil {
 					logger.WithError(err).Error("reminding participents")
 					return
 				}
 
 				if err := e.SetStatus(status.Notified_HOUR); err != nil {
 					logger.WithError(err).Error("setting status to notified hour")
+					return
 				}
+
+				b, err := bot.GetBot()
+				if err != nil {
+					logger.WithError(err).Error("getting bot")
+					return
+				}
+
+				// create a guild scheduled event
+				gse, err := b.GuildScheduledEventCreate(b.GuildId, &discordgo.GuildScheduledEventParams{
+					Name:               e.Name,
+					Description:        e.Description,
+					ScheduledStartTime: &e.StartTime,
+					ScheduledEndTime:   &e.EndTime,
+					Image:              e.Cover,
+					EntityType:         discordgo.GuildScheduledEventEntityTypeExternal,
+					EntityMetadata: &discordgo.GuildScheduledEventEntityMetadata{
+						Location: "Events Channel or Flex Channel",
+					},
+					PrivacyLevel: discordgo.GuildScheduledEventPrivacyLevelGuildOnly,
+				})
+				if err != nil {
+					logger.WithError(err).Error("creating guild scheduled event")
+					return
+				}
+				e.GuildEvent = gse
 			case <-e.cancel:
 				logger.WithField("event_id", e.Id).Debug("schedule got canceled")
 			}
@@ -421,8 +445,8 @@ func (e *Event) schedule() {
 
 func (e *Event) SetStatus(s status.Status) error {
 	e.Lock()
+	defer e.Unlock()
 	e.Status = s
-	e.Unlock()
 
 	if err := e.Save(); err != nil {
 		return err
@@ -440,20 +464,24 @@ func (e *Event) Unlock() {
 }
 
 func (e *Event) Save() error {
-	e.Lock()
-	defer e.Unlock()
 	return stores.Storage.SaveEvent(e.ToMap())
 }
 
 func (e *Event) Delete() error {
-	bot, err := bot.GetBot()
+	b, err := bot.GetBot()
 	if err != nil {
 		return errors.Wrap(err, "getting bot for new event")
 	}
 
-	if err := bot.DeleteEventMessage(e.MessageId); err != nil {
+	if err := b.DeleteEventMessage(e.MessageId); err != nil {
 		if !strings.Contains(err.Error(), "404") {
 			return errors.Wrap(err, "deleting event message")
+		}
+	}
+
+	if e.GuildEvent != nil {
+		if err := b.GuildScheduledEventDelete(b.GuildId, e.GuildEvent.ID); err != nil {
+			return errors.Wrap(err, "deleting guild scheduled event")
 		}
 	}
 
@@ -509,6 +537,9 @@ func (e *Event) RemoveReactions() error {
 }
 
 func (e *Event) UpdateMessage() error {
+	e.Lock()
+	defer e.Unlock()
+
 	b, err := bot.GetBot()
 	if err != nil {
 		return errors.Wrap(err, "getting bot")
@@ -529,6 +560,10 @@ func (e *Event) UpdateMessage() error {
 	buttons, err := e.GetButtons()
 	if err != nil {
 		return errors.Wrap(err, "getting buttons")
+	}
+
+	if e.Status >= status.Live {
+		buttons = nil
 	}
 
 	if e.Status >= status.Live {
@@ -611,9 +646,6 @@ func (e *Event) AllPositionsFilled() bool {
 }
 
 func (e *Event) GetEmbeds() (*discordgo.MessageEmbed, error) {
-	e.Lock()
-	defer e.Unlock()
-
 	// initially add the time
 	fields := []*discordgo.MessageEmbedField{
 		{
@@ -736,7 +768,16 @@ func (e *Event) NotifyOfEvent() error {
 		return err
 	}
 
+	tags := ""
+	rolesToPing := config.GetStringSlice("FEATURES.EVENTS.PING_ROLES")
+	for i, roleId := range rolesToPing {
+		tags += fmt.Sprintf("<@&%s>", roleId)
+		if i != len(rolesToPing)-1 {
+			tags += ", "
+		}
+	}
 	message, err := b.SendComplexMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), &discordgo.MessageSend{
+		Content:    tags,
 		Embeds:     []*discordgo.MessageEmbed{embeds},
 		Components: buttons,
 	})
@@ -773,8 +814,6 @@ func (e *Event) NotifyOfEvent() error {
 func (e *Event) GetButtons() ([]discordgo.MessageComponent, error) {
 	components := []discordgo.MessageComponent{}
 	subComponents := &discordgo.ActionsRow{}
-	e.Lock()
-	defer e.Unlock()
 	for i, pos := range e.Positions {
 		if i%5 == 0 {
 			subComponents = &discordgo.ActionsRow{

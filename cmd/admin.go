@@ -84,7 +84,7 @@ func main() {
 	}()
 
 	// events
-	if config.GetBoolWithDefault("FEATURES.EVENTS", false) {
+	if config.GetBoolWithDefault("FEATURES.EVENTS.ENABLED", false) {
 		log.Info("using events feature")
 
 		if err := events.Setup(b); err != nil {

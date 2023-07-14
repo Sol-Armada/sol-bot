@@ -54,8 +54,19 @@ database="MyOrg"
 [features]
 onboarding=false
 monitor=false
-event=false
 bank=false
+
+################################################################
+# features.events                                              #
+# ------------------------------------------------------------ #
+# enabled    | bool         | false | enable events            #
+# ping_roles | string array | empty | the list of roles to     #
+#                                   | to ping when an event    #
+#                                   | is created.              #
+################################################################
+[features.events]
+enabled=false
+ping_roles=[]
 
 ################################################################
 # discord                                                      #

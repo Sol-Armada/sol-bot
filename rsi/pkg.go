@@ -21,6 +21,7 @@ var (
 
 func GetOrgInfo(u *user.User) (*user.User, error) {
 	u.Rank = ranks.Guest
+	u.PrimaryOrg = ""
 	var err error
 	c.OnResponse(func(r *colly.Response) {
 		if r.StatusCode == 404 {
@@ -53,7 +54,8 @@ func GetOrgInfo(u *user.User) (*user.User, error) {
 		u.Rank = ranks.Guest
 	})
 
-	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", u.GetTrueNick())); err != nil {
+	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", u.GetTrueNick())
+	if err := c.Visit(url); err != nil {
 		if err.Error() == "Not Found" {
 			return u, UserNotFound
 		}

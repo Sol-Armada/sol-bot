@@ -43,13 +43,14 @@ func Setup(b *bot.Bot) error {
 func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	logger := log.WithField("func", "ChoiceButtonHandler")
 
-	event, err := Get(strings.Split(i.MessageComponentData().CustomID, ":")[2])
+	customId := strings.Split(i.MessageComponentData().CustomID, ":")
+	event, err := Get(customId[2])
 	if err != nil {
 		logger.WithError(err).Error("getting event")
 		return
 	}
 
-	posId := strings.Split(i.MessageComponentData().CustomID, ":")[3]
+	posId := customId[3]
 
 	user, err := user.Get(i.Member.User.ID)
 	if err != nil {
@@ -60,7 +61,10 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	event.Lock()
 	for _, pos := range event.Positions {
 		if pos.Id == posId {
+			logger = logger.WithField("position", pos.Name)
+			logger.Debug("attempting to add user")
 			if pos.FillLast && !event.AllPositionsFilled() {
+				logger.Debug("all other positions not filled")
 				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -85,14 +89,13 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					logger.WithError(err).Error("min rank response")
 				}
 
-				return
+				continue
 			}
 		}
 
-		members := []string{}
 		justRemove := false
 		// first remove this user from all positions
-		for _, memberId := range pos.Members {
+		for ind, memberId := range pos.Members {
 			// remove them from the list and move on
 			if memberId == i.Member.User.ID && pos.Id == posId {
 				justRemove = true
@@ -101,49 +104,67 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Flags:   discordgo.MessageFlagsEphemeral,
-						Content: "You have been removed from the " + pos.Name + " position.",
+						Content: "You have been removed from the '" + pos.Name + "' position.",
 					},
 				}); err != nil {
 					logger.WithError(err).Error("sending response")
 				}
+
+				pos.Members = append(pos.Members[:ind], pos.Members[ind+1:]...)
 				continue
 			}
 
 			if memberId == i.Member.User.ID {
 				continue
 			}
-			members = append(members, memberId)
+			pos.Members = append(pos.Members, memberId)
 		}
+
 		// add this user the selected position
 		if pos.Id == posId && !justRemove {
-			members = append(members, i.Member.User.ID)
+			if len(pos.Members) == int(pos.Max) {
+				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Flags:   discordgo.MessageFlagsEphemeral,
+						Content: "This position is full! Please select a different one.",
+					},
+				}); err != nil {
+					logger.WithError(err).Error("position full response")
+				}
+
+				continue
+			}
+
+			pos.Members = append(pos.Members, i.Member.User.ID)
 
 			if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{
 					Flags:   discordgo.MessageFlagsEphemeral,
-					Content: "You have been added to the " + pos.Name + " position!",
+					Content: "You have been added to the '" + pos.Name + "' position!",
 				},
 			}); err != nil {
 				logger.WithError(err).Error("sending response")
 			}
 		}
-		pos.Members = members
 	}
 	event.Unlock()
 
 	go func() {
 		time.Sleep(15 * time.Second)
-		s.InteractionResponseDelete(i.Interaction)
+		if err := s.InteractionResponseDelete(i.Interaction); err != nil {
+			logger.WithError(err).Error("delete interaction")
+		}
 	}()
-
-	if err := event.UpdateMessage(); err != nil {
-		logger.WithError(err).Error("updating event message")
-		return
-	}
 
 	if err := event.Save(); err != nil {
 		logger.WithError(err).Error("saving event")
+		return
+	}
+
+	if err := event.UpdateMessage(); err != nil {
+		logger.WithError(err).Error("updating event message")
 		return
 	}
 }
