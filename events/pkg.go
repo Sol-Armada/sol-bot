@@ -2,7 +2,6 @@ package events
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sort"
 	"strings"
@@ -19,8 +18,9 @@ import (
 	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Repeat int
@@ -42,7 +42,7 @@ const (
 )
 
 type Position struct {
-	Id       string     `json:"id" bson:"id"`
+	Id       string     `json:"_id" bson:"_id"`
 	Name     string     `json:"name" bson:"name"`
 	Max      int32      `json:"max" bson:"max"`
 	MinRank  ranks.Rank `json:"min_rank" bson:"min_rank"`
@@ -53,21 +53,23 @@ type Position struct {
 }
 
 type Event struct {
-	Id          string                         `json:"id" bson:"_id"`
-	Name        string                         `json:"name" bson:"name"`
-	StartTime   time.Time                      `json:"start_time" bson:"start_time"`
-	EndTime     time.Time                      `json:"end_time" bson:"end_time"`
-	Repeat      Repeat                         `json:"repeat" bson:"repeat"`
-	AutoStart   bool                           `json:"auto_start" bson:"auto_start"`
-	Attendees   []*user.User                   `json:"attendees" bson:"attendees"`
-	Status      status.Status                  `json:"status" bson:"status"`
-	Description string                         `json:"description" bson:"description"`
-	Cover       string                         `json:"cover" bson:"cover"`
-	Positions   []*Position                    `json:"positions" bson:"positions"`
-	MessageId   string                         `json:"message_id" bson:"message_id"`
-	PTU         bool                           `json:"ptu" bson:"ptu"`
-	CommsTier   CommsTier                      `json:"comms_tier" bson:"comms_tier"`
-	GuildEvent  *discordgo.GuildScheduledEvent `json:"guild_event" bson:"guild_event"`
+	Id         string                         `json:"id" bson:"_id"`
+	StartTime  time.Time                      `json:"start_time" bson:"start_time"`
+	EndTime    time.Time                      `json:"end_time" bson:"end_time"`
+	Repeat     Repeat                         `json:"repeat" bson:"repeat"`
+	Attendees  []*users.User                  `json:"attendees" bson:"attendees"`
+	Status     status.Status                  `json:"status" bson:"status"`
+	GuildEvent *discordgo.GuildScheduledEvent `json:"guild_event" bson:"guild_event"`
+	MessageId  string                         `json:"message_id" bson:"message_id"`
+	PTU        bool                           `json:"ptu" bson:"ptu"`
+
+	// also in template
+	Name        string      `json:"name" bson:"name"`
+	AutoStart   bool        `json:"auto_start" bson:"auto_start"`
+	Description string      `json:"description" bson:"description"`
+	Cover       string      `json:"cover" bson:"cover"`
+	Positions   []*Position `json:"positions" bson:"positions"`
+	CommsTier   CommsTier   `json:"comms_tier" bson:"comms_tier"`
 
 	cancel chan bool
 	mu     sync.Mutex
@@ -77,7 +79,7 @@ var scheduledEvents = map[string]*Event{}
 
 func Get(id string) (*Event, error) {
 	event := &Event{}
-	eventRes := stores.Storage.GetEvent(id)
+	eventRes := stores.Events.Get(id)
 	if err := eventRes.Decode(&event); err != nil {
 		return nil, err
 	}
@@ -86,11 +88,11 @@ func Get(id string) (*Event, error) {
 }
 
 func GetAll() ([]*Event, error) {
-	cur, err := stores.Storage.GetEvents(bson.D{
+	cur, err := stores.Events.List(bson.D{
 		{
 			Key: "$and",
 			Value: bson.A{
-				bson.D{{Key: "end_time", Value: bson.D{{Key: "$gte", Value: time.Now().AddDate(0, 0, -17).UnixMilli()}}}},
+				bson.D{{Key: "end_time", Value: bson.D{{Key: "$gte", Value: time.Now().AddDate(0, 0, -17)}}}},
 				bson.D{{Key: "status", Value: bson.D{{Key: "$lt", Value: status.Deleted}}}},
 			},
 		},
@@ -99,25 +101,16 @@ func GetAll() ([]*Event, error) {
 		return nil, err
 	}
 
-	eventsMap := []map[string]interface{}{}
-	if err := cur.All(context.Background(), &eventsMap); err != nil {
-		return nil, err
-	}
-
 	e := []*Event{}
-	for _, eventMap := range eventsMap {
-		event := &Event{}
-		if err := event.parse(eventMap); err != nil {
-			return nil, err
-		}
-		e = append(e, event)
+	if err := cur.All(context.Background(), &e); err != nil {
+		return nil, err
 	}
 
 	return e, nil
 }
 
 func GetByMessageId(messageId string) (*Event, error) {
-	cur, err := stores.Storage.GetEvents(bson.D{{Key: "message_id", Value: messageId}})
+	cur, err := stores.Events.List(bson.D{{Key: "message_id", Value: messageId}})
 	if err != nil {
 		return nil, err
 	}
@@ -137,43 +130,31 @@ func GetByMessageId(messageId string) (*Event, error) {
 }
 
 func GetAllWithFilter(filter interface{}) ([]*Event, error) {
-	cur, err := stores.Storage.GetEvents(filter)
+	cur, err := stores.Events.List(filter)
 	if err != nil {
 		return nil, err
 	}
 
-	eventsMap := []map[string]interface{}{}
-	if err := cur.All(context.Background(), &eventsMap); err != nil {
-		return nil, err
-	}
-
 	e := []*Event{}
-	for _, eventMap := range eventsMap {
-		event := &Event{}
-		if err := event.parse(eventMap); err != nil {
-			return nil, err
-		}
-		e = append(e, event)
+	if err := cur.All(context.Background(), &e); err != nil {
+		return nil, err
 	}
 
 	return e, nil
 }
 
-func GetAllParticipents(e *Event) string {
+func participentsList(e *Event) string {
 	e.Lock()
 	defer e.Unlock()
-	participents := ""
+	participents := []string{}
 	pInd := 0
 	for _, position := range e.Positions {
-		for mInd, m := range position.Members {
-			participents += "<@" + m + ">"
-			if mInd < len(position.Members)-1 || pInd < len(e.Positions)-1 {
-				participents += ", "
-			}
+		for _, m := range position.Members {
+			participents = append(participents, "<@"+m+">")
 		}
 		pInd++
 	}
-	return participents
+	return strings.Join(participents, ", ")
 }
 
 func EventWatcher() {
@@ -221,36 +202,9 @@ func ResetSchedule(e *Event) {
 func CancelSchedule(e *Event) {
 	event, ok := scheduledEvents[e.Id]
 	if ok && event.cancel != nil {
-		event.cancel <- true
+		close(event.cancel)
 		delete(scheduledEvents, e.Id)
 	}
-}
-
-func (e *Event) parse(eventMap map[string]interface{}) error {
-	eventMap["id"] = eventMap["_id"]
-	if startTime, ok := eventMap["start_time"].(float64); ok {
-		eventMap["start_time"] = time.UnixMilli(int64(startTime))
-	}
-	if startTime, ok := eventMap["start_time"].(int64); ok {
-		eventMap["start_time"] = time.UnixMilli(startTime)
-	}
-	if endTime, ok := eventMap["end_time"].(float64); ok {
-		eventMap["end_time"] = time.UnixMilli(int64(endTime))
-	}
-	if endTime, ok := eventMap["end_time"].(int64); ok {
-		eventMap["end_time"] = time.UnixMilli(endTime)
-	}
-
-	jsonEventMap, err := json.Marshal(eventMap)
-	if err != nil {
-		return err
-	}
-
-	if err := json.Unmarshal(jsonEventMap, &e); err != nil {
-		return err
-	}
-
-	return nil
 }
 
 func (e *Event) schedule() {
@@ -261,10 +215,10 @@ func (e *Event) schedule() {
 	logger.Debug("scheduling")
 	if e.cancel == nil {
 		e.cancel = make(chan bool)
-		defer close(e.cancel)
 	}
 
 	wg := sync.WaitGroup{}
+	cancelled := false
 
 	if e.Status < status.Notified_DAY {
 		wg.Add(1)
@@ -273,6 +227,7 @@ func (e *Event) schedule() {
 
 			dayBefore := e.StartTime.UTC().AddDate(0, 0, -1)
 			timer := time.NewTimer(time.Until(dayBefore))
+
 			logger.WithField("until", dayBefore.Format(time.RFC3339)).Debug("waiting for day before event")
 			select {
 			case <-timer.C:
@@ -283,10 +238,14 @@ func (e *Event) schedule() {
 
 				if err := e.SetStatus(status.Notified_DAY); err != nil {
 					logger.WithError(err).Error("setting status to notified day")
+					return
 				}
 			case <-e.cancel:
-				logger.WithField("event_id", e.Id).Debug("schedule got canceled")
+				logger.Debug("schedule got canceled")
+				cancelled = true
+				break
 			}
+			wg.Done()
 		}()
 	}
 
@@ -309,34 +268,12 @@ func (e *Event) schedule() {
 					logger.WithError(err).Error("setting status to notified hour")
 					return
 				}
-
-				b, err := bot.GetBot()
-				if err != nil {
-					logger.WithError(err).Error("getting bot")
-					return
-				}
-
-				// create a guild scheduled event
-				gse, err := b.GuildScheduledEventCreate(b.GuildId, &discordgo.GuildScheduledEventParams{
-					Name:               e.Name,
-					Description:        e.Description,
-					ScheduledStartTime: &e.StartTime,
-					ScheduledEndTime:   &e.EndTime,
-					Image:              e.Cover,
-					EntityType:         discordgo.GuildScheduledEventEntityTypeExternal,
-					EntityMetadata: &discordgo.GuildScheduledEventEntityMetadata{
-						Location: "Events Channel or Flex Channel",
-					},
-					PrivacyLevel: discordgo.GuildScheduledEventPrivacyLevelGuildOnly,
-				})
-				if err != nil {
-					logger.WithError(err).Error("creating guild scheduled event")
-					return
-				}
-				e.GuildEvent = gse
 			case <-e.cancel:
-				logger.WithField("event_id", e.Id).Debug("schedule got canceled")
+				logger.Debug("schedule got canceled")
+				cancelled = true
+				break
 			}
+			wg.Done()
 		}()
 	}
 
@@ -374,7 +311,10 @@ func (e *Event) schedule() {
 				}
 			case <-e.cancel:
 				logger.Debug("schedule got canceled")
+				cancelled = true
+				break
 			}
+			wg.Done()
 		}()
 	}
 
@@ -410,7 +350,10 @@ func (e *Event) schedule() {
 				break
 			case <-e.cancel:
 				logger.Debug("schedule got canceled")
+				cancelled = true
+				break
 			}
+			wg.Done()
 		}()
 	}
 
@@ -433,7 +376,10 @@ func (e *Event) schedule() {
 				break
 			case <-e.cancel:
 				logger.Debug("schedule got canceled")
+				cancelled = true
+				break
 			}
+			wg.Done()
 		}()
 	}
 
@@ -441,6 +387,9 @@ func (e *Event) schedule() {
 
 	wg.Wait()
 	logger.Debug("Event over")
+	if !cancelled {
+		close(e.cancel)
+	}
 }
 
 func (e *Event) SetStatus(s status.Status) error {
@@ -464,13 +413,34 @@ func (e *Event) Unlock() {
 }
 
 func (e *Event) Save() error {
-	return stores.Storage.SaveEvent(e.ToMap())
+	log.WithField("event", e).Debug("saving event")
+	store := stores.Events
+
+	opts := options.Replace().SetUpsert(true)
+	if _, err := store.ReplaceOne(store.GetContext(), bson.D{{Key: "_id", Value: e.Id}}, e, opts); err != nil {
+		return errors.Wrap(err, "saving event")
+	}
+
+	return nil
 }
 
 func (e *Event) Delete() error {
 	b, err := bot.GetBot()
 	if err != nil {
 		return errors.Wrap(err, "getting bot for new event")
+	}
+
+	// get the message
+	message, err := b.ChannelMessage(config.GetString("DISCORD.CHANNELS.EVENTS"), e.MessageId)
+	if err != nil {
+		return errors.Wrap(err, "getting original event message")
+	}
+
+	// delete the thread channel
+	if _, err := b.ChannelDelete(message.Thread.ID); err != nil {
+		if !strings.Contains(err.Error(), "404") {
+			return errors.Wrap(err, "deleting thread channel")
+		}
 	}
 
 	if err := b.DeleteEventMessage(e.MessageId); err != nil {
@@ -481,7 +451,7 @@ func (e *Event) Delete() error {
 
 	if e.GuildEvent != nil {
 		if err := b.GuildScheduledEventDelete(b.GuildId, e.GuildEvent.ID); err != nil {
-			return errors.Wrap(err, "deleting guild scheduled event")
+			e.GuildEvent = nil
 		}
 	}
 
@@ -489,51 +459,8 @@ func (e *Event) Delete() error {
 	return e.Save()
 }
 
-func (e *Event) ToMap() map[string]interface{} {
-	jsonEvent, err := json.Marshal(e)
-	if err != nil {
-		log.WithError(err).WithField("event", e).Error("event to json")
-		return map[string]interface{}{}
-	}
-
-	var mapEvent map[string]interface{}
-	if err := json.Unmarshal(jsonEvent, &mapEvent); err != nil {
-		log.WithError(err).WithField("event", e).Error("event to map")
-		return map[string]interface{}{}
-	}
-
-	mapEvent["start_time"] = e.StartTime.UnixMilli()
-	mapEvent["end_time"] = e.EndTime.UnixMilli()
-
-	return mapEvent
-}
-
 func (e *Event) Exists() bool {
-	return stores.Storage.GetEvent(e.Id).Err() == nil
-}
-
-func (e *Event) RemoveReactions() error {
-	b, err := bot.GetBot()
-	if err != nil {
-		return errors.Wrap(err, "getting bot")
-	}
-
-	if err := e.SetStatus(status.Live); err != nil {
-		return errors.Wrap(err, "settings event status")
-	}
-
-	eventChannelId := config.GetString("DISCORD.CHANNELS.EVENTS")
-
-	message, err := b.ChannelMessage(eventChannelId, e.MessageId)
-	if err != nil {
-		return errors.Wrap(err, "getting original event message")
-	}
-
-	if err := b.MessageReactionsRemoveAll(message.ChannelID, message.ID); err != nil {
-		return errors.Wrap(err, "removing all emojis")
-	}
-
-	return nil
+	return stores.Events.Get(e.Id).Err() == nil
 }
 
 func (e *Event) UpdateMessage() error {
@@ -599,7 +526,7 @@ func (e *Event) remindParticipents(msg string) error {
 
 	if message.Thread == nil {
 		thread, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
-			Name:                "Event Notification",
+			Name:                fmt.Sprintf("%s Thread", e.Name),
 			Type:                discordgo.ChannelTypeGuildPrivateThread,
 			AutoArchiveDuration: 60,
 		})
@@ -610,7 +537,7 @@ func (e *Event) remindParticipents(msg string) error {
 		message.Thread = thread
 	}
 
-	participents := GetAllParticipents(e)
+	participents := participentsList(e)
 	if participents != "" {
 		if _, err := b.ChannelMessageSend(message.Thread.ID, participents+"\n\n"+msg); err != nil {
 			return errors.Wrap(err, "sending reminder message")
@@ -662,11 +589,11 @@ func (e *Event) GetEmbeds() (*discordgo.MessageEmbed, error) {
 	})
 	for _, position := range e.Positions {
 		sort.Slice(position.Members, func(i, j int) bool {
-			mI, err := user.Get(position.Members[i])
+			mI, err := users.Get(position.Members[i])
 			if err != nil {
 				return false
 			}
-			mJ, err := user.Get(position.Members[j])
+			mJ, err := users.Get(position.Members[j])
 			if err != nil {
 				return false
 			}
@@ -698,7 +625,7 @@ func (e *Event) GetEmbeds() (*discordgo.MessageEmbed, error) {
 		}
 
 		for _, m := range position.Members {
-			u, err := user.Get(m)
+			u, err := users.Get(m)
 			if err != nil {
 				return nil, err
 			}
@@ -785,16 +712,36 @@ func (e *Event) NotifyOfEvent() error {
 		return err
 	}
 
-	if _, err := b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
-		Name:                "Event Notification",
+	_, err = b.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
+		Name:                fmt.Sprintf("%s Thread", e.Name),
 		Type:                discordgo.ChannelTypeGuildPrivateThread,
 		AutoArchiveDuration: 60,
-	}); err != nil {
-		return errors.Wrap(err, "starting event thread")
+	})
+	if err != nil {
+		return err
 	}
 
 	e.MessageId = message.ID
 	eventStatus := status.Announced
+
+	// create a guild scheduled event
+	ged := fmt.Sprintf("%s\n\nEvent Signup: <#%s>", e.Description, e.MessageId)
+	gse, err := b.GuildScheduledEventCreate(b.GuildId, &discordgo.GuildScheduledEventParams{
+		Name:               e.Name,
+		Description:        ged,
+		ScheduledStartTime: &e.StartTime,
+		ScheduledEndTime:   &e.EndTime,
+		Image:              e.Cover,
+		EntityType:         discordgo.GuildScheduledEventEntityTypeExternal,
+		EntityMetadata: &discordgo.GuildScheduledEventEntityMetadata{
+			Location: "Events Channel or Flex Channel",
+		},
+		PrivacyLevel: discordgo.GuildScheduledEventPrivacyLevelGuildOnly,
+	})
+	if err != nil {
+		return errors.Wrap(err, "creating discord event")
+	}
+	e.GuildEvent = gse
 
 	if time.Now().UTC().After(e.StartTime.AddDate(0, 0, -1)) {
 		eventStatus = status.Notified_DAY

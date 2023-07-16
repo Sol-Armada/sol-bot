@@ -54,7 +54,7 @@ func main() {
 	}
 
 	// setup storage
-	if _, err := stores.New(context.Background()); err != nil {
+	if err := stores.Setup(context.Background()); err != nil {
 		log.WithError(err).Error("failed to setup storage")
 	}
 

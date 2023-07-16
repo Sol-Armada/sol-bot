@@ -6,12 +6,12 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 )
 
 func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	storedUser := &user.User{}
-	if err := stores.Storage.GetUser(i.Member.User.ID).Decode(&storedUser); err != nil {
+	storedUser := &users.User{}
+	if err := stores.Users.Get(i.Member.User.ID).Decode(&storedUser); err != nil {
 		log.WithError(err).Error("getting user from storage")
 	}
 

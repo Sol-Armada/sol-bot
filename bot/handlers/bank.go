@@ -8,8 +8,8 @@ import (
 	"github.com/rs/xid"
 	"github.com/sol-armada/admin/config"
 	customerrors "github.com/sol-armada/admin/errors"
-	"github.com/sol-armada/admin/transaction"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/transactions"
+	"github.com/sol-armada/admin/users"
 	"golang.org/x/exp/slices"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -48,7 +48,7 @@ func balanceHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	logger := log.WithField("func", "balanceHandler")
 	logger.Debug("getting the bank balance")
 
-	transactions, err := transaction.List()
+	transactions, err := transactions.List()
 	if err != nil {
 		logger.WithError(err).Error("getting transactions for balance command")
 		customerrors.ErrorResponse(s, i.Interaction, "backend error getting transactions")
@@ -97,7 +97,7 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	from, err := user.Get(fromId)
+	from, err := users.Get(fromId)
 	if err != nil {
 		logger.WithError(err).Error("getting from user")
 		customerrors.ErrorResponse(s, i.Interaction, "backend issue")
@@ -110,7 +110,7 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	holder, err := user.Get(i.Member.User.ID)
+	holder, err := users.Get(i.Member.User.ID)
 	holder.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank add")
@@ -118,7 +118,7 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	transaction := &transaction.Transaction{
+	transaction := &transactions.Transaction{
 		Id:     xid.New().String(),
 		Amount: amount,
 		From:   from,
@@ -165,7 +165,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	to, err := user.Get(toId)
+	to, err := users.Get(toId)
 	to.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting to user for bank remove")
@@ -173,7 +173,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	holder, err := user.Get(i.Member.User.ID)
+	holder, err := users.Get(i.Member.User.ID)
 	holder.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank remove")
@@ -181,7 +181,7 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	transaction := &transaction.Transaction{
+	transaction := &transactions.Transaction{
 		Id:     xid.New().String(),
 		Amount: amount * -1,
 		To:     to,
@@ -228,7 +228,7 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	holder, err := user.Get(i.Member.User.ID)
+	holder, err := users.Get(i.Member.User.ID)
 	holder.Discord = nil
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank remove")
@@ -236,7 +236,7 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	transaction := &transaction.Transaction{
+	transaction := &transactions.Transaction{
 		Id:     xid.New().String(),
 		Amount: amount * -1,
 		For:    spendReason,

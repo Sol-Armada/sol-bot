@@ -1,4 +1,4 @@
-package user
+package users
 
 import (
 	"encoding/json"
@@ -14,6 +14,8 @@ import (
 	"github.com/sol-armada/admin/auth"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type User struct {
@@ -64,12 +66,45 @@ func New(m *discordgo.Member) *User {
 }
 
 func Get(id string) (*User, error) {
-	result := stores.Storage.GetUser(id)
+	result := stores.Users.Get(id)
 	user := &User{}
 	if err := result.Decode(&user); err != nil {
 		return nil, err
 	}
 	return user, nil
+}
+
+func GetRandom(max int, maxRank int) ([]User, error) {
+	stores := stores.Users
+	randomUsers, err := stores.Aggregate(stores.GetContext(), bson.A{
+		bson.D{
+			{Key: "$match",
+				Value: bson.D{
+					{Key: "rank",
+						Value: bson.D{
+							{Key: "$lte", Value: maxRank},
+							{Key: "$ne", Value: 0},
+						},
+					},
+				},
+			},
+		},
+		bson.D{{Key: "$sample", Value: bson.D{{Key: "size", Value: max}}}},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	users := []User{}
+	for randomUsers.Next(stores.GetContext()) {
+		user := User{}
+		if err := randomUsers.Decode(&user); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	return users, nil
 }
 
 func (u *User) GetTrueNick() string {
@@ -91,14 +126,22 @@ func (u *User) GetTrueNick() string {
 }
 
 func (u *User) Save() error {
-	u.Updated = time.Now().UTC()
 	log.WithField("user", u).Debug("saving user")
-	return stores.Storage.SaveUser(u.ID, u)
+	stores := stores.Users
+
+	u.Updated = time.Now().UTC()
+
+	opts := options.Replace().SetUpsert(true)
+	if _, err := stores.ReplaceOne(stores.GetContext(), bson.D{{Key: "_id", Value: u.ID}}, u, opts); err != nil {
+		return errors.Wrap(err, "saving user to mongo")
+	}
+
+	return nil
 }
 
 func (u *User) Load() error {
 	log.WithField("user", u).Debug("loading user")
-	if err := stores.Storage.GetUser(u.Discord.User.ID).Decode(u); err != nil {
+	if err := stores.Users.Get(u.Discord.User.ID).Decode(u); err != nil {
 		return errors.Wrap(err, "getting stored user for loading")
 	}
 
@@ -160,7 +203,7 @@ func (u *User) Login(code string) error {
 		return err
 	}
 
-	if err := stores.Storage.GetUser(discordUser.ID).Decode(&u); err != nil {
+	if err := stores.Users.Get(discordUser.ID).Decode(&u); err != nil {
 		return errors.Wrap(err, "getting stored user")
 	}
 
@@ -174,4 +217,14 @@ func (u *User) Login(code string) error {
 
 func (u *User) StillLoggedIn() bool {
 	return time.Until(u.Access.ExpiresAt) > 0
+}
+
+func (u *User) Delete() error {
+	log.WithField("user", u).Debug("deleting user")
+	store := stores.Users
+
+	if _, err := store.DeleteOne(store.GetContext(), bson.M{"_id": u.ID}); err != nil {
+		return errors.Wrap(err, "deleting user")
+	}
+	return nil
 }

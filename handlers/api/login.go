@@ -8,7 +8,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 )
 
 type loginRequest struct {
@@ -16,8 +16,8 @@ type loginRequest struct {
 }
 
 type loginResponse struct {
-	User  *user.User `json:"user"`
-	Token string     `json:"token"`
+	User  *users.User `json:"user"`
+	Token string      `json:"token"`
 }
 
 func (r *loginRequest) bind(c echo.Context) error {
@@ -43,7 +43,7 @@ func Login(c echo.Context) error {
 	}
 
 	// create the user
-	u := &user.User{}
+	u := &users.User{}
 	if err := u.Login(req.Code); err != nil {
 		if err.Error() == "invalid_grant" {
 			return c.JSON(http.StatusBadRequest, err.Error())

@@ -6,7 +6,8 @@ import (
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/transaction"
+	"github.com/sol-armada/admin/transactions"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type GetBankBalanceResponse struct {
@@ -19,13 +20,13 @@ func GetBankBalance(c echo.Context) error {
 	})
 	logger.Debug("getting bank balance")
 
-	cur, err := stores.Storage.GetTransactions()
+	cur, err := stores.Transactions.List(bson.D{})
 	if err != nil {
 		logger.WithError(err).Error("getting transactions cursor")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	transactions := []*transaction.Transaction{}
+	transactions := []*transactions.Transaction{}
 	if err := cur.All(c.Request().Context(), &transactions); err != nil {
 		logger.WithError(err).Error("getting transactions from collection")
 		return c.JSON(http.StatusInternalServerError, "internal server error")

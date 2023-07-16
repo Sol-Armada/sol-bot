@@ -13,7 +13,7 @@ import (
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/request"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -30,7 +30,7 @@ func (r *getUsersRequest) bind(c echo.Context) error {
 }
 
 type usersResponse struct {
-	Users []user.User `json:"users"`
+	Users []users.User `json:"users"`
 }
 
 func GetUsers(c echo.Context) error {
@@ -44,8 +44,8 @@ func GetUsers(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
-	users := []user.User{}
-	cur, err := stores.Storage.GetUsers(bson.D{})
+	users := []users.User{}
+	cur, err := stores.Users.List(bson.D{})
 	if err != nil {
 		if !errors.Is(err, mongo.ErrNilDocument) {
 			logger.WithError(err).Error("getting users")
@@ -63,7 +63,7 @@ RETURN:
 }
 
 type getUserResponse struct {
-	User *user.User `json:"user"`
+	User *users.User `json:"user"`
 }
 
 func GetUser(c echo.Context) error {
@@ -71,8 +71,8 @@ func GetUser(c echo.Context) error {
 		"endpoint": "GetUser",
 	})
 
-	storedUser := &user.User{}
-	if err := stores.Storage.GetUser(c.Param("id")).Decode(&storedUser); err != nil {
+	storedUser := &users.User{}
+	if err := stores.Users.Get(c.Param("id")).Decode(&storedUser); err != nil {
 		logger.WithError(err).Error("getting user")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
@@ -168,7 +168,7 @@ func UpdateUser(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	u := &user.User{}
+	u := &users.User{}
 	if err := json.Unmarshal(mu, u); err != nil {
 		logger.WithError(err).Error("unmarshal user from request")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -192,7 +192,7 @@ func IncrementEvent(c echo.Context) error {
 	})
 	logger.Debug("incrementing event count")
 
-	u, err := user.Get(c.Param("id"))
+	u, err := users.Get(c.Param("id"))
 	if err != nil {
 		logger.WithError(err).Error("returning status")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -216,7 +216,7 @@ func DecrementEvent(c echo.Context) error {
 	})
 	logger.Debug("decrementing event count")
 
-	u, err := user.Get(c.Param("id"))
+	u, err := users.Get(c.Param("id"))
 	if err != nil {
 		logger.WithError(err).Error("returning status")
 		return c.JSON(http.StatusInternalServerError, "internal server error")

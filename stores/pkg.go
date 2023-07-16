@@ -13,17 +13,10 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type Store struct {
-	users        *mongo.Collection
-	events       *mongo.Collection
-	transactions *mongo.Collection
-	client       *mongo.Client
-	ctx          context.Context
-}
+var client *mongo.Client
+var ctx context.Context
 
-var Storage *Store
-
-func New(ctx context.Context) (*Store, error) {
+func Setup(cctx context.Context) error {
 	log.Debug("creating store")
 	password := strings.ReplaceAll(config.GetString("MONGO.PASSWORD"), "@", `%40`)
 	usernamePassword := config.GetString("MONGO.USERNAME") + ":" + password + "@"
@@ -35,35 +28,46 @@ func New(ctx context.Context) (*Store, error) {
 		usernamePassword,
 		config.GetStringWithDefault("mongo.host", "localhost"),
 		config.GetIntWithDefault("mongo.port", 27017))
+
 	clientOptions := options.Client().ApplyURI(uri).SetConnectTimeout(5 * time.Second)
-	client, err := mongo.Connect(ctx, clientOptions)
+	c, err := mongo.Connect(cctx, clientOptions)
 	if err != nil {
-		return nil, errors.Wrap(err, "creating new store")
+		return errors.Wrap(err, "creating new store")
+	}
+	client = c
+	ctx = cctx
+
+	Users = &usersStore{
+		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users"),
+		ctx:        ctx,
 	}
 
-	usersCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users")
-	eventsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("events")
-	transactionsCollection := client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("transactions")
-
-	Storage = &Store{
-		client:       client,
-		users:        usersCollection,
-		events:       eventsCollection,
-		transactions: transactionsCollection,
-		ctx:          ctx,
+	Events = &eventsStore{
+		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("events"),
+		ctx:        ctx,
 	}
 
-	return Storage, nil
+	Templates = &templateStore{
+		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("event-templates"),
+		ctx:        ctx,
+	}
+
+	Transactions = &transactionsStore{
+		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("transactions"),
+		ctx:        ctx,
+	}
+
+	return nil
 }
 
-func (s *Store) Disconnect() {
-	if err := s.client.Disconnect(s.ctx); err != nil {
+func Disconnect() {
+	if err := client.Disconnect(ctx); err != nil {
 		log.WithError(err).Error("disconnect from store")
 	}
 }
 
-func (s *Store) Connected() bool {
-	if err := s.client.Ping(s.ctx, nil); err != nil {
+func Connected() bool {
+	if err := client.Ping(ctx, nil); err != nil {
 		return false
 	}
 	return true

@@ -16,7 +16,7 @@ import (
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 )
 
 type processing struct {
@@ -28,7 +28,7 @@ type processing struct {
 	Age       string
 	Recruiter string
 	MessageId string
-	User      *user.User
+	User      *users.User
 }
 
 var processingUsers map[string]*processing = map[string]*processing{}
@@ -205,9 +205,9 @@ func onboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
-	storage := stores.Storage
-	u := &user.User{}
-	if err := storage.GetUser(i.Member.User.ID).Decode(u); err != nil {
+	storage := stores.Users
+	u := &users.User{}
+	if err := storage.Get(i.Member.User.ID).Decode(u); err != nil {
 		logging.WithError(err).Error("getting command user for permissions")
 		return
 	}
@@ -307,7 +307,7 @@ func choiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
-	u := user.New(i.Member)
+	u := users.New(i.Member)
 	if err := u.Save(); err != nil {
 		customerrors.ErrorResponse(s, i.Interaction, "There was an error! Try again in a little few minutes or let the @Officers know")
 		return
@@ -577,7 +577,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// not a visitor
-	u, err := user.Get(i.Member.User.ID)
+	u, err := users.Get(i.Member.User.ID)
 	if err != nil {
 		logger.WithError(err).Error("getting user for onboarding")
 		customerrors.ErrorResponse(s, i.Interaction, "")
@@ -791,7 +791,7 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	code := generateValidationCode()
 	validations[i.Member.User.ID] = code
 
-	u, err := user.Get(i.Member.User.ID)
+	u, err := users.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user for validation")
 		customerrors.ErrorResponse(s, i.Interaction, "")
@@ -852,7 +852,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		return
 	}
 
-	u, err := user.Get(id)
+	u, err := users.Get(id)
 	if err != nil {
 		log.WithError(err).Error("getting user for validation")
 		customerrors.ErrorResponse(s, i.Interaction, "")

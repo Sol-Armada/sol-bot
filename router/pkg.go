@@ -91,6 +91,11 @@ func New() (*echo.Echo, error) {
 	apiUpdateEventHandler := echo.HandlerFunc(api.UpdateEvent)
 	apiDeleteEventHandler := echo.HandlerFunc(api.DeleteEvent)
 
+	apiGetEventTemplatesHandler := echo.HandlerFunc(api.GetEventTemplates)
+	apiCreateEventTemplatesHandler := echo.HandlerFunc(api.CreateEventTemplate)
+	apiUpdateEventTemplatesHandler := echo.HandlerFunc(api.UpdateEventTemplate)
+	apiDeleteEventTemplatesHandler := echo.HandlerFunc(api.DeleteEventTemplate)
+
 	apiGetBankBalanceHandler := echo.HandlerFunc(api.GetBankBalance)
 
 	apiGetEmojisHandler := echo.HandlerFunc(api.GetEmojisHandler)
@@ -114,6 +119,12 @@ func New() (*echo.Echo, error) {
 	events.POST("", apiCreateEventsHandler)
 	events.PUT("/:id", apiUpdateEventHandler)
 	events.DELETE("/:id", apiDeleteEventHandler)
+
+	templates := apiGroup.Group("/event_templates")
+	templates.GET("", apiGetEventTemplatesHandler)
+	templates.POST("", apiCreateEventTemplatesHandler)
+	templates.PUT("/:id", apiUpdateEventTemplatesHandler)
+	templates.DELETE("/:id", apiDeleteEventTemplatesHandler)
 
 	bank := apiGroup.Group("/bank")
 	bank.GET("/balance", apiGetBankBalanceHandler)

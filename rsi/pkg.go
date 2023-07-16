@@ -9,7 +9,7 @@ import (
 	"github.com/gocolly/colly/v2"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 	"github.com/sol-armada/admin/utils"
 	"golang.org/x/exp/slices"
 )
@@ -19,7 +19,7 @@ var (
 	c            *colly.Collector = colly.NewCollector(colly.AllowURLRevisit())
 )
 
-func GetOrgInfo(u *user.User) (*user.User, error) {
+func GetOrgInfo(u *users.User) (*users.User, error) {
 	u.Rank = ranks.Guest
 	u.PrimaryOrg = ""
 	var err error

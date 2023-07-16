@@ -13,7 +13,7 @@ import (
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/exp/slices"
@@ -38,7 +38,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 			}
 			if time.Now().After(lastChecked.Add(30 * time.Minute)) {
 				logger.Info("scanning users")
-				if stores.Storage == nil {
+				if !stores.Connected() {
 					logger.Debug("storage not setup, waiting a bit")
 					time.Sleep(10 * time.Second)
 					continue
@@ -60,8 +60,8 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				}
 
 				// get the stored members
-				storedUsers := []*user.User{}
-				cur, err := stores.Storage.GetUsers(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
+				storedUsers := []*users.User{}
+				cur, err := stores.Users.List(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
 				if err != nil {
 					logger.WithError(err).Error("getting users for updating")
 					return
@@ -130,14 +130,14 @@ func updateMembers(m []*discordgo.Member) error {
 		time.Sleep(1 * time.Second)
 
 		// get the stord user, if we have one
-		u, err := user.Get(member.User.ID)
+		u, err := users.Get(member.User.ID)
 		if err != nil {
 			if !errors.Is(err, mongo.ErrNoDocuments) {
 				log.WithError(err).Error("getting user for update")
 				continue
 			}
 
-			u = user.New(member)
+			u = users.New(member)
 		}
 		u.Discord = member
 		u.Name = u.GetTrueNick()
@@ -175,7 +175,7 @@ func updateMembers(m []*discordgo.Member) error {
 	return nil
 }
 
-func cleanMembers(m []*discordgo.Member, storedUsers []*user.User) error {
+func cleanMembers(m []*discordgo.Member, storedUsers []*users.User) error {
 	for _, user := range storedUsers {
 		for _, member := range m {
 			if user.ID == member.User.ID {
@@ -184,7 +184,7 @@ func cleanMembers(m []*discordgo.Member, storedUsers []*user.User) error {
 		}
 
 		log.WithField("user", user).Info("deleting user")
-		if err := stores.Storage.DeleteUser(user.ID); err != nil {
+		if err := user.Delete(); err != nil {
 			return errors.Wrap(err, "cleaning members")
 		}
 	CONTINUE:

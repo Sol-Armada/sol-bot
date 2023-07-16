@@ -66,7 +66,7 @@ func CreateEvent(c echo.Context) error {
 	}
 
 	if event.StartTime.Before(time.Now().UTC()) {
-		return c.JSON(http.StatusBadRequest, "start time can't be in the past")
+		return c.JSON(http.StatusBadRequest, "{\"error\": \"start time must be in the future\", \"code\": 2}")
 	}
 
 	if event.Cover == "" {
@@ -76,20 +76,23 @@ func CreateEvent(c echo.Context) error {
 	pTimeStart := primitive.NewDateTimeFromTime(event.StartTime)
 	pTimeEnd := primitive.NewDateTimeFromTime(event.EndTime)
 
-	cur, err := stores.Storage.GetEvents(
-		bson.D{
-			{
-				Key: "$and",
-				Value: bson.A{
-					bson.D{{Key: "start", Value: bson.D{{Key: "$lt", Value: pTimeStart}}}},
-					bson.D{{Key: "end", Value: bson.D{{Key: "$gt", Value: pTimeEnd}}}},
-					bson.D{{Key: "status", Value: bson.D{{Key: "$gte", Value: 3}}}},
-				},
+	if event.StartTime.After(event.EndTime) {
+		return c.JSON(http.StatusBadRequest, "{\"error\": \"start time must be before end time\", \"code\": 2}")
+	}
+
+	store := stores.Events
+	cur, err := store.List(bson.D{
+		{
+			Key: "$and",
+			Value: bson.A{
+				bson.D{{Key: "start", Value: bson.D{{Key: "$lt", Value: pTimeStart}}}},
+				bson.D{{Key: "end", Value: bson.D{{Key: "$gt", Value: pTimeEnd}}}},
+				bson.D{{Key: "status", Value: bson.D{{Key: "$gte", Value: 3}}}},
 			},
 		},
-	)
+	})
 	if err != nil {
-		logger.WithError(err).Error("getting mongo cursor")
+		logger.WithError(err).Error("getting events cursor")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
@@ -101,6 +104,11 @@ func CreateEvent(c echo.Context) error {
 
 	if len(possibleOverlapEvents) > 0 {
 		return c.JSON(http.StatusConflict, "event overlaps existing event")
+	}
+
+	// add ids to the positions
+	for _, p := range event.Positions {
+		p.Id = xid.New().String()
 	}
 
 	if err := event.NotifyOfEvent(); err != nil {
@@ -167,6 +175,102 @@ func DeleteEvent(c echo.Context) error {
 	}
 
 	events.CancelSchedule(event)
+
+	return c.NoContent(http.StatusOK)
+}
+
+type CreateEventTemplateResponse struct {
+	Template *e.Template `json:"template"`
+}
+
+func CreateEventTemplate(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "CreateEventTemplate",
+	})
+	logger.Debug("creating event template")
+
+	template := &events.Template{}
+
+	if err := c.Bind(&template); err != nil {
+		logger.WithError(err).Error("binding to event template")
+		return c.JSON(http.StatusBadRequest, "bad request")
+	}
+
+	exists, err := events.TemplateExists(template.Name)
+	if err != nil {
+		logger.WithError(err).Error("checking if template exists")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	if exists {
+		return c.JSON(http.StatusConflict, "template already exists")
+	}
+
+	if template.Cover == "" {
+		template.Cover = "/logo.png"
+	}
+
+	if err := template.Save(); err != nil {
+		logger.WithError(err).Error("request to map")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	return c.JSON(http.StatusOK, CreateEventTemplateResponse{Template: template})
+}
+
+func GetEventTemplates(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "GetEventTemplates",
+	})
+	logger.Debug("getting event templates")
+
+	templates, err := events.GetAllTemplates()
+	if err != nil {
+		logger.WithError(err).Error("getting event templates")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	return c.JSON(http.StatusOK, templates)
+}
+
+func UpdateEventTemplate(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "UpdateEventTemplate",
+	})
+	logger.Debug("update event template")
+
+	template := &events.Event{}
+
+	if err := c.Bind(&template); err != nil {
+		logger.WithError(err).Error("binding to event template")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	if err := template.Save(); err != nil {
+		logger.WithError(err).Error("saving event template")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func DeleteEventTemplate(c echo.Context) error {
+	logger := log.WithFields(log.Fields{
+		"endpoint": "DeleteEventTemplate",
+	})
+	logger.Debug("deleting event template")
+
+	template := &events.Event{}
+
+	if err := c.Bind(&template); err != nil {
+		logger.WithError(err).Error("binding to event")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
+
+	if err := template.Delete(); err != nil {
+		logger.WithError(err).Error("deleting event")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
 
 	return c.NoContent(http.StatusOK)
 }

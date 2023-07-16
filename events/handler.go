@@ -7,7 +7,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/user"
+	"github.com/sol-armada/admin/users"
 )
 
 // event command handlers
@@ -52,7 +52,7 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	posId := customId[3]
 
-	user, err := user.Get(i.Member.User.ID)
+	user, err := users.Get(i.Member.User.ID)
 	if err != nil {
 		logger.WithError(err).Error("getting user")
 		return
