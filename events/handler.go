@@ -95,7 +95,8 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		justRemove := false
 		// first remove this user from all positions
-		for ind, memberId := range pos.Members {
+		newPos := []string{}
+		for _, memberId := range pos.Members {
 			// remove them from the list and move on
 			if memberId == i.Member.User.ID && pos.Id == posId {
 				justRemove = true
@@ -110,19 +111,22 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					logger.WithError(err).Error("sending response")
 				}
 
-				pos.Members = append(pos.Members[:ind], pos.Members[ind+1:]...)
+				if err := s.ThreadMemberRemove(i.Message.Thread.ID, i.Member.User.ID); err != nil {
+					logger.WithError(err).Error("thread member remove")
+				}
+
 				continue
 			}
 
 			if memberId == i.Member.User.ID {
 				continue
 			}
-			pos.Members = append(pos.Members, memberId)
+			newPos = append(newPos, memberId)
 		}
 
 		// add this user the selected position
 		if pos.Id == posId && !justRemove {
-			if len(pos.Members) == int(pos.Max) {
+			if len(newPos) >= int(pos.Max) {
 				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -133,10 +137,14 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 					logger.WithError(err).Error("position full response")
 				}
 
-				continue
+				break
 			}
 
-			pos.Members = append(pos.Members, i.Member.User.ID)
+			newPos = append(newPos, i.Member.User.ID)
+
+			if err := s.ThreadMemberAdd(i.Message.Thread.ID, i.Member.User.ID); err != nil {
+				logger.WithError(err).Error("thread member add")
+			}
 
 			if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -148,6 +156,8 @@ func ChoiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				logger.WithError(err).Error("sending response")
 			}
 		}
+		logger.WithField("new_positions", newPos).Debug("adding user")
+		pos.Members = newPos
 	}
 	event.Unlock()
 

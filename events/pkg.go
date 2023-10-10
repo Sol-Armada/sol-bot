@@ -147,12 +147,10 @@ func participentsList(e *Event) string {
 	e.Lock()
 	defer e.Unlock()
 	participents := []string{}
-	pInd := 0
 	for _, position := range e.Positions {
 		for _, m := range position.Members {
 			participents = append(participents, "<@"+m+">")
 		}
-		pInd++
 	}
 	return strings.Join(participents, ", ")
 }
@@ -725,10 +723,10 @@ func (e *Event) NotifyOfEvent() error {
 	eventStatus := status.Announced
 
 	// create a guild scheduled event
-	ged := fmt.Sprintf("%s\n\nEvent Signup: <#%s>", e.Description, e.MessageId)
+	ged := fmt.Sprintf("%s\n\nEvent Signup: <#%s>", strings.Split(e.Description, "\n")[0], e.MessageId)
 	gse, err := b.GuildScheduledEventCreate(b.GuildId, &discordgo.GuildScheduledEventParams{
 		Name:               e.Name,
-		Description:        ged,
+		Description:        ged[:1000],
 		ScheduledStartTime: &e.StartTime,
 		ScheduledEndTime:   &e.EndTime,
 		Image:              e.Cover,

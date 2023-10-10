@@ -46,6 +46,7 @@ func GetOrgInfo(u *users.User) (*users.User, error) {
 		u.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
 		if len(u.Affilations) == 0 {
 			u.Affilations = append(u.Affilations, "None")
+			return
 		}
 	})
 
@@ -56,7 +57,8 @@ func GetOrgInfo(u *users.User) (*users.User, error) {
 
 	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", u.GetTrueNick())
 	if err := c.Visit(url); err != nil {
-		if err.Error() == "Not Found" {
+		t := err.Error()
+		if t == "Not Found" {
 			return u, UserNotFound
 		}
 

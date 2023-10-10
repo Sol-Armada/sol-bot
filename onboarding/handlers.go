@@ -177,16 +177,25 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 		return err
 	}
 
-	if len(messages) != 0 {
-		if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
-			Content:    &m,
+	if len(messages) == 0 {
+		if _, err := b.ChannelMessageSendComplex(oc.ID, &discordgo.MessageSend{
+			Content:    m,
 			Components: components,
-
-			ID:      messages[0].ID,
-			Channel: oc.ID,
 		}); err != nil {
 			return err
 		}
+
+		return nil
+	}
+
+	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		Content:    &m,
+		Components: components,
+
+		ID:      messages[0].ID,
+		Channel: oc.ID,
+	}); err != nil {
+		return err
 	}
 
 	return nil
@@ -502,7 +511,10 @@ func tryAgainHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 }
 
 func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	logger := log.WithField("func", "finish")
+	logger := log.WithFields(log.Fields{
+		"func":    "finish",
+		"user_id": i.Member.User.ID,
+	})
 
 	airlockChannelId := config.GetStringWithDefault("DISCORD.CHANNELS.AIRLOCK", "")
 	airlockName := "#airlock"
@@ -565,6 +577,10 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	// create the notification thread if we don't have one
 	if originalThreadMessage == nil {
+		logger.WithFields(log.Fields{
+			"thread_message": originalThreadMessage,
+			"channel":        onboardingChannelID,
+		}).Debug("creating onboarding thread")
 		if _, err := s.MessageThreadStartComplex(onboardingChannelID, originalThreadMessage.ID, &discordgo.ThreadStart{
 			Name:                "Onboarding",
 			AutoArchiveDuration: 60,
@@ -584,6 +600,9 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 	u.Name = processingUsers[i.Member.User.ID].Handle
+	u.Discord.Nick = processingUsers[i.Member.User.ID].Handle
+
+	logger = logger.WithField("user", u)
 
 	u, err = rsi.GetOrgInfo(u)
 	if err != nil {
@@ -611,6 +630,11 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if u.PrimaryOrg == "None" || u.PrimaryOrg == "" {
 		primaryOrgUrl = "None"
 	}
+
+	if u.PrimaryOrg == "REDACTED" {
+		primaryOrgUrl = "REDACTED"
+	}
+
 	// build the notification embed
 	em := &discordgo.MessageEmbed{
 		Type:  discordgo.EmbedTypeArticle,
@@ -662,6 +686,10 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	id := originalThreadMessage.ID
 	if originalThreadMessage.Thread != nil {
 		id = originalThreadMessage.Thread.ID
+	}
+	if _, err := s.ChannelMessageEdit(onboardingChannelID, originalThreadMessage.ID, fmt.Sprintf("%s (%s)", u.Name, i.Member.User.Username)); err != nil {
+		logger.WithError(err).Error("editing onboarding thread message")
+		return
 	}
 	if _, err := s.ChannelMessageSendComplex(id, &discordgo.MessageSend{
 		Embeds: []*discordgo.MessageEmbed{

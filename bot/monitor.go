@@ -122,12 +122,15 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 }
 
 func updateMembers(m []*discordgo.Member) error {
-	log.WithFields(log.Fields{
+	logger := log.WithField("func", "updateMembers")
+	logger.WithFields(log.Fields{
 		"discord_members": len(m),
 	}).Debug("checking users")
 
 	for _, member := range m {
 		time.Sleep(1 * time.Second)
+		logger = logger.WithField("user", member)
+		logger.Debug("updating user")
 
 		// get the stord user, if we have one
 		u, err := users.Get(member.User.ID)
