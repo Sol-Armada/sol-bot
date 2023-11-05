@@ -70,6 +70,7 @@ func New() (*echo.Echo, error) {
 	e.GET("/login", echo.WrapHandler(http.StripPrefix("/login", indexHandler)))
 	e.GET("/favicon.ico", echo.WrapHandler(indexHandler))
 	e.GET("/logo.png", echo.WrapHandler(indexHandler))
+	e.GET("/logo-ts3.png", echo.WrapHandler(indexHandler))
 	e.GET("/assets/*", echo.WrapHandler(indexHandler))
 	e.GET("/emojis/*", echo.WrapHandler(indexHandler))
 

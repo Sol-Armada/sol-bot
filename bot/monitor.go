@@ -56,7 +56,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				m, err := b.GetMembers()
 				if err != nil {
 					logger.WithError(err).Error("bot getting members")
-					return
+					continue
 				}
 
 				// get the stored members
@@ -64,11 +64,11 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				cur, err := stores.Users.List(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
 				if err != nil {
 					logger.WithError(err).Error("getting users for updating")
-					return
+					continue
 				}
 				if err := cur.All(context.Background(), &storedUsers); err != nil {
 					logger.WithError(err).Error("getting users from collection for update")
-					return
+					continue
 				}
 
 				// actually do the members update
@@ -79,13 +79,13 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 					}
 
 					logger.WithError(err).Error("updating members")
-					return
+					continue
 				}
 
 				// do some cleaning
 				if err := cleanMembers(m, storedUsers); err != nil {
 					logger.WithError(err).Error("cleaning up the members")
-					return
+					continue
 				}
 
 				lastChecked = time.Now()
