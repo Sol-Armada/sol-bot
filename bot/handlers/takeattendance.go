@@ -25,7 +25,7 @@ func TakeAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Intera
 		}
 		if data.Options[0].StringValue() != "" {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  data.Options[0].StringValue(),
+				Name:  "(NEW) " + data.Options[0].StringValue(),
 				Value: data.Options[0].StringValue(),
 			})
 		}
@@ -145,7 +145,6 @@ func takeAttendanceComplete(s *discordgo.Session, i *discordgo.InteractionCreate
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			TTS:     true,
 			Flags:   discordgo.MessageFlagsEphemeral,
 			Content: "Attendance taken",
 		},
