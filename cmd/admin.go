@@ -35,7 +35,7 @@ func main() {
 		log.Info("gracefully shutdown")
 	}()
 
-	config.SetConfigName("config")
+	config.SetConfigName("settings")
 	config.AddConfigPath(".")
 	config.AddConfigPath("../")
 	if err := config.ReadInConfig(); err != nil {

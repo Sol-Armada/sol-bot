@@ -26,7 +26,7 @@ func BankCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	logger := log.WithField("func", "BankCommandHandler")
 	logger.Debug("bank")
 
-	holders := config.GetStringSlice("BANK.HOLDERS")
+	holders := config.GetStringSlice("FEATURES.BANK.HOLDERS")
 	if !slices.Contains(holders, i.Member.User.ID) {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

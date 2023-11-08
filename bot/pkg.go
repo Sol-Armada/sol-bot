@@ -21,8 +21,13 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"bank":       handlers.BankCommandHandler,
-	"attendance": handlers.AttendanceCommandHandler,
+	"bank":           handlers.BankCommandHandler,
+	"attendance":     handlers.AttendanceCommandHandler,
+	"takeattendance": handlers.TakeAttendanceCommandHandler,
+}
+
+var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+	"takeattendance": handlers.TakeAttendanceAutocompleteHandler,
 }
 
 func New() (*Bot, error) {
@@ -65,12 +70,6 @@ func ready(s *discordgo.Session, event *discordgo.Ready) {
 }
 
 func (b *Bot) Setup() error {
-	defer func() {
-		if err := b.Open(); err != nil {
-			log.WithError(err).Error("starting the bot")
-		}
-	}()
-
 	// setup state when bot is ready
 	b.AddHandler(ready)
 
@@ -80,8 +79,25 @@ func (b *Bot) Setup() error {
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
 				h(s, i)
 			}
+		case discordgo.InteractionApplicationCommandAutocomplete:
+			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
+				h(s, i)
+			}
 		}
 	})
+
+	// clear commands
+	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
+	if err != nil {
+		return err
+	}
+
+	for _, cmd := range cmds {
+		log.WithField("command", cmd.Name).Info("deleting command")
+		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
+			return err
+		}
+	}
 
 	// register commands
 
@@ -94,6 +110,77 @@ func (b *Bot) Setup() error {
 		Description: "Get your attendance count",
 	}); err != nil {
 		return errors.Wrap(err, "creating attendance command")
+	}
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		Name:        "takeattendance",
+		Description: "take attendance",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:         "event",
+				Description:  "the event to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionString,
+				Required:     true,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-01",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Required:     true,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-02",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-03",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-04",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-05",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-07",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-08",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-09",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+			{
+				Name:         "user-10",
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			},
+		},
+	}); err != nil {
+		return errors.Wrap(err, "creating takeattendance command")
 	}
 
 	// bank
@@ -192,7 +279,7 @@ func (b *Bot) Setup() error {
 		}
 	}
 
-	return nil
+	return b.Open()
 }
 
 func (b *Bot) Close() error {

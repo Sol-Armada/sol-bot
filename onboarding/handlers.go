@@ -582,7 +582,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			"channel":        onboardingChannelID,
 		}).Debug("creating onboarding thread")
 		if _, err := s.MessageThreadStartComplex(onboardingChannelID, originalThreadMessage.ID, &discordgo.ThreadStart{
-			Name:                "Onboarding",
+			Name:                "Onboarding " + i.Member.User.Username,
 			AutoArchiveDuration: 60,
 			Invitable:           false,
 			RateLimitPerUser:    10,
@@ -767,7 +767,7 @@ func joinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	}
 
 	if _, err := s.MessageThreadStartComplex(message.ChannelID, message.ID, &discordgo.ThreadStart{
-		Name:                "Onboarding",
+		Name:                "Onboarding " + m.User.Username,
 		AutoArchiveDuration: 60,
 		Invitable:           false,
 	}); err != nil {

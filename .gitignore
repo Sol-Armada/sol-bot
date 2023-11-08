@@ -1,8 +1,8 @@
 .vscode/
 bin/
 web/dist
-config.*
-!config.example.toml
+settings.*
+!settings.example.toml
 .env*
 *.exe
 web/public/emojis/
