@@ -21,13 +21,15 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"bank":           handlers.BankCommandHandler,
-	"attendance":     handlers.AttendanceCommandHandler,
-	"takeattendance": handlers.TakeAttendanceCommandHandler,
+	"bank":             handlers.BankCommandHandler,
+	"attendance":       handlers.AttendanceCommandHandler,
+	"takeattendance":   handlers.TakeAttendanceCommandHandler,
+	"removeattendance": handlers.RemoveAttendanceCommandHandler,
 }
 
 var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"takeattendance": handlers.TakeAttendanceAutocompleteHandler,
+	"takeattendance":   handlers.TakeAttendanceAutocompleteHandler,
+	"removeattendance": handlers.RemoveAttendanceAutocompleteHandler,
 }
 
 func New() (*Bot, error) {
@@ -111,74 +113,63 @@ func (b *Bot) Setup() error {
 	}); err != nil {
 		return errors.Wrap(err, "creating attendance command")
 	}
+
+	options := []*discordgo.ApplicationCommandOption{
+		{
+			Name:         "event",
+			Description:  "the event to take attendance for",
+			Type:         discordgo.ApplicationCommandOptionString,
+			Required:     true,
+			Autocomplete: true,
+		},
+	}
+	for i := 0; i < 10; i++ {
+		o := &discordgo.ApplicationCommandOption{
+			Name:         fmt.Sprintf("user-%d", i+1),
+			Description:  "the user to take attendance for",
+			Type:         discordgo.ApplicationCommandOptionUser,
+			Autocomplete: true,
+		}
+		if i == 0 {
+			o.Required = true
+		}
+		options = append(options, o)
+	}
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "takeattendance",
-		Description: "take attendance",
+		Description: "take or add to attendance",
 		Type:        discordgo.ChatApplicationCommand,
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Name:         "event",
-				Description:  "the event to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionString,
-				Required:     true,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-01",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Required:     true,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-02",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-03",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-04",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-05",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-07",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-08",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-09",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
-			{
-				Name:         "user-10",
-				Description:  "the user to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			},
+		Options:     options,
+	}); err != nil {
+		return errors.Wrap(err, "creating takeattendance command")
+	}
+
+	options = []*discordgo.ApplicationCommandOption{
+		{
+			Name:         "event",
+			Description:  "the event to remove attendance from",
+			Type:         discordgo.ApplicationCommandOptionString,
+			Required:     true,
+			Autocomplete: true,
 		},
+	}
+	for i := 0; i < 10; i++ {
+		o := &discordgo.ApplicationCommandOption{
+			Name:         fmt.Sprintf("user-%d", i+1),
+			Description:  "the user to remove from attedance",
+			Type:         discordgo.ApplicationCommandOptionUser,
+			Autocomplete: true,
+		}
+		if i == 0 {
+			o.Required = true
+		}
+		options = append(options, o)
+	}
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		Name:        "removeattendance",
+		Description: "remove from attendance",
+		Type:        discordgo.ChatApplicationCommand,
+		Options:     options,
 	}); err != nil {
 		return errors.Wrap(err, "creating takeattendance command")
 	}
