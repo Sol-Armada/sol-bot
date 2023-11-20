@@ -317,10 +317,8 @@ func choiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	u := users.New(i.Member)
-	if err := u.Save(); err != nil {
-		customerrors.ErrorResponse(s, i.Interaction, "There was an error! Try again in a little few minutes or let the @Officers know")
-		return
-	}
+	u.Save()
+
 	processingUsers[i.Member.User.ID] = &processing{
 		User: u,
 	}
@@ -622,9 +620,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	u.Age = int(age)
 	u.Gameplay = processingUsers[i.Member.User.ID].GamePlay
 	u.Playtime = processingUsers[i.Member.User.ID].PlayTime
-	if err := u.Save(); err != nil {
-		log.WithError(err).Error("could not save user finishing onboarding")
-	}
+	u.Save()
 
 	primaryOrgUrl := fmt.Sprintf("https://robertsspaceindustries.com/orgs/%s", u.PrimaryOrg)
 	if u.PrimaryOrg == "None" || u.PrimaryOrg == "" {
@@ -938,10 +934,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 
 		u.Validated = true
-		if err := u.Save(); err != nil {
-			log.WithError(err).Error("saving user for validation")
-			customerrors.ErrorResponse(s, i.Interaction, "")
-		}
+		u.Save()
 
 		if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 			Flags:   discordgo.MessageFlagsEphemeral,

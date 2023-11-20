@@ -11,7 +11,6 @@ import (
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/users"
 	"github.com/sol-armada/admin/utils"
-	"golang.org/x/exp/slices"
 )
 
 var (
@@ -55,7 +54,7 @@ func GetOrgInfo(u *users.User) (*users.User, error) {
 		u.Rank = ranks.Guest
 	})
 
-	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", u.GetTrueNick())
+	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", strings.ReplaceAll(u.GetTrueNick(), ".", ""))
 	if err := c.Visit(url); err != nil {
 		t := err.Error()
 		if t == "Not Found" {
@@ -63,23 +62,6 @@ func GetOrgInfo(u *users.User) (*users.User, error) {
 		}
 
 		return u, err
-	}
-	u.RSIMember = true
-
-	u.BadAffiliation = false
-	for _, affiliatedOrg := range u.Affilations {
-		if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
-			u.BadAffiliation = true
-			break
-		}
-	}
-
-	u.IsAlly = false
-	for _, ally := range config.GetStringSlice("allies") {
-		if strings.EqualFold(u.PrimaryOrg, ally) {
-			u.IsAlly = true
-			break
-		}
 	}
 
 	log.WithFields(log.Fields{

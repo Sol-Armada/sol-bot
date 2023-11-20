@@ -12,10 +12,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/auth"
+	"github.com/sol-armada/admin/cache"
+	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type User struct {
@@ -24,6 +25,7 @@ type User struct {
 	Rank           ranks.Rank `json:"rank" bson:"rank"`
 	Notes          string     `json:"notes" bson:"notes"`
 	Events         int64      `json:"events" bson:"events"`
+	LegacyEvents   int64      `json:"legacy_events" bson:"legacy_events"`
 	PrimaryOrg     string     `json:"primary_org" bson:"primary_org"`
 	RSIMember      bool       `json:"rsi_member" bson:"rsi_member"`
 	BadAffiliation bool       `json:"bad_affiliation" bson:"bad_affiliation"`
@@ -41,6 +43,11 @@ type User struct {
 
 	Discord *discordgo.Member `json:"-" bson:"discord"`
 	Access  *auth.UserAccess  `json:"-" bson:"access"`
+}
+
+type AttendedEvent struct {
+	ID   string `json:"id" bson:"_id"`
+	Name string `json:"name" bson:"name"`
 }
 
 func New(m *discordgo.Member) *User {
@@ -66,10 +73,13 @@ func New(m *discordgo.Member) *User {
 }
 
 func Get(id string) (*User, error) {
-	result := stores.Users.Get(id)
+	rawUser := cache.Cache.GetUser(id)
 	user := &User{}
-	if err := result.Decode(&user); err != nil {
-		return nil, err
+	if rawUser != nil {
+		userByte, _ := json.Marshal(rawUser)
+		if err := json.Unmarshal(userByte, user); err != nil {
+			return nil, err
+		}
 	}
 	return user, nil
 }
@@ -113,10 +123,10 @@ func (u *User) GetTrueNick() string {
 	}
 
 	trueNick := u.Discord.User.Username
-	regRank := regexp.MustCompile(`\[(.*?)\] `)
-	regAlly := regexp.MustCompile(`\{(.*?)\} `)
-	regPronouns := regexp.MustCompile(` \((.*?)\)`)
 	if u.Discord.Nick != "" {
+		regRank := regexp.MustCompile(`\[(.*?)\] `)
+		regAlly := regexp.MustCompile(`\{(.*?)\} `)
+		regPronouns := regexp.MustCompile(` \((.*?)\)`)
 		trueNick = regRank.ReplaceAllString(u.Discord.Nick, "")
 		trueNick = regAlly.ReplaceAllString(trueNick, "")
 		trueNick = regPronouns.ReplaceAllString(trueNick, "")
@@ -125,32 +135,28 @@ func (u *User) GetTrueNick() string {
 	return trueNick
 }
 
-func (u *User) Save() error {
+func (u *User) Save() {
 	log.WithField("user", u).Debug("saving user")
-	stores := stores.Users
-
 	u.Updated = time.Now().UTC()
-
-	opts := options.Replace().SetUpsert(true)
-	if _, err := stores.ReplaceOne(stores.GetContext(), bson.D{{Key: "_id", Value: u.ID}}, u, opts); err != nil {
-		return errors.Wrap(err, "saving user to mongo")
-	}
-
-	return nil
+	cache.Cache.SetUser(u.ID, u.ToMap())
 }
 
-func (u *User) Load() error {
-	log.WithField("user", u).Debug("loading user")
-	if err := stores.Users.Get(u.Discord.User.ID).Decode(u); err != nil {
-		return errors.Wrap(err, "getting stored user for loading")
-	}
-
-	return nil
-}
-
-func (u *User) UpdateEventCount(count int64) error {
+func (u *User) UpdateEventCount(count int64) {
 	u.Events = count
-	return u.Save()
+	u.LegacyEvents = u.Events
+	u.Save()
+}
+
+func (u *User) IncrementEventCount() {
+	u.Events++
+	u.LegacyEvents = u.Events
+	u.Save()
+}
+
+func (u *User) DecrementEventCount() {
+	u.Events--
+	u.LegacyEvents = u.Events
+	u.Save()
 }
 
 func (u *User) IsAdmin() bool {
@@ -208,9 +214,7 @@ func (u *User) Login(code string) error {
 	}
 
 	u.Avatar = discordUser.Avatar
-	if err := u.Save(); err != nil {
-		return errors.Wrap(err, "saving stored user")
-	}
+	u.Save()
 
 	return nil
 }
@@ -221,10 +225,45 @@ func (u *User) StillLoggedIn() bool {
 
 func (u *User) Delete() error {
 	log.WithField("user", u).Debug("deleting user")
-	store := stores.Users
 
-	if _, err := store.DeleteOne(store.GetContext(), bson.M{"_id": u.ID}); err != nil {
-		return errors.Wrap(err, "deleting user")
-	}
+	cache.Cache.DeleteUser(u.ID)
+
 	return nil
+}
+
+func (u *User) ToMap() map[string]interface{} {
+	r := map[string]interface{}{}
+	b, _ := json.Marshal(u)
+	_ = json.Unmarshal(b, &r)
+	return r
+}
+
+func (u *User) Issues() []string {
+	issues := []string{}
+
+	if u.IsBot {
+		issues = append(issues, "bot")
+	}
+
+	if u.Rank == ranks.Guest {
+		issues = append(issues, "guest")
+	}
+
+	if u.Rank == ranks.Ally {
+		issues = append(issues, "ally")
+	}
+
+	if u.BadAffiliation {
+		issues = append(issues, "bad affiliation")
+	}
+
+	if u.PrimaryOrg == "REDACTED" {
+		issues = append(issues, "redacted org")
+	}
+
+	if u.Rank <= ranks.Member && u.PrimaryOrg != config.GetString("rsi_org_sid") {
+		issues = append(issues, "bad primary org")
+	}
+
+	return issues
 }

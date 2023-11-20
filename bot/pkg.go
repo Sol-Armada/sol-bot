@@ -25,6 +25,7 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 	"attendance":       handlers.AttendanceCommandHandler,
 	"takeattendance":   handlers.TakeAttendanceCommandHandler,
 	"removeattendance": handlers.RemoveAttendanceCommandHandler,
+	"profile":          handlers.ProfileCommandHandler,
 }
 
 var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -112,6 +113,15 @@ func (b *Bot) Setup() error {
 		Description: "Get your attendance count",
 	}); err != nil {
 		return errors.Wrap(err, "creating attendance command")
+	}
+	if err := b.DeleteCommand("profile"); err != nil {
+		log.WithError(err).Error("unable to delete profile command")
+	}
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		Name:        "profile",
+		Description: "View your profile",
+	}); err != nil {
+		return errors.Wrap(err, "creating profile command")
 	}
 
 	options := []*discordgo.ApplicationCommandOption{

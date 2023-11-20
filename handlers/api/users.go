@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"reflect"
@@ -10,12 +9,11 @@ import (
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
+	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/request"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	usersP "github.com/sol-armada/admin/users"
 )
 
 type getUsersRequest struct {
@@ -30,7 +28,7 @@ func (r *getUsersRequest) bind(c echo.Context) error {
 }
 
 type usersResponse struct {
-	Users []users.User `json:"users"`
+	Users []usersP.User `json:"users"`
 }
 
 func GetUsers(c echo.Context) error {
@@ -44,26 +42,28 @@ func GetUsers(c echo.Context) error {
 		return c.JSON(http.StatusBadRequest, err.Error())
 	}
 
-	users := []users.User{}
-	cur, err := stores.Users.List(bson.D{})
-	if err != nil {
-		if !errors.Is(err, mongo.ErrNilDocument) {
-			logger.WithError(err).Error("getting users")
+	usersRaw := cache.Cache.GetUsers()
+	users := []usersP.User{}
+	// convert from map to user
+	for _, v := range usersRaw {
+		userRaw, err := json.Marshal(v)
+		if err != nil {
+			logger.WithError(err).Error("marshalling user from cache")
 			return c.JSON(http.StatusInternalServerError, "internal server error")
 		}
+		user := usersP.User{}
+		if err := json.Unmarshal([]byte(userRaw), &user); err != nil {
+			logger.WithError(err).Error("unmarshalling user from cache")
+			return c.JSON(http.StatusInternalServerError, "internal server error")
+		}
+		users = append(users, user)
+	}
 
-		goto RETURN
-	}
-	if err := cur.All(c.Request().Context(), &users); err != nil {
-		logger.WithError(err).Error("getting users from collection")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
-RETURN:
 	return c.JSON(http.StatusOK, usersResponse{Users: users})
 }
 
 type getUserResponse struct {
-	User *users.User `json:"user"`
+	User *usersP.User `json:"user"`
 }
 
 func GetUser(c echo.Context) error {
@@ -71,7 +71,7 @@ func GetUser(c echo.Context) error {
 		"endpoint": "GetUser",
 	})
 
-	storedUser := &users.User{}
+	storedUser := &usersP.User{}
 	if err := stores.Users.Get(c.Param("id")).Decode(&storedUser); err != nil {
 		logger.WithError(err).Error("getting user")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -128,11 +128,7 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 
 	u.Rank = ranks.Rank(rid)
 
-	if err := u.Save(); err != nil {
-		logger.WithError(err).Error("updating user")
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
+	u.Save()
 
 	if _, err := fmt.Fprint(w, http.StatusOK); err != nil {
 		logger.WithError(err).Error("returning status")
@@ -168,7 +164,7 @@ func UpdateUser(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
-	u := &users.User{}
+	u := &usersP.User{}
 	if err := json.Unmarshal(mu, u); err != nil {
 		logger.WithError(err).Error("unmarshal user from request")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -178,10 +174,7 @@ func UpdateUser(c echo.Context) error {
 		u.Events = 0
 	}
 
-	if err := u.Save(); err != nil {
-		logger.WithError(err).Error("returning status")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
+	u.Save()
 
 	return c.NoContent(http.StatusOK)
 }
@@ -192,18 +185,16 @@ func IncrementEvent(c echo.Context) error {
 	})
 	logger.Debug("incrementing event count")
 
-	u, err := users.Get(c.Param("id"))
+	u, err := usersP.Get(c.Param("id"))
 	if err != nil {
 		logger.WithError(err).Error("returning status")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
 	}
 
 	u.Events++
+	u.LegacyEvents = u.Events
 
-	if err := u.Save(); err != nil {
-		logger.WithError(err).Error("returning status")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
+	u.Save()
 
 	return c.JSON(http.StatusOK, getUserResponse{
 		User: u,
@@ -216,7 +207,7 @@ func DecrementEvent(c echo.Context) error {
 	})
 	logger.Debug("decrementing event count")
 
-	u, err := users.Get(c.Param("id"))
+	u, err := usersP.Get(c.Param("id"))
 	if err != nil {
 		logger.WithError(err).Error("returning status")
 		return c.JSON(http.StatusInternalServerError, "internal server error")
@@ -228,10 +219,7 @@ func DecrementEvent(c echo.Context) error {
 		u.Events = 0
 	}
 
-	if err := u.Save(); err != nil {
-		logger.WithError(err).Error("returning status")
-		return c.JSON(http.StatusInternalServerError, "internal server error")
-	}
+	u.Save()
 
 	// return c.NoContent(http.StatusOK)
 	return c.JSON(http.StatusOK, getUserResponse{

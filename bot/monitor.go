@@ -1,20 +1,20 @@
 package bot
 
 import (
-	"context"
+	"encoding/json"
 	"strings"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
-	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/exp/slices"
 )
@@ -59,18 +59,6 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 					continue
 				}
 
-				// get the stored members
-				storedUsers := []*users.User{}
-				cur, err := stores.Users.List(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
-				if err != nil {
-					logger.WithError(err).Error("getting users for updating")
-					continue
-				}
-				if err := cur.All(context.Background(), &storedUsers); err != nil {
-					logger.WithError(err).Error("getting users from collection for update")
-					continue
-				}
-
 				// actually do the members update
 				if err := updateMembers(m); err != nil {
 					if strings.Contains(err.Error(), "Forbidden") {
@@ -80,6 +68,28 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 
 					logger.WithError(err).Error("updating members")
 					continue
+				}
+
+				// get the stored members
+				storedUsers := []*users.User{}
+				// cur, err := stores.Users.List(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
+				// if err != nil {
+				// 	logger.WithError(err).Error("getting users for updating")
+				// 	continue
+				// }
+				// if err := cur.All(context.Background(), &storedUsers); err != nil {
+				// 	logger.WithError(err).Error("getting users from collection for update")
+				// 	continue
+				// }
+				rawUsers := cache.Cache.GetUsers()
+				for _, v := range rawUsers {
+					uByte, _ := json.Marshal(v)
+					u := users.User{}
+					if err := json.Unmarshal(uByte, &u); err != nil {
+						logger.WithError(err).Error("unmarshalling user from cache")
+						continue
+					}
+					storedUsers = append(storedUsers, &u)
 				}
 
 				// do some cleaning
@@ -127,30 +137,31 @@ func updateMembers(m []*discordgo.Member) error {
 		"discord_members": len(m),
 	}).Debug("checking users")
 
+	logger.Debugf("updating %d members", len(m))
 	for _, member := range m {
 		time.Sleep(1 * time.Second)
-		logger = logger.WithField("user", member)
-		logger.Debug("updating user")
+		logger = logger.WithField("member", member)
+		logger.Debug("updating member")
 
 		// get the stord user, if we have one
 		u, err := users.Get(member.User.ID)
 		if err != nil {
 			if !errors.Is(err, mongo.ErrNoDocuments) {
-				log.WithError(err).Error("getting user for update")
+				log.WithError(err).Error("getting member for update")
 				continue
 			}
 
 			u = users.New(member)
 		}
 		u.Discord = member
-		u.Name = u.GetTrueNick()
+		u.Name = strings.ReplaceAll(u.GetTrueNick(), ".", "")
+		u.RSIMember = true
 
 		// rsi related stuff
 		u, err = rsi.GetOrgInfo(u)
 		if err != nil {
-			if strings.Contains(err.Error(), "Forbidden") {
-				log.Warn("rsi limit")
-				continue
+			if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
+				return err
 			}
 
 			if !errors.Is(err, rsi.UserNotFound) {
@@ -159,6 +170,24 @@ func updateMembers(m []*discordgo.Member) error {
 
 			log.WithField("user", u).Debug("user not found")
 			u.RSIMember = false
+		}
+
+		if u.RSIMember {
+			u.BadAffiliation = false
+			u.IsAlly = false
+
+			for _, affiliatedOrg := range u.Affilations {
+				if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
+					u.BadAffiliation = true
+					break
+				}
+			}
+			for _, ally := range config.GetStringSlice("allies") {
+				if strings.EqualFold(u.PrimaryOrg, ally) {
+					u.IsAlly = true
+					break
+				}
+			}
 		}
 
 		// discord related stuff
@@ -170,9 +199,10 @@ func updateMembers(m []*discordgo.Member) error {
 			u.IsBot = true
 		}
 
-		if err := u.Save(); err != nil {
-			return errors.Wrap(err, "saving new user")
-		}
+		// fill legacy
+		u.LegacyEvents = u.Events
+
+		u.Save()
 	}
 
 	return nil

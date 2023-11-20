@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -11,14 +12,16 @@ import (
 
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
-	"github.com/apex/log/handlers/json"
+	jsn "github.com/apex/log/handlers/json"
 	"github.com/sol-armada/admin/bot"
+	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/events"
 	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/onboarding"
 	"github.com/sol-armada/admin/server"
 	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/admin/users"
 )
 
 type customFormatter struct {
@@ -43,7 +46,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	log.SetHandler(json.New(os.Stdout))
+	log.SetHandler(jsn.New(os.Stdout))
 	if config.GetBool("LOG.DEBUG") {
 		log.SetLevel(log.DebugLevel)
 		if config.GetBool("LOG.CLI") {
@@ -57,6 +60,7 @@ func main() {
 	if err := stores.Setup(context.Background()); err != nil {
 		log.WithError(err).Error("failed to setup storage")
 	}
+	cache.Setup()
 
 	// start up the bot
 	b, err := bot.New()
@@ -104,6 +108,9 @@ func main() {
 	// monitor health of the server
 	go health.Monitor()
 
+	// start syncing the stores
+	go syncStores(doneMonitoring)
+
 	// start the web server now that everything is running
 	srv, err := server.New()
 	if err != nil {
@@ -129,4 +136,41 @@ func main() {
 			return
 		}
 	}()
+}
+
+func syncStores(stop chan bool) {
+	logger := log.WithField("func", "syncStores")
+	logger.Debug("syncing stores")
+
+	timer := time.NewTimer(1 * time.Hour)
+	for {
+		select {
+		case <-stop:
+			logger.Debug("stopping syncing stores")
+			return
+		case <-timer.C:
+		}
+
+		// get all users from cache
+		usersRaw := cache.Cache.GetUsers()
+
+		// convert to slice of users.User
+		for _, v := range usersRaw {
+			logger.WithField("user", v["id"]).Debug("syncing user")
+			userRaw, err := json.Marshal(v)
+			if err != nil {
+				logger.WithError(err).Error("marshalling raw user from cache")
+				continue
+			}
+			usr := users.User{}
+			if err := json.Unmarshal([]byte(userRaw), &usr); err != nil {
+				logger.WithError(err).Error("unmarshalling user from cache")
+				continue
+			}
+
+			if _, err := stores.Users.UpdateByID(context.Background(), usr.ID, usr); err != nil {
+				logger.WithError(err).Error("updating user")
+			}
+		}
+	}
 }
