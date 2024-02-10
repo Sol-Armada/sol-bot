@@ -50,6 +50,12 @@ type AttendedEvent struct {
 	Name string `json:"name" bson:"name"`
 }
 
+type UserError error
+
+var (
+	UserNotFound UserError = errors.New("user not found")
+)
+
 func New(m *discordgo.Member) *User {
 	name := m.User.Username
 	if m.Nick != "" {
@@ -73,13 +79,20 @@ func New(m *discordgo.Member) *User {
 }
 
 func Get(id string) (*User, error) {
-	rawUser := cache.Cache.GetUser(id)
 	user := &User{}
+
+	// check the cache
+	rawUser := cache.Cache.GetUser(id)
 	if rawUser != nil {
 		userByte, _ := json.Marshal(rawUser)
 		if err := json.Unmarshal(userByte, user); err != nil {
 			return nil, err
 		}
+	}
+
+	// check the store
+	if err := stores.Users.Get(id).Decode(user); err != nil {
+		return nil, err
 	}
 	return user, nil
 }
@@ -135,28 +148,30 @@ func (u *User) GetTrueNick() string {
 	return trueNick
 }
 
-func (u *User) Save() {
+func (u *User) Save() error {
 	log.WithField("user", u).Debug("saving user")
 	u.Updated = time.Now().UTC()
 	cache.Cache.SetUser(u.ID, u.ToMap())
+
+	return stores.Users.Update(u.ID, u)
 }
 
 func (u *User) UpdateEventCount(count int64) {
 	u.Events = count
 	u.LegacyEvents = u.Events
-	u.Save()
+	_ = u.Save()
 }
 
 func (u *User) IncrementEventCount() {
 	u.Events++
 	u.LegacyEvents = u.Events
-	u.Save()
+	_ = u.Save()
 }
 
 func (u *User) DecrementEventCount() {
 	u.Events--
 	u.LegacyEvents = u.Events
-	u.Save()
+	_ = u.Save()
 }
 
 func (u *User) IsAdmin() bool {
@@ -214,7 +229,7 @@ func (u *User) Login(code string) error {
 	}
 
 	u.Avatar = discordUser.Avatar
-	u.Save()
+	_ = u.Save()
 
 	return nil
 }
@@ -247,6 +262,10 @@ func (u *User) Issues() []string {
 
 	if u.Rank == ranks.Guest {
 		issues = append(issues, "guest")
+	}
+
+	if u.Rank == ranks.Recruit && !u.RSIMember {
+		issues = append(issues, "non-rsi member but is recruit")
 	}
 
 	if u.Rank == ranks.Ally {

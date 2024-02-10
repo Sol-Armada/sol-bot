@@ -57,6 +57,9 @@ func (c *cache) Delete(key string) {
 
 func (c *cache) GetUser(id string) map[string]interface{} {
 	rawUser := c.Get("user:" + id).(string)
+	if rawUser == "" {
+		return nil
+	}
 	user := map[string]interface{}{}
 	if err := json.Unmarshal([]byte(rawUser), &user); err != nil {
 		log.WithField("user", id).WithError(err).Error("unmarshalling user")

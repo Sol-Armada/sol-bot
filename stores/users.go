@@ -26,3 +26,7 @@ func (u *usersStore) Get(id string) *mongo.SingleResult {
 func (u *usersStore) List(filter interface{}) (*mongo.Cursor, error) {
 	return u.Find(u.ctx, filter)
 }
+
+func (u *usersStore) Update(id string, user any) error {
+	return u.FindOneAndReplace(u.ctx, bson.D{{Key: "_id", Value: id}}, user).Err()
+}

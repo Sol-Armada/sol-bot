@@ -20,7 +20,7 @@ func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("%d events", storedUser.Events),
+			Content: fmt.Sprintf("This is a depricated command and will be removed in the future, please use `/profile` instead.\n\n%d events", storedUser.Events),
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {

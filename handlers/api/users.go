@@ -128,7 +128,11 @@ func SetRank(w http.ResponseWriter, r *http.Request) {
 
 	u.Rank = ranks.Rank(rid)
 
-	u.Save()
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("saving user")
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 
 	if _, err := fmt.Fprint(w, http.StatusOK); err != nil {
 		logger.WithError(err).Error("returning status")
@@ -174,7 +178,10 @@ func UpdateUser(c echo.Context) error {
 		u.Events = 0
 	}
 
-	u.Save()
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("saving user")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
 
 	return c.NoContent(http.StatusOK)
 }
@@ -194,7 +201,10 @@ func IncrementEvent(c echo.Context) error {
 	u.Events++
 	u.LegacyEvents = u.Events
 
-	u.Save()
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("returning status")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
 
 	return c.JSON(http.StatusOK, getUserResponse{
 		User: u,
@@ -219,7 +229,10 @@ func DecrementEvent(c echo.Context) error {
 		u.Events = 0
 	}
 
-	u.Save()
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("returning status")
+		return c.JSON(http.StatusInternalServerError, "internal server error")
+	}
 
 	// return c.NoContent(http.StatusOK)
 	return c.JSON(http.StatusOK, getUserResponse{

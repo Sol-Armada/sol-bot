@@ -145,12 +145,15 @@ func updateMembers(m []*discordgo.Member) error {
 
 		// get the stord user, if we have one
 		u, err := users.Get(member.User.ID)
-		if err != nil {
+		if err != nil && !errors.Is(err, users.UserNotFound) {
 			if !errors.Is(err, mongo.ErrNoDocuments) {
-				log.WithError(err).Error("getting member for update")
+				logger.WithError(err).Error("getting member for update")
 				continue
 			}
 
+			u = users.New(member)
+		}
+		if u == nil {
 			u = users.New(member)
 		}
 		u.Discord = member
@@ -168,7 +171,7 @@ func updateMembers(m []*discordgo.Member) error {
 				return errors.Wrap(err, "getting rsi based rank")
 			}
 
-			log.WithField("user", u).Debug("user not found")
+			logger.WithField("user", u).Debug("user not found")
 			u.RSIMember = false
 		}
 
@@ -202,7 +205,9 @@ func updateMembers(m []*discordgo.Member) error {
 		// fill legacy
 		u.LegacyEvents = u.Events
 
-		u.Save()
+		if err := u.Save(); err != nil {
+			return err
+		}
 	}
 
 	return nil

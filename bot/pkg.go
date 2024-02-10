@@ -2,6 +2,7 @@ package bot
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
@@ -31,6 +32,10 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"takeattendance":   handlers.TakeAttendanceAutocompleteHandler,
 	"removeattendance": handlers.RemoveAttendanceAutocompleteHandler,
+}
+
+var attendanceButtonHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
+	"record": handlers.RecordAttendanceButtonHandler,
 }
 
 func New() (*Bot, error) {
@@ -86,6 +91,14 @@ func (b *Bot) Setup() error {
 			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
 				h(s, i)
 			}
+		case discordgo.InteractionMessageComponent:
+			id := strings.Split(i.MessageComponentData().CustomID, ":")
+			switch id[0] {
+			case "attendance":
+				if id[1] == "record" {
+					handlers.RecordAttendanceButtonHandler(s, i)
+				}
+			}
 		}
 	})
 
@@ -110,7 +123,7 @@ func (b *Bot) Setup() error {
 	}
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "attendance",
-		Description: "Get your attendance count",
+		Description: "[DEPRICATED] use /profile instead",
 	}); err != nil {
 		return errors.Wrap(err, "creating attendance command")
 	}
@@ -162,6 +175,20 @@ func (b *Bot) Setup() error {
 			Required:     true,
 			Autocomplete: true,
 		},
+		// {
+		// 	Name:        "recheck-issues",
+		// 	Description: "Recheck the list of users with attendance credit issues",
+		// 	Type:        discordgo.ApplicationCommandOptionSubCommand,
+		// 	Options: []*discordgo.ApplicationCommandOption{
+		// 		{
+		// 			Name:         "event",
+		// 			Description:  "the event to recheck issues for",
+		// 			Type:         discordgo.ApplicationCommandOptionString,
+		// 			Required:     true,
+		// 			Autocomplete: true,
+		// 		},
+		// 	},
+		// },
 	}
 	for i := 0; i < 10; i++ {
 		o := &discordgo.ApplicationCommandOption{
@@ -181,7 +208,7 @@ func (b *Bot) Setup() error {
 		Type:        discordgo.ChatApplicationCommand,
 		Options:     options,
 	}); err != nil {
-		return errors.Wrap(err, "creating takeattendance command")
+		return errors.Wrap(err, "creating removeattendance command")
 	}
 
 	// bank

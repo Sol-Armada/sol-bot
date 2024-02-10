@@ -142,35 +142,50 @@ func syncStores(stop chan bool) {
 	logger := log.WithField("func", "syncStores")
 	logger.Debug("syncing stores")
 
-	timer := time.NewTimer(1 * time.Hour)
+	ticker := time.NewTicker(1 * time.Hour)
+	defer ticker.Stop()
+
+	logger.Debug("starting syncing stores")
 	for {
 		select {
 		case <-stop:
 			logger.Debug("stopping syncing stores")
 			return
-		case <-timer.C:
+		case <-ticker.C:
 		}
+
+		logger.Info("syncing users")
+
+		usersSynced := 0
 
 		// get all users from cache
 		usersRaw := cache.Cache.GetUsers()
 
 		// convert to slice of users.User
 		for _, v := range usersRaw {
-			logger.WithField("user", v["id"]).Debug("syncing user")
+			logger = logger.WithFields(log.Fields{
+				"user":  v["id"],
+				"count": usersSynced,
+			})
+			logger.Debug("syncing user")
 			userRaw, err := json.Marshal(v)
 			if err != nil {
 				logger.WithError(err).Error("marshalling raw user from cache")
 				continue
 			}
 			usr := users.User{}
-			if err := json.Unmarshal([]byte(userRaw), &usr); err != nil {
+			if err := json.Unmarshal(userRaw, &usr); err != nil {
 				logger.WithError(err).Error("unmarshalling user from cache")
 				continue
 			}
 
-			if _, err := stores.Users.UpdateByID(context.Background(), usr.ID, usr); err != nil {
+			if err := stores.Users.Update(usr.ID, usr); err != nil {
 				logger.WithError(err).Error("updating user")
 			}
+
+			usersSynced++
 		}
+
+		logger.WithField("users", usersSynced).Info("synced users")
 	}
 }

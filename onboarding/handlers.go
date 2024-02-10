@@ -1,6 +1,7 @@
 package onboarding
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
 	"strconv"
@@ -11,11 +12,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/bot"
+	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
 	customerrors "github.com/sol-armada/admin/errors"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
-	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 )
 
@@ -214,10 +215,11 @@ func onboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 		return
 	}
 
-	storage := stores.Users
 	u := &users.User{}
-	if err := storage.Get(i.Member.User.ID).Decode(u); err != nil {
-		logging.WithError(err).Error("getting command user for permissions")
+	userRaw := cache.Cache.GetUser(i.Member.User.ID)
+	userJson, _ := json.Marshal(userRaw)
+	if err := json.Unmarshal(userJson, &u); err != nil {
+		logging.WithError(err).Error("unmarshalling user")
 		return
 	}
 
@@ -317,7 +319,10 @@ func choiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	u := users.New(i.Member)
-	u.Save()
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("saving user")
+		return
+	}
 
 	processingUsers[i.Member.User.ID] = &processing{
 		User: u,
@@ -453,6 +458,9 @@ func rsiModalHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			}
 		}
 	}
+
+	// check if handle was subbitted as a url
+	processingUsers[i.Member.User.ID].Handle = strings.TrimPrefix(processingUsers[i.Member.User.ID].Handle, "https://robertsspaceindustries.com/citizens/")
 
 	if !rsi.ValidHandle(processingUsers[i.Member.User.ID].Handle) {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -598,6 +606,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 	u.Name = processingUsers[i.Member.User.ID].Handle
+	u.Discord = i.Member
 	u.Discord.Nick = processingUsers[i.Member.User.ID].Handle
 
 	logger = logger.WithField("user", u)
@@ -620,7 +629,12 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	u.Age = int(age)
 	u.Gameplay = processingUsers[i.Member.User.ID].GamePlay
 	u.Playtime = processingUsers[i.Member.User.ID].PlayTime
-	u.Save()
+
+	if err := u.Save(); err != nil {
+		logger.WithError(err).Error("saving user for onboarding")
+		customerrors.ErrorResponse(s, i.Interaction, "")
+		return
+	}
 
 	primaryOrgUrl := fmt.Sprintf("https://robertsspaceindustries.com/orgs/%s", u.PrimaryOrg)
 	if u.PrimaryOrg == "None" || u.PrimaryOrg == "" {
@@ -934,7 +948,11 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		}
 
 		u.Validated = true
-		u.Save()
+		if err := u.Save(); err != nil {
+			log.WithError(err).Error("saving validated user")
+			customerrors.ErrorResponse(s, i.Interaction, "")
+			return
+		}
 
 		if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 			Flags:   discordgo.MessageFlagsEphemeral,
