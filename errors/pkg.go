@@ -16,9 +16,12 @@ var (
 	ErrStartWrongFormat = e.New("Start is in wrong format")
 )
 
-func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string) {
+func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string, errorCode *string) {
 	if message == "" {
 		message = "There was an error! Please try again in a fwe minutes or let the @Officers know"
+	}
+	if errorCode != nil {
+		message += "\n\nError code: " + *errorCode
 	}
 	if err := s.InteractionRespond(i, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,

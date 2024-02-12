@@ -28,5 +28,12 @@ func (u *usersStore) List(filter interface{}) (*mongo.Cursor, error) {
 }
 
 func (u *usersStore) Update(id string, user any) error {
-	return u.FindOneAndReplace(u.ctx, bson.D{{Key: "_id", Value: id}}, user).Err()
+	if err := u.FindOneAndReplace(u.ctx, bson.D{{Key: "_id", Value: id}}, user).Err(); err != nil {
+		if err != mongo.ErrNoDocuments {
+			return err
+		}
+		_, err = u.InsertOne(u.ctx, user)
+		return err
+	}
+	return nil
 }

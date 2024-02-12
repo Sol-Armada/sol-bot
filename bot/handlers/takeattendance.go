@@ -136,8 +136,6 @@ func (a *Attendance) Parse(threadMessages []*discordgo.Message) {
 
 		a.Members = append(a.Members, u)
 	}
-
-	return
 }
 
 func TakeAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
@@ -503,9 +501,9 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 			}
 		case ranks.Member:
 			if u.Events >= 10 {
-				rankUps += fmt.Sprintf("<@%s> has made Lieutenant\n", u.ID)
+				rankUps += fmt.Sprintf("<@%s> has made Technician\n", u.ID)
 			}
-		case ranks.Lieutenant:
+		case ranks.Technician:
 			if u.Events >= 20 {
 				rankUps += fmt.Sprintf("<@%s> has made Specialist\n", u.ID)
 			}

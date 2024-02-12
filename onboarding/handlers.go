@@ -11,6 +11,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/rs/xid"
 	"github.com/sol-armada/admin/bot"
 	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
@@ -320,7 +321,9 @@ func choiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	u := users.New(i.Member)
 	if err := u.Save(); err != nil {
-		logger.WithError(err).Error("saving user")
+		errorCode := xid.New().String()
+		logger.WithError(err).Error("saving user: " + errorCode)
+		customerrors.ErrorResponse(s, i.Interaction, "Oh no! I ran into a backend issue. I am notifying the admins now.", &errorCode)
 		return
 	}
 
@@ -340,8 +343,9 @@ func choiceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 				Content: fmt.Sprintf("Okay! If you change your mind and would like to join Sol Armada, please contact an @Officer in the %s", airlockName),
 			},
 		}); err != nil {
-			logger.WithError(err).Error("interaction response - visiting user")
-			customerrors.ErrorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the admins now. Please standby. Use this channel if you need any other assistance.")
+			errorCode := xid.New().String()
+			logger.WithError(err).Error("interaction response - visiting user: " + errorCode)
+			customerrors.ErrorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the admins now. Please standby. Use this channel if you need any other assistance.", &errorCode)
 			return
 		}
 
@@ -563,7 +567,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 		if _, err := s.ChannelMessageSend(originalThreadMessage.Thread.ID, fmt.Sprintf("%s is a visitor", i.Member.User.Username)); err != nil {
 			logger.WithError(err).Error("creating onboarding thread")
-			customerrors.ErrorResponse(s, i.Interaction, "Ran into an issue in the backend.")
+			customerrors.ErrorResponse(s, i.Interaction, "Oh no! We ran into an issue in the backend. I am notifying the admins.", nil)
 			return
 		}
 		return
@@ -577,7 +581,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		},
 	}); err != nil {
 		logger.WithError(err).Error("sending first finish message")
-		customerrors.ErrorResponse(s, i.Interaction, "Ran into an issue in the backend. An officer should be here to help soon.")
+		customerrors.ErrorResponse(s, i.Interaction, "Ran into an issue in the backend. An officer should be here to help soon.", nil)
 		return
 	}
 
@@ -602,7 +606,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	u, err := users.Get(i.Member.User.ID)
 	if err != nil {
 		logger.WithError(err).Error("getting user for onboarding")
-		customerrors.ErrorResponse(s, i.Interaction, "")
+		customerrors.ErrorResponse(s, i.Interaction, "", nil)
 		return
 	}
 	u.Name = processingUsers[i.Member.User.ID].Handle
@@ -615,7 +619,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if err != nil {
 		if !errors.Is(err, rsi.UserNotFound) {
 			logger.WithError(err).Error("getting org info for onboarding")
-			customerrors.ErrorResponse(s, i.Interaction, "")
+			customerrors.ErrorResponse(s, i.Interaction, "", nil)
 			return
 		}
 	}
@@ -623,7 +627,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	age, err := strconv.ParseInt(processingUsers[i.Member.User.ID].Age, 10, 32)
 	if err != nil {
 		log.WithError(err).Error("could not parse age")
-		customerrors.ErrorResponse(s, i.Interaction, "Age must be an actual number! If you don't want us to know your age, just put 0.")
+		customerrors.ErrorResponse(s, i.Interaction, "Age must be an actual number! If you don't want us to know your age, just put 0.", nil)
 		return
 	}
 	u.Age = int(age)
@@ -632,7 +636,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 	if err := u.Save(); err != nil {
 		logger.WithError(err).Error("saving user for onboarding")
-		customerrors.ErrorResponse(s, i.Interaction, "")
+		customerrors.ErrorResponse(s, i.Interaction, "", nil)
 		return
 	}
 
@@ -726,7 +730,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	// update their nick
 	if _, err := s.GuildMemberEditComplex(i.GuildID, i.Member.User.ID, params); err != nil {
 		logger.WithError(err).Error("editing the member")
-		customerrors.ErrorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the Officers now. Please standby. Use the airlock if you need any other assistance.")
+		customerrors.ErrorResponse(s, i.Interaction, "Something happened in the backend. I am notifying the Officers now. Please standby. Use the airlock if you need any other assistance.", nil)
 		return
 	}
 
@@ -738,7 +742,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		Username: i.Member.User.Username,
 	}); err != nil {
 		logger.WithError(err).Error("sending followup message")
-		customerrors.ErrorResponse(s, i.Interaction, "Ran into an issue in the backend. An officer should be here to help soon.")
+		customerrors.ErrorResponse(s, i.Interaction, "Ran into an issue in the backend. An officer should be here to help soon.", nil)
 		return
 	}
 }
@@ -832,7 +836,7 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 	u, err := users.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user for validation")
-		customerrors.ErrorResponse(s, i.Interaction, "")
+		customerrors.ErrorResponse(s, i.Interaction, "", nil)
 		return
 	}
 
@@ -844,7 +848,7 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 			},
 		}); err != nil {
 			log.WithError(err).Error("validated response")
-			customerrors.ErrorResponse(s, i.Interaction, "")
+			customerrors.ErrorResponse(s, i.Interaction, "", nil)
 			return
 		}
 		return
@@ -868,7 +872,7 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 		},
 	}); err != nil {
 		log.WithError(err).Error("responding to validate command")
-		customerrors.ErrorResponse(s, i.Interaction, "Ran into an error! Try again in a few minutes or let the @Officers know")
+		customerrors.ErrorResponse(s, i.Interaction, "Ran into an error! Try again in a few minutes or let the @Officers know", nil)
 		return
 	}
 }
@@ -885,7 +889,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 			},
 		}); err != nil {
 			log.WithError(err).Error("responding to validate button")
-			customerrors.ErrorResponse(s, i.Interaction, "")
+			customerrors.ErrorResponse(s, i.Interaction, "", nil)
 		}
 		return
 	}
@@ -893,7 +897,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 	u, err := users.Get(id)
 	if err != nil {
 		log.WithError(err).Error("getting user for validation")
-		customerrors.ErrorResponse(s, i.Interaction, "")
+		customerrors.ErrorResponse(s, i.Interaction, "", nil)
 		return
 	}
 
@@ -904,7 +908,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		},
 	}); err != nil {
 		log.WithError(err).Error("deffered message response for validation")
-		customerrors.ErrorResponse(s, i.Interaction, "")
+		customerrors.ErrorResponse(s, i.Interaction, "", nil)
 		return
 	}
 
@@ -917,7 +921,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 			bio, err := rsi.GetBio(u.GetTrueNick())
 			if err != nil {
 				log.WithError(err).Error("getting rsi profile for validation")
-				customerrors.ErrorResponse(s, i.Interaction, "")
+				customerrors.ErrorResponse(s, i.Interaction, "", nil)
 				return
 			}
 
@@ -928,7 +932,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 						Content: "I could not find the code on your profile. Please try the command again and give a minute after adding the code to your bio before clicking \"Validate\"",
 					}); err != nil {
 						log.WithError(err).Error("responding to failed validation")
-						customerrors.ErrorResponse(s, i.Interaction, "")
+						customerrors.ErrorResponse(s, i.Interaction, "", nil)
 					}
 					ticker.Stop()
 					return
@@ -950,7 +954,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		u.Validated = true
 		if err := u.Save(); err != nil {
 			log.WithError(err).Error("saving validated user")
-			customerrors.ErrorResponse(s, i.Interaction, "")
+			customerrors.ErrorResponse(s, i.Interaction, "", nil)
 			return
 		}
 
@@ -959,7 +963,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 			Content: "Your account has been validated! You can remove the code from you bio.",
 		}); err != nil {
 			log.WithError(err).Error("creating follow up message")
-			customerrors.ErrorResponse(s, i.Interaction, "")
+			customerrors.ErrorResponse(s, i.Interaction, "", nil)
 			return
 		}
 	}()
