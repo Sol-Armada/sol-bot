@@ -26,10 +26,12 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 	defer ticker.Stop()
 
 	lastChecked := time.Now().Add(-30 * time.Minute)
+	d := false
 	for {
 		select {
 		case <-stop:
 			logger.Info("stopping monitor")
+			d = true
 			goto DONE
 		case <-ticker.C:
 			if !health.IsHealthy() {
@@ -104,9 +106,11 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 			continue
 		}
 	DONE:
-		break
+		if d {
+			done <- true
+			return
+		}
 	}
-	done <- true
 }
 
 func (b *Bot) UpdateMember() error {
@@ -140,14 +144,14 @@ func updateMembers(m []*discordgo.Member) error {
 	logger.Debugf("updating %d members", len(m))
 	for _, member := range m {
 		time.Sleep(1 * time.Second)
-		logger = logger.WithField("member", member)
-		logger.Debug("updating member")
+		mlogger := logger.WithField("member", member)
+		mlogger.Debug("updating member")
 
 		// get the stord user, if we have one
 		u, err := users.Get(member.User.ID)
 		if err != nil && !errors.Is(err, users.UserNotFound) {
 			if !errors.Is(err, mongo.ErrNoDocuments) {
-				logger.WithError(err).Error("getting member for update")
+				mlogger.WithError(err).Error("getting member for update")
 				continue
 			}
 
@@ -171,7 +175,7 @@ func updateMembers(m []*discordgo.Member) error {
 				return errors.Wrap(err, "getting rsi based rank")
 			}
 
-			logger.WithField("user", u).Debug("user not found")
+			mlogger.WithField("user", u).Debug("user not found")
 			u.RSIMember = false
 		}
 
@@ -196,6 +200,7 @@ func updateMembers(m []*discordgo.Member) error {
 		// discord related stuff
 		u.Avatar = member.Avatar
 		if slices.Contains(member.Roles, config.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
+			mlogger.Debug("is recruit")
 			u.Rank = ranks.Recruit
 		}
 		if member.User.Bot {

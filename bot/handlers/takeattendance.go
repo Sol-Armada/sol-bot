@@ -512,7 +512,7 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 	if rankUps != "" {
 		rankUps += "\nDon't forget to rank these members!"
 
-		_, _ = s.ChannelMessageSend(threadId, rankUps)
+		// _, _ = s.ChannelMessageSend(threadId, rankUps)
 	}
 
 	_, _ = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
