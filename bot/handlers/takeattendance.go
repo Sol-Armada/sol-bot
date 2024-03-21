@@ -151,7 +151,7 @@ func TakeAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Intera
 		}
 		if data.Options[0].StringValue() != "" {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  "(NEW) " + data.Options[0].StringValue(),
+				Name:  data.Options[0].StringValue(),
 				Value: data.Options[0].StringValue(),
 			})
 		}
@@ -512,7 +512,7 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 	if rankUps != "" {
 		rankUps += "\nDon't forget to rank these members!"
 
-		// _, _ = s.ChannelMessageSend(threadId, rankUps)
+		_, _ = s.ChannelMessageSend(threadId, rankUps)
 	}
 
 	_, _ = s.ChannelMessageEditComplex(&discordgo.MessageEdit{

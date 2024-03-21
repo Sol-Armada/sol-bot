@@ -27,6 +27,8 @@ var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.Interac
 	"takeattendance":   handlers.TakeAttendanceCommandHandler,
 	"removeattendance": handlers.RemoveAttendanceCommandHandler,
 	"profile":          handlers.ProfileCommandHandler,
+	"merit":            handlers.GiveMeritCommandHandler,
+	"demerit":          handlers.GiveDemeritCommandHandler,
 }
 
 var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -304,6 +306,60 @@ func (b *Bot) Setup() error {
 			},
 		}); err != nil {
 			return errors.Wrap(err, "failed creating bank command")
+		}
+	}
+
+	if err := b.DeleteCommand("merit"); err != nil {
+		log.WithError(err).Error("unable to delete merit command")
+	}
+	if err := b.DeleteCommand("demerit"); err != nil {
+		log.WithError(err).Error("unable to delete demerit command")
+	}
+	if config.GetBoolWithDefault("FEATURES.MERIT", false) {
+		log.Info("using merit feature")
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+			Name:        "merit",
+			Description: "give a merit to a member",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:         "member",
+					Description:  "who to give the merit to",
+					Type:         discordgo.ApplicationCommandOptionUser,
+					Required:     true,
+					Autocomplete: true,
+				},
+				{
+					Name:        "reason",
+					Description: "why are you giving this member a merit",
+					Type:        discordgo.ApplicationCommandOptionString,
+					Required:    true,
+				},
+			},
+		}); err != nil {
+			return errors.Wrap(err, "failed creating merit command")
+		}
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+			Name:        "demerit",
+			Description: "give a demerit to a member",
+			Type:        discordgo.ChatApplicationCommand,
+			Options: []*discordgo.ApplicationCommandOption{
+				{
+					Name:         "member",
+					Description:  "who to give the merit to",
+					Type:         discordgo.ApplicationCommandOptionUser,
+					Required:     true,
+					Autocomplete: true,
+				},
+				{
+					Name:        "reason",
+					Description: "why are you giving this member a demerit",
+					Type:        discordgo.ApplicationCommandOptionString,
+					Required:    true,
+				},
+			},
+		}); err != nil {
+			return errors.Wrap(err, "failed creating demerit command")
 		}
 	}
 

@@ -36,6 +36,9 @@ type User struct {
 	IsAlly         bool       `json:"is_ally" bson:"is_ally"`
 	Validated      bool       `json:"validated" bson:"validated"`
 
+	Merits   []*Merit   `json:"merits" bson:"merits"`
+	Demerits []*Demerit `json:"demerits" bson:"demerits"`
+
 	Playtime  string `json:"playtime" bson:"playtime"`
 	Gameplay  string `json:"gamplay" bson:"gameplay"`
 	Age       int    `json:"age" bson:"age"`
@@ -48,6 +51,18 @@ type User struct {
 type AttendedEvent struct {
 	ID   string `json:"id" bson:"_id"`
 	Name string `json:"name" bson:"name"`
+}
+
+type Merit struct {
+	Giver  User      `json:"giver" bson:"giver"`
+	Reason string    `json:"reason" bson:"reason"`
+	When   time.Time `json:"when" bson:"when"`
+}
+
+type Demerit struct {
+	Giver  User      `json:"giver" bson:"giver"`
+	Reason string    `json:"reason" bson:"reason"`
+	When   time.Time `json:"when" bson:"when"`
 }
 
 type UserError error
@@ -284,5 +299,40 @@ func (u *User) Issues() []string {
 		issues = append(issues, "bad primary org")
 	}
 
+	switch u.Rank {
+	case ranks.Recruit:
+		if u.Events >= 3 {
+			issues = append(issues, "max event credits for this rank (3)")
+		}
+	case ranks.Member:
+		if u.Events >= 10 {
+			issues = append(issues, "max event credits for this rank (10)")
+		}
+	case ranks.Technician:
+		if u.Events >= 20 {
+			issues = append(issues, "max event credits for this rank (20)")
+		}
+	}
+
 	return issues
+}
+
+func (u *User) GiveMerit(reason string, who *User) error {
+	u.Merits = append(u.Merits, &Merit{
+		Giver:  *who,
+		Reason: reason,
+		When:   time.Now().UTC(),
+	})
+
+	return u.Save()
+}
+
+func (u *User) GiveDemerit(reason string, who *User) error {
+	u.Demerits = append(u.Demerits, &Demerit{
+		Giver:  *who,
+		Reason: reason,
+		When:   time.Now().UTC(),
+	})
+
+	return u.Save()
 }

@@ -7,6 +7,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
 	"github.com/sol-armada/admin/users"
 )
@@ -110,5 +112,99 @@ func ProfileCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		},
 	}); err != nil {
 		log.WithError(err).Error("responding to attendance command interaction")
+	}
+}
+
+func GiveMeritCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	user, err := users.Get(i.Member.User.ID)
+	if err != nil {
+		log.WithError(err).Error("getting user")
+		return
+	}
+
+	if user.Rank > ranks.GetRankByName(config.GetStringWithDefault("FEATURES.ATTENDANCE.MIN_RANK", "admiral")) {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "You do not have permission to use this command",
+			},
+		}); err != nil {
+			log.WithError(err).Error("responding to onboarding command")
+			return
+		}
+		return
+	}
+
+	data := i.ApplicationCommandData()
+
+	receivingDiscordUser := data.Options[0].UserValue(s)
+
+	receivingUser, err := users.Get(receivingDiscordUser.ID)
+	if err != nil {
+		log.WithError(err).Error("getting receiving user")
+		return
+	}
+
+	if err := receivingUser.GiveMerit(data.Options[1].StringValue(), user); err != nil {
+		log.WithError(err).Error("giving user merit")
+		return
+	}
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Gave %s the merit!", receivingDiscordUser.Username),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	}); err != nil {
+		log.WithError(err).Error("responding to onboarding command")
+	}
+}
+
+func GiveDemeritCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	user, err := users.Get(i.Member.User.ID)
+	if err != nil {
+		log.WithError(err).Error("getting user")
+		return
+	}
+
+	if user.Rank > ranks.GetRankByName(config.GetStringWithDefault("FEATURES.ATTENDANCE.MIN_RANK", "admiral")) {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "You do not have permission to use this command",
+			},
+		}); err != nil {
+			log.WithError(err).Error("responding to onboarding command")
+			return
+		}
+		return
+	}
+
+	data := i.ApplicationCommandData()
+
+	receivingDiscordUser := data.Options[0].UserValue(s)
+
+	receivingUser, err := users.Get(receivingDiscordUser.ID)
+	if err != nil {
+		log.WithError(err).Error("getting receiving user")
+		return
+	}
+
+	if err := receivingUser.GiveDemerit(data.Options[1].StringValue(), user); err != nil {
+		log.WithError(err).Error("giving user merit")
+		return
+	}
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Gave %s the demerit!", receivingDiscordUser.Username),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	}); err != nil {
+		log.WithError(err).Error("responding to onboarding command")
 	}
 }
