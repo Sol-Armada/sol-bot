@@ -315,7 +315,7 @@ func (b *Bot) Setup() error {
 	if err := b.DeleteCommand("demerit"); err != nil {
 		log.WithError(err).Error("unable to delete demerit command")
 	}
-	if config.GetBoolWithDefault("FEATURES.MERIT", false) {
+	if config.GetBoolWithDefault("FEATURES.MERIT.ENABLED", false) {
 		log.Info("using merit feature")
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "merit",
