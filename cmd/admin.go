@@ -92,7 +92,7 @@ func main() {
 		log.Info("using events feature")
 
 		if err := events.Setup(b); err != nil {
-			log.WithError(err).Error("setting up onboarding")
+			log.WithError(err).Error("setting up events")
 		}
 	}
 

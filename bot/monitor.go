@@ -30,11 +30,12 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 	for {
 		select {
 		case <-stop:
-			logger.Info("stopping monitor")
+			logger.Warn("stopping monitor")
 			d = true
 			goto DONE
 		case <-ticker.C:
 			if !health.IsHealthy() {
+				logger.Debug("not healthy")
 				time.Sleep(10 * time.Second)
 				continue
 			}

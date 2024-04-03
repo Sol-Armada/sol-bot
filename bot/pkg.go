@@ -37,7 +37,8 @@ var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.In
 }
 
 var attendanceButtonHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"record": handlers.RecordAttendanceButtonHandler,
+	"record":  handlers.RecordAttendanceButtonHandler,
+	"recheck": handlers.RecheckIssuesButtonHandler,
 }
 
 func New() (*Bot, error) {

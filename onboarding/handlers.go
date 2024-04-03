@@ -79,12 +79,12 @@ func Setup(b *bot.Bot) error {
 	}
 
 	// commands
-	if err := b.DeleteCommand("join"); err != nil {
-		log.WithError(err).Error("unable to delete join command")
-	}
-	if err := b.DeleteCommand("onboarding"); err != nil {
-		log.WithError(err).Error("unable to delete onboarding command")
-	}
+	// if err := b.DeleteCommand("join"); err != nil {
+	// 	log.WithError(err).Error("unable to delete join command")
+	// }
+	// if err := b.DeleteCommand("onboarding"); err != nil {
+	// 	log.WithError(err).Error("unable to delete onboarding command")
+	// }
 
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "onboarding",
@@ -115,17 +115,9 @@ func Setup(b *bot.Bot) error {
 }
 
 func setupChannel(b *bot.Bot) error {
-	var oc *discordgo.Channel
-	channels, err := b.GuildChannels(b.GuildId)
+	oc, err := b.Channel(config.GetString("DISCORD.CHANNELS.ONBOARDING"))
 	if err != nil {
 		return err
-	}
-
-	for _, channel := range channels {
-		if channel.ParentID == config.GetString("DISCORD.CATEGORIES.AIRLOCK") && channel.Name == "onboarding" {
-			oc = channel
-			break
-		}
 	}
 
 	m := `Welcome to Sol Armada!
@@ -137,25 +129,33 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 				discordgo.Button{
 					Label:    "A member recruited me",
 					CustomID: "onboarding:choice:recruited",
+					Style:    discordgo.PrimaryButton,
+					Emoji:    discordgo.ComponentEmoji{Name: "🤝"},
 				},
 				discordgo.Button{
 					Label:    "Found Sol Armada on RSI",
 					CustomID: "onboarding:choice:rsi",
+					Style:    discordgo.PrimaryButton,
+					Emoji:    discordgo.ComponentEmoji{Name: "🔍"},
 				},
 				discordgo.Button{
 					Label:    "Some other way",
 					CustomID: "onboarding:choice:other",
+					Style:    discordgo.PrimaryButton,
+					Emoji:    discordgo.ComponentEmoji{Name: "❔"},
 				},
 				discordgo.Button{
 					Label:    "Just visiting",
 					CustomID: "onboarding:choice:visiting",
+					Style:    discordgo.PrimaryButton,
+					Emoji:    discordgo.ComponentEmoji{Name: "👋"},
 				},
 			},
 		},
 	}
 
 	if oc == nil {
-		oc, err = b.GuildChannelCreateComplex(b.GuildId, discordgo.GuildChannelCreateData{
+		oc, err := b.GuildChannelCreateComplex(b.GuildId, discordgo.GuildChannelCreateData{
 			Name:     "onboarding",
 			Type:     discordgo.ChannelTypeGuildText,
 			ParentID: config.GetString("DISCORD.CATEGORIES.AIRLOCK"),

@@ -104,11 +104,6 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 	from.Discord = nil
-	if err != nil {
-		logger.WithError(err).Error("getting from user for bank add")
-		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the from user", nil)
-		return
-	}
 
 	holder, err := users.Get(i.Member.User.ID)
 	holder.Discord = nil
