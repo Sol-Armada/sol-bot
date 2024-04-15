@@ -495,13 +495,14 @@ func (e *Event) UpdateMessage() error {
 		buttons = nil
 	}
 
+	emb := []*discordgo.MessageEmbed{
+		embeds,
+	}
 	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		ID:      message.ID,
-		Channel: message.ChannelID,
-		Embeds: []*discordgo.MessageEmbed{
-			embeds,
-		},
-		Components: buttons,
+		ID:         message.ID,
+		Channel:    message.ChannelID,
+		Embeds:     &emb,
+		Components: &buttons,
 	}); err != nil {
 		return errors.Wrap(err, "updating original event message")
 	}
@@ -794,7 +795,7 @@ func (e *Event) GetButtons() ([]discordgo.MessageComponent, error) {
 		}
 
 		subComponents.Components = append(subComponents.Components, discordgo.Button{
-			Emoji:    posEmoji,
+			Emoji:    &posEmoji,
 			CustomID: fmt.Sprintf("event:choice:%s:%s", e.Id, pos.Id),
 		})
 	}

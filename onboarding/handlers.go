@@ -129,25 +129,25 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 					Label:    "A member recruited me",
 					CustomID: "onboarding:choice:recruited",
 					Style:    discordgo.PrimaryButton,
-					Emoji:    discordgo.ComponentEmoji{Name: "🤝"},
+					Emoji:    &discordgo.ComponentEmoji{Name: "🤝"},
 				},
 				discordgo.Button{
 					Label:    "Found Sol Armada on RSI",
 					CustomID: "onboarding:choice:rsi",
 					Style:    discordgo.PrimaryButton,
-					Emoji:    discordgo.ComponentEmoji{Name: "🔍"},
+					Emoji:    &discordgo.ComponentEmoji{Name: "🔍"},
 				},
 				discordgo.Button{
 					Label:    "Some other way",
 					CustomID: "onboarding:choice:other",
 					Style:    discordgo.PrimaryButton,
-					Emoji:    discordgo.ComponentEmoji{Name: "❔"},
+					Emoji:    &discordgo.ComponentEmoji{Name: "❔"},
 				},
 				discordgo.Button{
 					Label:    "Just visiting",
 					CustomID: "onboarding:choice:visiting",
 					Style:    discordgo.PrimaryButton,
-					Emoji:    discordgo.ComponentEmoji{Name: "👋"},
+					Emoji:    &discordgo.ComponentEmoji{Name: "👋"},
 				},
 			},
 		},
@@ -191,7 +191,7 @@ Select a reason you joined below. We will ask a few questions then assign you a 
 
 	if _, err := b.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Content:    &m,
-		Components: components,
+		Components: &components,
 
 		ID:      messages[0].ID,
 		Channel: oc.ID,
@@ -870,7 +870,7 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 						discordgo.Button{
 							Label:    "Validate",
 							CustomID: fmt.Sprintf("onboarding:validate:%s", i.Member.User.ID),
-							Emoji:    discordgo.ComponentEmoji{Name: "✅"},
+							Emoji:    &discordgo.ComponentEmoji{Name: "✅"},
 						},
 					},
 				},

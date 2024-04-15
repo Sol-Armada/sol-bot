@@ -293,13 +293,13 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 							Label:    "Record Attendance",
 							Style:    discordgo.PrimaryButton,
 							CustomID: "attendance:record:" + attendance.ID,
-							Emoji:    discordgo.ComponentEmoji{Name: "📝"},
+							Emoji:    &discordgo.ComponentEmoji{Name: "📝"},
 						},
 						discordgo.Button{
 							Label:    "Recheck Issues",
 							Style:    discordgo.SecondaryButton,
 							CustomID: "attendance:recheck:" + attendance.ID,
-							Emoji:    discordgo.ComponentEmoji{Name: "🔄"},
+							Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
 						},
 					},
 				},
@@ -334,13 +334,14 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 
 	attendaceList := attendance.GenerateList()
 
+	emb := []*discordgo.MessageEmbed{
+		attendance.getIssuesEmbed(),
+	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: em.Thread.ID,
 		ID:      message.ID,
 		Content: &attendaceList,
-		Embeds: []*discordgo.MessageEmbed{
-			attendance.getIssuesEmbed(),
-		},
+		Embeds:  &emb,
 	}); err != nil {
 		log.WithError(err).Error("editing attendance thread message")
 		return
@@ -468,13 +469,14 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 
 	attendaceList := attendance.GenerateList()
 
+	emb := []*discordgo.MessageEmbed{
+		attendance.getIssuesEmbed(),
+	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: em.Thread.ID,
 		ID:      message.ID,
 		Content: &attendaceList,
-		Embeds: []*discordgo.MessageEmbed{
-			attendance.getIssuesEmbed(),
-		},
+		Embeds:  &emb,
 	}); err != nil {
 		log.WithError(err).Error("editing attendance thread message")
 		return
@@ -527,10 +529,11 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 		_, _ = s.ChannelMessageSend(threadId, rankUps)
 	}
 
+	comp := []discordgo.MessageComponent{}
 	_, _ = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel:    threadId,
 		ID:         threadMessages[len(threadMessages)-2].ID,
-		Components: []discordgo.MessageComponent{},
+		Components: &comp,
 	})
 
 	parentMessage := threadMessages[len(threadMessages)-1].MessageReference
@@ -620,13 +623,14 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 
 	attendaceList := attendance.GenerateList()
 
+	emb := []*discordgo.MessageEmbed{
+		attendance.getIssuesEmbed(),
+	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: i.ChannelID,
 		ID:      etms[len(etms)-2].ID,
 		Content: &attendaceList,
-		Embeds: []*discordgo.MessageEmbed{
-			attendance.getIssuesEmbed(),
-		},
+		Embeds:  &emb,
 	}); err != nil {
 		log.WithError(err).Error("editing attendance thread message")
 		return
