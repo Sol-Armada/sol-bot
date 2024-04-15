@@ -34,7 +34,6 @@ type processing struct {
 }
 
 var processingUsers map[string]*processing = map[string]*processing{}
-var validations map[string]string = map[string]string{}
 
 // onboarding handlers
 var interactionHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
@@ -245,7 +244,7 @@ func onboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	// Update the notification thread
-	onboardingChannelId := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	onboardingChannelId := config.GetString("DISCORD.CHANNELS.ONBOARDING_RECORDS")
 	messages, err := s.ChannelMessages(onboardingChannelId, 100, "", "", "")
 	if err != nil {
 		logging.WithError(err).Error("getting all onboarding notification messages")
@@ -270,7 +269,7 @@ func onboardingCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 	}
 
 	if !found {
-		onboardingMessage, err := s.ChannelMessageSend(config.GetString("DISCORD.CHANNELS.ONBOARDING"), m.User.Username+" joined")
+		onboardingMessage, err := s.ChannelMessageSend(config.GetString("DISCORD.CHANNELS.ONBOARDING_RECORDS"), m.User.Username+" joined")
 		if err != nil {
 			log.WithError(err).Error("on join onboarding")
 			return
@@ -539,7 +538,7 @@ func finish(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	// notify of completed onboarding
-	onboardingChannelID := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	onboardingChannelID := config.GetString("DISCORD.CHANNELS.ONBOARDING_RECORDS")
 	var originalThreadMessage *discordgo.Message
 	messages, err := s.ChannelMessages(onboardingChannelID, 100, "", "", "")
 	if err != nil {
@@ -755,7 +754,7 @@ func joinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 	logging.Info("someone joined")
 
 	// Update the notification thread
-	onboardingChannelId := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	onboardingChannelId := config.GetString("DISCORD.CHANNELS.ONBOARDING_RECORDS")
 	messages, err := s.ChannelMessages(onboardingChannelId, 100, "", "", "")
 	if err != nil {
 		logging.WithError(err).Error("getting all onboarding notification messages")
@@ -774,7 +773,7 @@ func joinServerHandler(s *discordgo.Session, m *discordgo.GuildMemberAdd) {
 		}
 	}
 
-	message, err := s.ChannelMessageSend(config.GetString("DISCORD.CHANNELS.ONBOARDING"), m.User.Username+" joined")
+	message, err := s.ChannelMessageSend(config.GetString("DISCORD.CHANNELS.ONBOARDING_RECORDS"), m.User.Username+" joined")
 	if err != nil {
 		log.WithError(err).Error("on join onboarding")
 		return
@@ -793,7 +792,7 @@ func leaveServerHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 	logging := log.WithField("handler", "OnLeave")
 
 	// Update the notification thread
-	onboardingChannelId := config.GetString("DISCORD.CHANNELS.ONBOARDING")
+	onboardingChannelId := config.GetString("DISCORD.CHANNELS.ONBOARDING_RECORDS")
 	messages, err := s.ChannelMessages(onboardingChannelId, 100, "", "", "")
 	if err != nil {
 		logging.WithError(err).Error("getting all onboarding notification messages")
@@ -831,11 +830,16 @@ func generateValidationCode() string {
 
 func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	code := generateValidationCode()
-	validations[i.Member.User.ID] = code
 
 	u, err := users.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user for validation")
+		customerrors.ErrorResponse(s, i.Interaction, "", nil)
+		return
+	}
+	u.ValidationCode = code
+	if err := u.Save(); err != nil {
+		log.WithError(err).Error("saving user for validation")
 		customerrors.ErrorResponse(s, i.Interaction, "", nil)
 		return
 	}
@@ -845,6 +849,7 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "You are already validated! Congrats!",
+				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		}); err != nil {
 			log.WithError(err).Error("validated response")
@@ -865,6 +870,7 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 						discordgo.Button{
 							Label:    "Validate",
 							CustomID: fmt.Sprintf("onboarding:validate:%s", i.Member.User.ID),
+							Emoji:    discordgo.ComponentEmoji{Name: "✅"},
 						},
 					},
 				},
@@ -879,25 +885,25 @@ func validateCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate
 
 func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
-	code, ok := validations[id]
-	if !ok {
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "It looks like I am not prepared to validate your profile. Please the command again or let the @Officers know if you keep running into this message.",
-			},
-		}); err != nil {
-			log.WithError(err).Error("responding to validate button")
-			customerrors.ErrorResponse(s, i.Interaction, "", nil)
-		}
-		return
-	}
 
 	u, err := users.Get(id)
 	if err != nil {
 		log.WithError(err).Error("getting user for validation")
 		customerrors.ErrorResponse(s, i.Interaction, "", nil)
+		return
+	}
+
+	if u.ValidationCode == "" {
+		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "It looks like I am not prepared to validate your profile. Please try the command again or let the @Officers know if you keep running into this message.",
+			},
+		}); err != nil {
+			log.WithError(err).Error("responding to validate button")
+			customerrors.ErrorResponse(s, i.Interaction, "", nil)
+		}
 		return
 	}
 
@@ -912,7 +918,7 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		return
 	}
 
-	go func() {
+	go func(code string) {
 		waitTime := time.Duration(2 * time.Second)
 		ticker := time.NewTicker(waitTime)
 
@@ -942,7 +948,6 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 			}
 
 			ticker.Stop()
-			delete(validations, id)
 			break
 
 		CONTINUE:
@@ -966,5 +971,5 @@ func validateButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 			customerrors.ErrorResponse(s, i.Interaction, "", nil)
 			return
 		}
-	}()
+	}(u.ValidationCode)
 }

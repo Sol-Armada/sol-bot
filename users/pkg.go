@@ -35,6 +35,7 @@ type User struct {
 	IsBot          bool       `json:"is_bot" bson:"is_bot"`
 	IsAlly         bool       `json:"is_ally" bson:"is_ally"`
 	Validated      bool       `json:"validated" bson:"validated"`
+	ValidationCode string     `json:"validation_code" bson:"validation_code"`
 
 	Merits   []*Merit   `json:"merits" bson:"merits"`
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`

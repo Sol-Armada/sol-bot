@@ -27,6 +27,17 @@ type Attendance struct {
 }
 
 func (a *Attendance) GenerateList() string {
+	// remove duplicates
+	list := make(map[string]*users.User)
+	for _, u := range a.Members {
+		list[u.ID] = u
+	}
+
+	a.Members = []*users.User{}
+	for _, u := range list {
+		a.Members = append(a.Members, u)
+	}
+
 	slices.SortFunc(a.Members, func(a, b *users.User) int {
 		if a.Rank > b.Rank {
 			return 1
@@ -482,7 +493,7 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 
 	threadId := i.Message.ChannelID
 
-	threadMessages, err := s.ChannelMessages(threadId, 10, "", "", "")
+	threadMessages, err := s.ChannelMessages(threadId, 100, "", "", "")
 	if err != nil {
 		log.WithError(err).Error("getting attendance thread")
 		return
@@ -562,7 +573,7 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 
 	threadId := i.Message.ChannelID
 
-	threadMessages, err := s.ChannelMessages(threadId, 10, "", "", "")
+	threadMessages, err := s.ChannelMessages(threadId, 100, "", "", "")
 	if err != nil {
 		log.WithError(err).Error("getting attendance thread")
 		return
@@ -600,12 +611,7 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 
 	takeAttendanceComplete(s, i)
 
-	channelId := config.GetString("DISCORD.CHANNELS.ATTENDANCE")
-
-	var em *discordgo.Message
-	em, _ = s.ChannelMessage(channelId, attendance.Name)
-
-	etms, err := s.ChannelMessages(em.Thread.ID, 100, "", "", "")
+	etms, err := s.ChannelMessages(i.ChannelID, 100, "", "", "")
 	if err != nil {
 		log.WithError(err).Error("getting attendance thread messages")
 		return
@@ -615,7 +621,7 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 	attendaceList := attendance.GenerateList()
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel: em.Thread.ID,
+		Channel: i.ChannelID,
 		ID:      etms[len(etms)-2].ID,
 		Content: &attendaceList,
 		Embeds: []*discordgo.MessageEmbed{

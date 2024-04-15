@@ -98,8 +98,8 @@ func (b *Bot) Setup() error {
 			id := strings.Split(i.MessageComponentData().CustomID, ":")
 			switch id[0] {
 			case "attendance":
-				if id[1] == "record" {
-					handlers.RecordAttendanceButtonHandler(s, i)
+				if h, ok := attendanceButtonHandlers[id[1]]; ok {
+					h(s, i)
 				}
 			}
 		}
