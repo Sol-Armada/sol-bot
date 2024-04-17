@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -57,7 +58,11 @@ func main() {
 	}
 
 	// setup storage
-	if err := stores.Setup(context.Background()); err != nil {
+	host := config.GetStringWithDefault("mongo.host", "localhost")
+	port := config.GetIntWithDefault("mongo.port", 27017)
+	username := config.GetString("MONGO.USERNAME")
+	pswd := strings.ReplaceAll(config.GetString("MONGO.PASSWORD"), "@", `%40`)
+	if err := stores.Setup(context.Background(), host, port, username, pswd); err != nil {
 		log.WithError(err).Error("failed to setup storage")
 	}
 	cache.Setup()

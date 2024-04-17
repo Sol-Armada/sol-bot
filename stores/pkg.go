@@ -3,7 +3,6 @@ package stores
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -16,18 +15,17 @@ import (
 var client *mongo.Client
 var ctx context.Context
 
-func Setup(cctx context.Context) error {
+func Setup(cctx context.Context, host string, port int, username string, password string) error {
 	log.Debug("creating store")
-	password := strings.ReplaceAll(config.GetString("MONGO.PASSWORD"), "@", `%40`)
-	usernamePassword := config.GetString("MONGO.USERNAME") + ":" + password + "@"
+	usernamePassword := username + ":" + password + "@"
 	if usernamePassword == ":@" {
 		usernamePassword = ""
 	}
 
 	uri := fmt.Sprintf("mongodb://%s%s:%d",
 		usernamePassword,
-		config.GetStringWithDefault("mongo.host", "localhost"),
-		config.GetIntWithDefault("mongo.port", 27017))
+		host,
+		port)
 
 	clientOptions := options.Client().ApplyURI(uri).SetConnectTimeout(5 * time.Second)
 	c, err := mongo.Connect(cctx, clientOptions)
