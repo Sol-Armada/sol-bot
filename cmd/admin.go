@@ -62,7 +62,8 @@ func main() {
 	port := config.GetIntWithDefault("mongo.port", 27017)
 	username := config.GetString("MONGO.USERNAME")
 	pswd := strings.ReplaceAll(config.GetString("MONGO.PASSWORD"), "@", `%40`)
-	if err := stores.Setup(context.Background(), host, port, username, pswd); err != nil {
+	database := config.GetStringWithDefault("MONGO.DATABASE", "org")
+	if err := stores.Setup(context.Background(), host, port, username, pswd, database); err != nil {
 		log.WithError(err).Error("failed to setup storage")
 	}
 	cache.Setup()

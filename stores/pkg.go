@@ -7,7 +7,6 @@ import (
 
 	"github.com/apex/log"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -15,7 +14,7 @@ import (
 var client *mongo.Client
 var ctx context.Context
 
-func Setup(cctx context.Context, host string, port int, username string, password string) error {
+func Setup(cctx context.Context, host string, port int, username string, password string, database string) error {
 	log.Debug("creating store")
 	usernamePassword := username + ":" + password + "@"
 	if usernamePassword == ":@" {
@@ -36,22 +35,22 @@ func Setup(cctx context.Context, host string, port int, username string, passwor
 	ctx = cctx
 
 	Users = &usersStore{
-		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("users"),
+		Collection: client.Database(database).Collection("users"),
 		ctx:        ctx,
 	}
 
 	Events = &eventsStore{
-		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("events"),
+		Collection: client.Database(database).Collection("events"),
 		ctx:        ctx,
 	}
 
 	Templates = &templateStore{
-		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("event-templates"),
+		Collection: client.Database(database).Collection("event-templates"),
 		ctx:        ctx,
 	}
 
 	Transactions = &transactionsStore{
-		Collection: client.Database(config.GetStringWithDefault("MONGO.DATABASE", "org")).Collection("transactions"),
+		Collection: client.Database(database).Collection("transactions"),
 		ctx:        ctx,
 	}
 
