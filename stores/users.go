@@ -5,6 +5,7 @@ import (
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type usersStore struct {
@@ -23,8 +24,8 @@ func (u *usersStore) Get(id string) *mongo.SingleResult {
 	return u.FindOne(u.ctx, filter)
 }
 
-func (u *usersStore) List(filter interface{}) (*mongo.Cursor, error) {
-	return u.Find(u.ctx, filter)
+func (u *usersStore) List(filter interface{}, opts ...*options.FindOptions) (*mongo.Cursor, error) {
+	return u.Find(u.ctx, filter, opts...)
 }
 
 func (u *usersStore) Update(id string, user any) error {
