@@ -12,7 +12,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/auth"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
 	"go.mongodb.org/mongo-driver/bson"
@@ -49,11 +48,13 @@ type Member struct {
 	Affilations    []string   `json:"affiliations" bson:"affilations"`
 	Avatar         string     `json:"avatar" bson:"avatar"`
 	Updated        time.Time  `json:"updated" bson:"updated"`
-	IsBot          bool       `json:"is_bot" bson:"is_bot"`
-	IsAlly         bool       `json:"is_ally" bson:"is_ally"`
 	Validated      bool       `json:"validated" bson:"validated"`
 	ValidationCode string     `json:"validation_code" bson:"validation_code"`
 	Joined         time.Time  `json:"joined" bson:"joined"`
+
+	IsBot       bool `json:"is_bot" bson:"is_bot"`
+	IsAlly      bool `json:"is_ally" bson:"is_ally"`
+	IsAffiliate bool `json:"is_affiliate" bson:"is_affiliate"`
 
 	Merits   []*Merit   `json:"merits" bson:"merits"`
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
@@ -256,55 +257,6 @@ func (m *Member) ToMap() map[string]interface{} {
 	b, _ := json.Marshal(m)
 	_ = json.Unmarshal(b, &r)
 	return r
-}
-
-func (m *Member) Issues() []string {
-	issues := []string{}
-
-	if m.IsBot {
-		issues = append(issues, "bot")
-	}
-
-	if m.Rank == ranks.Guest {
-		issues = append(issues, "guest")
-	}
-
-	if m.Rank == ranks.Recruit && !m.RSIMember {
-		issues = append(issues, "non-rsi member but is recruit")
-	}
-
-	if m.IsAlly {
-		issues = append(issues, "ally")
-	}
-
-	if m.BadAffiliation {
-		issues = append(issues, "bad affiliation")
-	}
-
-	if m.PrimaryOrg == "REDACTED" {
-		issues = append(issues, "redacted org")
-	}
-
-	if m.Rank <= ranks.Member && m.PrimaryOrg != config.GetString("rsi_org_sid") {
-		issues = append(issues, "bad primary org")
-	}
-
-	switch m.Rank {
-	case ranks.Recruit:
-		if m.Events >= 3 {
-			issues = append(issues, "max event credits for this rank (3)")
-		}
-	case ranks.Member:
-		if m.Events >= 10 {
-			issues = append(issues, "max event credits for this rank (10)")
-		}
-	case ranks.Technician:
-		if m.Events >= 20 {
-			issues = append(issues, "max event credits for this rank (20)")
-		}
-	}
-
-	return issues
 }
 
 func (m *Member) GiveMerit(reason string, who *Member) error {

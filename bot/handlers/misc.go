@@ -13,13 +13,13 @@ import (
 )
 
 func ProfileCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := members.Get(i.Member.User.ID)
+	member, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user from storage")
 		return
 	}
 
-	if user.Name == "" {
+	if member.Name == "" {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -35,41 +35,41 @@ func ProfileCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 	emFields := []*discordgo.MessageEmbedField{
 		{
 			Name:   "RSI Handle",
-			Value:  user.Name,
+			Value:  member.Name,
 			Inline: false,
 		},
 		{
 			Name:   "Rank",
-			Value:  user.Rank.String(),
+			Value:  member.Rank.String(),
 			Inline: true,
 		},
 		{
 			Name:   "Event Attendance Count",
-			Value:  fmt.Sprintf("%d", user.Events),
+			Value:  fmt.Sprintf("%d", member.Events),
 			Inline: true,
 		},
 	}
 
-	if user.RSIMember {
+	if member.RSIMember {
 		rsiFields := []*discordgo.MessageEmbedField{
 			{
 				Name:   "RSI Profile URL",
-				Value:  fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", user.Name),
+				Value:  fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", member.Name),
 				Inline: false,
 			},
 			{
 				Name:   "RSI Validated (/validate)",
-				Value:  strconv.FormatBool(user.Validated),
+				Value:  strconv.FormatBool(member.Validated),
 				Inline: false,
 			},
 		}
 		emFields = append(emFields, rsiFields...)
 	}
 
-	if len(user.Issues()) > 0 {
+	if len(issues(member)) > 0 {
 		emFields = append(emFields, &discordgo.MessageEmbedField{
 			Name:   "Restrictions to Promotion",
-			Value:  strings.Join(user.Issues(), ", "),
+			Value:  strings.Join(issues(member), ", "),
 			Inline: false,
 		})
 	}
@@ -80,7 +80,7 @@ func ProfileCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 		Color:       0x00FFFF,
 		Fields:      emFields,
 		Footer: &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Last updated %s UTC", user.Updated.Format("2006-01-02 15:04:05")),
+			Text: fmt.Sprintf("Last updated <t:%d:R>", member.Updated.Unix()),
 		},
 	}
 

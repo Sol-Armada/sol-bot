@@ -44,9 +44,8 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 
 	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
 		member.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
-		if len(member.Affilations) == 0 {
-			member.Affilations = append(member.Affilations, "None")
-			return
+		if member.PrimaryOrg != config.GetString("rsi_org_sid") && utils.StringSliceContains(member.Affilations, config.GetString("rsi_org_sid")) {
+			member.IsAffiliate = true
 		}
 	})
 

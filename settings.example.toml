@@ -6,6 +6,7 @@
 # rsi_org_sid | string | the org's handle running this bot     #
 ################################################################
 allies = []
+ally_role = "ally"
 enimies = []
 rsi_org_sid = "MYORG"
 

@@ -83,6 +83,8 @@ func (r Rank) String() string {
 		return "Member"
 	case Recruit:
 		return "Recruit"
+	case Guest:
+		return "Guest"
 	}
 	return "Unknown"
 }

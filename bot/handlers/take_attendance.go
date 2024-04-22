@@ -12,6 +12,7 @@ import (
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/utils"
 )
 
 type AttendanceIssue struct {
@@ -131,21 +132,21 @@ func (a *Attendance) Parse(threadMessages []*discordgo.Message) {
 		uid = strings.ReplaceAll(uid, ">", "")
 		uid = strings.Split(uid, ":")[0]
 
-		u, err := members.Get(uid)
+		member, err := members.Get(uid)
 		if err != nil {
 			log.WithError(err).Error("getting user for existing attendance")
 			return
 		}
 
-		if len(u.Issues()) > 0 {
+		if len(issues(member)) > 0 {
 			a.Issues = append(a.Issues, &AttendanceIssue{
-				Member: u,
-				Reason: strings.Join(u.Issues(), ", "),
+				Member: member,
+				Reason: strings.Join(issues(member), ", "),
 			})
 			continue
 		}
 
-		a.Members = append(a.Members, u)
+		a.Members = append(a.Members, member)
 	}
 }
 
@@ -190,13 +191,7 @@ func TakeAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Intera
 }
 
 func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := members.Get(i.Member.User.ID)
-	if err != nil {
-		log.WithError(err).Error("getting user")
-		return
-	}
-
-	if user.Rank > ranks.GetRankByName(config.GetStringWithDefault("FEATURES.ATTENDANCE.MIN_RANK", "admiral")) {
+	if !utils.StringSliceContainsOneOf(i.Member.Roles, config.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -213,7 +208,7 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 	data := i.ApplicationCommandData()
 
 	eventName := strings.TrimPrefix(data.Options[0].StringValue(), "(NEW) ")
-	userIds := data.Options[1:]
+	memberIds := data.Options[1:]
 
 	attendance := &Attendance{
 		Id:     xid.New().String(),
@@ -221,69 +216,68 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 		Issues: []*AttendanceIssue{},
 	}
 
-	channelId := config.GetString("DISCORD.CHANNELS.ATTENDANCE")
+	channelId := config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
 
-	usersList := []*members.Member{}
-	for _, userId := range userIds {
-		user, err := members.Get(userId.UserValue(s).ID)
+	membersList := []*members.Member{}
+	for _, memberId := range memberIds {
+		member, err := members.Get(memberId.UserValue(s).ID)
 		if err != nil {
 			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
 				Member: &members.Member{
-					Id:   userId.UserValue(s).ID,
-					Name: userId.UserValue(s).Username,
+					Id:   memberId.UserValue(s).ID,
+					Name: memberId.UserValue(s).Username,
 				},
 				Reason: "not in system",
 			})
 			continue
 		}
 
-		if len(user.Issues()) > 0 {
+		if len(issues(member)) > 0 {
 			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
-				Member: user,
-				Reason: strings.Join(user.Issues(), ", "),
+				Member: member,
+				Reason: strings.Join(issues(member), ", "),
 			})
 			continue
 		}
 
-		usersList = append(usersList, user)
-		// user.IncrementEventCount()
+		membersList = append(membersList, member)
 	}
 
-	attendance.Members = usersList
+	attendance.Members = membersList
 
 	takeAttendanceComplete(s, i)
 
-	var em *discordgo.Message
-	em, _ = s.ChannelMessage(channelId, attendance.Name)
+	var eventMessage *discordgo.Message
+	eventMessage, _ = s.ChannelMessage(channelId, attendance.Name)
 
-	if em == nil {
+	if eventMessage == nil {
 		// create a new attendance message
-		em, err = s.ChannelMessageSend(channelId, fmt.Sprintf("%s (%s)", attendance.Name, xid.New().String()))
+		eventMessage, err := s.ChannelMessageSend(channelId, fmt.Sprintf("%s (%s)", attendance.Name, xid.New().String()))
 		if err != nil {
 			log.WithError(err).Error("creating new attendance message")
 			return
 		}
 
-		emThread, err := s.MessageThreadStart(em.ChannelID, em.ID, attendance.Name+" Attendance Thread", 1440)
+		emThread, err := s.MessageThreadStart(eventMessage.ChannelID, eventMessage.ID, attendance.Name+" Attendance Thread", 1440)
 		if err != nil {
 			log.WithError(err).Error("creating new attendance message")
 			return
 		}
 
-		em.Thread = emThread
+		eventMessage.Thread = emThread
 	}
 
-	etms, err := s.ChannelMessages(em.Thread.ID, 100, "", "", "")
+	eventThreadMessages, err := s.ChannelMessages(eventMessage.Thread.ID, 100, "", "", "")
 	if err != nil {
 		log.WithError(err).Error("getting attendance thread messages")
 		return
 	}
-	log.WithField("messages", etms).Debug("event message list")
+	log.WithField("messages", eventThreadMessages).Debug("event message list")
 
 	// we need to create a new message
-	if len(etms) == 1 {
+	if len(eventThreadMessages) == 1 {
 		// make the primary list
-		_, err := s.ChannelMessageSendComplex(em.Thread.ID, &discordgo.MessageSend{
+		_, err := s.ChannelMessageSendComplex(eventMessage.Thread.ID, &discordgo.MessageSend{
 			Content: attendance.GenerateList(),
 			Embeds:  []*discordgo.MessageEmbed{attendance.getIssuesEmbed()},
 			Components: []discordgo.MessageComponent{
@@ -312,7 +306,7 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 	}
 
 	// we have a message already
-	message := etms[len(etms)-2]
+	message := eventThreadMessages[len(eventThreadMessages)-2]
 	currentUsersSplit := strings.Split(message.Content, "\n")
 	currentUsersSplit = append(currentUsersSplit, strings.Split(message.Embeds[0].Fields[0].Value, "\n")...)
 	for _, cu := range currentUsersSplit[1:] {
@@ -323,12 +317,12 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 		uid = strings.ReplaceAll(uid, ">", "")
 		uid = strings.Split(uid, ":")[0]
 
-		u, err := members.Get(uid)
+		member, err := members.Get(uid)
 		if err != nil {
-			log.WithError(err).Error("getting user for existing attendance")
+			log.WithError(err).Error("getting member for existing attendance")
 			return
 		}
-		attendance.Members = append(attendance.Members, u)
+		attendance.Members = append(attendance.Members, member)
 	}
 	attendance.removeDuplicates()
 
@@ -338,7 +332,7 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 		attendance.getIssuesEmbed(),
 	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel: em.Thread.ID,
+		Channel: eventMessage.Thread.ID,
 		ID:      message.ID,
 		Content: &attendaceList,
 		Embeds:  &emb,
@@ -354,7 +348,7 @@ func RemoveAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Inte
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 	switch {
 	case data.Options[0].Focused:
-		channelMessages, err := s.ChannelMessages(config.GetString("DISCORD.CHANNELS.ATTENDANCE"), 5, "", "", "")
+		channelMessages, err := s.ChannelMessages(config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), 5, "", "", "")
 		if err != nil {
 			log.WithError(err).Error("getting all attendance messages")
 			return
@@ -373,19 +367,13 @@ func RemoveAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Inte
 			Choices: choices,
 		},
 	}); err != nil {
-		log.WithError(err).Error("responding to removeattendance command")
+		log.WithError(err).Error("responding to removeattendance autocomplete")
 		return
 	}
 }
 
 func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := members.Get(i.Member.User.ID)
-	if err != nil {
-		log.WithError(err).Error("getting user")
-		return
-	}
-
-	if user.Rank > ranks.GetRankByName(config.GetStringWithDefault("FEATURES.ATTENDANCE.MIN_RANK", "admiral")) {
+	if !utils.StringSliceContainsOneOf(i.Member.Roles, config.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -436,34 +424,34 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 	}
 
 	attendance := &Attendance{}
-	for _, userId := range currentUsersSplit[1:] {
-		if userId == "No members" {
+	for _, discordUserId := range currentUsersSplit[1:] {
+		if discordUserId == "No members" {
 			continue
 		}
 
-		userId = strings.ReplaceAll(userId, "<@", "")
-		userId = strings.ReplaceAll(userId, ">", "")
-		userId = strings.Split(userId, ":")[0]
+		discordUserId = strings.ReplaceAll(discordUserId, "<@", "")
+		discordUserId = strings.ReplaceAll(discordUserId, ">", "")
+		discordUserId = strings.Split(discordUserId, ":")[0]
 
-		if strings.Contains(removedIds, userId) {
+		if strings.Contains(removedIds, discordUserId) {
 			continue
 		}
 
-		user, err := members.Get(userId)
+		member, err := members.Get(discordUserId)
 		if err != nil {
 			log.WithError(err).Error("getting user")
 			return
 		}
 
-		if len(user.Issues()) > 0 {
+		if len(issues(member)) > 0 {
 			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
-				Member: user,
-				Reason: strings.Join(user.Issues(), ", "),
+				Member: member,
+				Reason: strings.Join(issues(member), ", "),
 			})
 			continue
 		}
 
-		attendance.Members = append(attendance.Members, user)
+		attendance.Members = append(attendance.Members, member)
 	}
 	attendance.removeDuplicates()
 
@@ -585,32 +573,32 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 	attendance := &Attendance{}
 	attendance.Parse(threadMessages)
 
-	usersList := []*members.Member{}
-	for _, member := range attendance.Members {
-		user, err := members.Get(member.Id)
+	membersList := []*members.Member{}
+	for _, aMember := range attendance.Members {
+		member, err := members.Get(aMember.Id)
 		if err != nil {
 			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
 				Member: &members.Member{
-					Id:   member.Id,
-					Name: member.Name,
+					Id:   aMember.Id,
+					Name: aMember.Name,
 				},
 				Reason: "not in system",
 			})
 			continue
 		}
 
-		if len(user.Issues()) > 0 {
+		if len(issues(member)) > 0 {
 			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
-				Member: user,
-				Reason: strings.Join(user.Issues(), ", "),
+				Member: member,
+				Reason: strings.Join(issues(member), ", "),
 			})
 			continue
 		}
 
-		usersList = append(usersList, user)
+		membersList = append(membersList, member)
 	}
 
-	attendance.Members = usersList
+	attendance.Members = membersList
 
 	takeAttendanceComplete(s, i)
 
@@ -635,4 +623,53 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 		log.WithError(err).Error("editing attendance thread message")
 		return
 	}
+}
+
+func issues(m *members.Member) []string {
+	issues := []string{}
+
+	if m.IsBot {
+		issues = append(issues, "bot")
+	}
+
+	if m.Rank == ranks.Guest {
+		issues = append(issues, "guest")
+	}
+
+	if m.Rank == ranks.Recruit && !m.RSIMember {
+		issues = append(issues, "non-rsi member but is recruit")
+	}
+
+	if m.IsAlly {
+		issues = append(issues, "ally")
+	}
+
+	if m.BadAffiliation {
+		issues = append(issues, "bad affiliation")
+	}
+
+	if m.PrimaryOrg == "REDACTED" {
+		issues = append(issues, "redacted org")
+	}
+
+	if m.Rank <= ranks.Member && m.PrimaryOrg != config.GetString("rsi_org_sid") {
+		issues = append(issues, "bad primary org")
+	}
+
+	switch m.Rank {
+	case ranks.Recruit:
+		if m.Events >= 3 {
+			issues = append(issues, "max event credits for this rank (3)")
+		}
+	case ranks.Member:
+		if m.Events >= 10 {
+			issues = append(issues, "max event credits for this rank (10)")
+		}
+	case ranks.Technician:
+		if m.Events >= 20 {
+			issues = append(issues, "max event credits for this rank (20)")
+		}
+	}
+
+	return issues
 }
