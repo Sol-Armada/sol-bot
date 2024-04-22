@@ -5,20 +5,20 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
+	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Transaction struct {
-	Id     string      `json:"id" bson:"_id"`
-	Amount int32       `json:"amount" bson:"amount"`
-	From   *users.User `omitempty,json:"from" bson:"from"`
-	To     *users.User `omitempty,json:"to" bson:"to"`
-	For    string      `omitempty,json:"for" bson:"for"`
-	Holder *users.User `json:"holder" bson:"holder"`
-	Notes  string      `json:"notes" bson:"notes"`
+	Id     string          `json:"id" bson:"_id"`
+	Amount int32           `json:"amount" bson:"amount"`
+	From   *members.Member `omitempty,json:"from" bson:"from"`
+	To     *members.Member `omitempty,json:"to" bson:"to"`
+	For    string          `omitempty,json:"for" bson:"for"`
+	Holder *members.Member `json:"holder" bson:"holder"`
+	Notes  string          `json:"notes" bson:"notes"`
 }
 
 func New(body map[string]interface{}) (*Transaction, error) {

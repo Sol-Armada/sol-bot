@@ -3,7 +3,7 @@ package auth
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -14,15 +14,15 @@ import (
 	"github.com/sol-armada/admin/config"
 )
 
-type UserAccess struct {
-	AccessToken  string    `json:"access_token"`
+type Access struct {
+	Token        string    `json:"access_token"`
 	ExpiresAt    time.Time `json:"expires_at"`
 	RefreshToken string    `json:"refresh_token"`
 }
 
-func Authenticate(code string) (*UserAccess, error) {
+func Authenticate(code string) (*Access, error) {
 	logger := log.WithField("code", code)
-	logger.Info("creating new user access")
+	logger.Info("creating new member access")
 
 	redirectUri := strings.TrimSuffix(config.GetString("DISCORD.REDIRECT_URI"), "/")
 	redirectUri = fmt.Sprintf("%s/login", redirectUri)
@@ -63,7 +63,7 @@ func Authenticate(code string) (*UserAccess, error) {
 	}
 
 	if resp.StatusCode == http.StatusBadRequest {
-		errorMessage, _ := ioutil.ReadAll(resp.Body)
+		errorMessage, _ := io.ReadAll(resp.Body)
 		type ErrorMessage struct {
 			ErrorType   string `json:"error"`
 			Description string `json:"error_description"`
@@ -75,18 +75,18 @@ func Authenticate(code string) (*UserAccess, error) {
 		return nil, errors.New(errMsg.ErrorType)
 	}
 
-	access := map[string]interface{}{}
-	if err := json.NewDecoder(resp.Body).Decode(&access); err != nil {
+	accessMap := map[string]interface{}{}
+	if err := json.NewDecoder(resp.Body).Decode(&accessMap); err != nil {
 		return nil, err
 	}
 
-	userAccess := &UserAccess{
-		AccessToken:  access["access_token"].(string),
-		ExpiresAt:    time.Now().Add(time.Duration(access["expires_in"].(float64)) * time.Second),
-		RefreshToken: access["refresh_token"].(string),
+	access := &Access{
+		Token:        accessMap["access_token"].(string),
+		ExpiresAt:    time.Now().Add(time.Duration(accessMap["expires_in"].(float64)) * time.Second),
+		RefreshToken: accessMap["refresh_token"].(string),
 	}
 
-	logger.WithField("user access", *userAccess).Debug("created new user access")
+	logger.WithField("member access", *access).Debug("created new member access")
 
-	return userAccess, nil
+	return access, nil
 }

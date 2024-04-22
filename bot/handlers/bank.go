@@ -8,8 +8,8 @@ import (
 	"github.com/rs/xid"
 	"github.com/sol-armada/admin/config"
 	customerrors "github.com/sol-armada/admin/errors"
+	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/transactions"
-	"github.com/sol-armada/admin/users"
 	"golang.org/x/exp/slices"
 	"golang.org/x/text/language"
 	"golang.org/x/text/message"
@@ -97,16 +97,14 @@ func addHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	from, err := users.Get(fromId)
+	from, err := members.Get(fromId)
 	if err != nil {
 		logger.WithError(err).Error("getting from user")
 		customerrors.ErrorResponse(s, i.Interaction, "backend issue", nil)
 		return
 	}
-	from.Discord = nil
 
-	holder, err := users.Get(i.Member.User.ID)
-	holder.Discord = nil
+	holder, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank add")
 		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)", nil)
@@ -160,16 +158,14 @@ func removeHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	to, err := users.Get(toId)
-	to.Discord = nil
+	to, err := members.Get(toId)
 	if err != nil {
 		logger.WithError(err).Error("getting to user for bank remove")
 		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the to user", nil)
 		return
 	}
 
-	holder, err := users.Get(i.Member.User.ID)
-	holder.Discord = nil
+	holder, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank remove")
 		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)", nil)
@@ -223,8 +219,7 @@ func spendHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		}
 	}
 
-	holder, err := users.Get(i.Member.User.ID)
-	holder.Discord = nil
+	holder, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		logger.WithError(err).Error("getting holder user for bank remove")
 		customerrors.ErrorResponse(s, i.Interaction, "backend error getting the holding user (you)", nil)

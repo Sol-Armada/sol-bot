@@ -8,13 +8,13 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
 )
 
 func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	storedUser := &users.User{}
+	storedUser := &members.Member{}
 	if err := stores.Users.Get(i.Member.User.ID).Decode(&storedUser); err != nil {
 		log.WithError(err).Error("getting user from storage")
 	}
@@ -31,7 +31,7 @@ func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCrea
 }
 
 func ProfileCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := users.Get(i.Member.User.ID)
+	user, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user from storage")
 		return
@@ -116,7 +116,7 @@ func ProfileCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate)
 }
 
 func GiveMeritCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := users.Get(i.Member.User.ID)
+	user, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user")
 		return
@@ -140,7 +140,7 @@ func GiveMeritCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreat
 
 	receivingDiscordUser := data.Options[0].UserValue(s)
 
-	receivingUser, err := users.Get(receivingDiscordUser.ID)
+	receivingUser, err := members.Get(receivingDiscordUser.ID)
 	if err != nil {
 		log.WithError(err).Error("getting receiving user")
 		return
@@ -163,7 +163,7 @@ func GiveMeritCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreat
 }
 
 func GiveDemeritCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := users.Get(i.Member.User.ID)
+	user, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user")
 		return
@@ -187,7 +187,7 @@ func GiveDemeritCommandHandler(s *discordgo.Session, i *discordgo.InteractionCre
 
 	receivingDiscordUser := data.Options[0].UserValue(s)
 
-	receivingUser, err := users.Get(receivingDiscordUser.ID)
+	receivingUser, err := members.Get(receivingDiscordUser.ID)
 	if err != nil {
 		log.WithError(err).Error("getting receiving user")
 		return

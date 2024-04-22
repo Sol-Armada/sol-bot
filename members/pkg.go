@@ -1,4 +1,4 @@
-package users
+package members
 
 import (
 	"encoding/json"
@@ -19,8 +19,26 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-type User struct {
-	ID             string     `json:"id" bson:"_id"`
+type GameplayTypes string
+
+const (
+	BountyHunting  GameplayTypes = "bounty hunting"
+	Engineering    GameplayTypes = "engineering"
+	Exporation     GameplayTypes = "exporation"
+	FpsCombat      GameplayTypes = "fps combat"
+	Hauling        GameplayTypes = "hauling"
+	Medical        GameplayTypes = "medical"
+	Mining         GameplayTypes = "mining"
+	Reconnaissance GameplayTypes = "reconnaissance"
+	Racing         GameplayTypes = "racing"
+	Scrapping      GameplayTypes = "scrapping"
+	ShipCrew       GameplayTypes = "ship crew"
+	ShipCombat     GameplayTypes = "ship combat"
+	Trading        GameplayTypes = "trading"
+)
+
+type Member struct {
+	Id             string     `json:"id" bson:"_id"`
 	Name           string     `json:"name" bson:"name"`
 	Rank           ranks.Rank `json:"rank" bson:"rank"`
 	Notes          string     `json:"notes" bson:"notes"`
@@ -40,13 +58,11 @@ type User struct {
 	Merits   []*Merit   `json:"merits" bson:"merits"`
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
 
-	Playtime  string `json:"playtime" bson:"playtime"`
-	Gameplay  string `json:"gamplay" bson:"gameplay"`
-	Age       int    `json:"age" bson:"age"`
-	Recruiter *User  `json:"recruiter" bson:"recruiter"`
-
-	Discord *discordgo.Member `json:"-" bson:"discord"`
-	Access  *auth.UserAccess  `json:"-" bson:"access"`
+	// onboarding info
+	Playtime  int             `json:"playtime" bson:"playtime"`
+	Gameplay  []GameplayTypes `json:"gamplay" bson:"gameplay"`
+	Age       int             `json:"age" bson:"age"`
+	Recruiter *Member         `json:"recruiter" bson:"recruiter"`
 }
 
 type AttendedEvent struct {
@@ -55,65 +71,60 @@ type AttendedEvent struct {
 }
 
 type Merit struct {
-	Giver  User      `json:"giver" bson:"giver"`
+	Giver  Member    `json:"giver" bson:"giver"`
 	Reason string    `json:"reason" bson:"reason"`
 	When   time.Time `json:"when" bson:"when"`
 }
 
 type Demerit struct {
-	Giver  User      `json:"giver" bson:"giver"`
+	Giver  Member    `json:"giver" bson:"giver"`
 	Reason string    `json:"reason" bson:"reason"`
 	When   time.Time `json:"when" bson:"when"`
 }
 
-type UserError error
+type MemberError error
 
 var (
-	UserNotFound UserError = errors.New("user not found")
+	MemberNotFound MemberError = errors.New("member not found")
 )
 
-func New(m *discordgo.Member) *User {
-	name := m.User.Username
-	if m.Nick != "" {
-		name = m.Nick
-	}
-	u := &User{
-		ID:             m.User.ID,
-		Name:           name,
+func New(discordMember *discordgo.Member) *Member {
+	u := &Member{
+		Id:             discordMember.User.ID,
 		Rank:           ranks.Guest,
 		PrimaryOrg:     "",
 		Notes:          "",
 		Events:         0,
 		RSIMember:      true,
-		Discord:        m,
 		BadAffiliation: false,
-		Avatar:         m.User.Avatar,
+		Avatar:         discordMember.Avatar,
 	}
-	u.Name = u.GetTrueNick()
+
+	u.Name = u.GetTrueNick(discordMember)
 
 	return u
 }
 
-func Get(id string) (*User, error) {
-	user := &User{}
+func Get(id string) (*Member, error) {
+	member := &Member{}
 
 	// check the cache
 	rawUser := cache.Cache.GetUser(id)
 	if rawUser != nil {
 		userByte, _ := json.Marshal(rawUser)
-		if err := json.Unmarshal(userByte, user); err != nil {
+		if err := json.Unmarshal(userByte, member); err != nil {
 			return nil, err
 		}
 	}
 
 	// check the store
-	if err := stores.Users.Get(id).Decode(user); err != nil {
+	if err := stores.Users.Get(id).Decode(member); err != nil {
 		return nil, err
 	}
-	return user, nil
+	return member, nil
 }
 
-func GetRandom(max int, maxRank int) ([]User, error) {
+func GetRandom(max int, maxRank int) ([]Member, error) {
 	stores := stores.Users
 	randomUsers, err := stores.Aggregate(stores.GetContext(), bson.A{
 		bson.D{
@@ -134,29 +145,29 @@ func GetRandom(max int, maxRank int) ([]User, error) {
 		return nil, err
 	}
 
-	users := []User{}
+	users := []Member{}
 	for randomUsers.Next(stores.GetContext()) {
-		user := User{}
-		if err := randomUsers.Decode(&user); err != nil {
+		member := Member{}
+		if err := randomUsers.Decode(&member); err != nil {
 			return nil, err
 		}
-		users = append(users, user)
+		users = append(users, member)
 	}
 
 	return users, nil
 }
 
-func (u *User) GetTrueNick() string {
-	if u.Discord == nil {
+func (u *Member) GetTrueNick(discordMember *discordgo.Member) string {
+	if discordMember == nil {
 		return u.Name
 	}
 
-	trueNick := u.Discord.User.Username
-	if u.Discord.Nick != "" {
+	trueNick := discordMember.User.Username
+	if discordMember.Nick != "" {
 		regRank := regexp.MustCompile(`\[(.*?)\] `)
 		regAlly := regexp.MustCompile(`\{(.*?)\} `)
 		regPronouns := regexp.MustCompile(` \((.*?)\)`)
-		trueNick = regRank.ReplaceAllString(u.Discord.Nick, "")
+		trueNick = regRank.ReplaceAllString(discordMember.Nick, "")
 		trueNick = regAlly.ReplaceAllString(trueNick, "")
 		trueNick = regPronouns.ReplaceAllString(trueNick, "")
 	}
@@ -164,34 +175,34 @@ func (u *User) GetTrueNick() string {
 	return trueNick
 }
 
-func (u *User) Save() error {
-	log.WithField("user", u).Debug("saving user")
+func (u *Member) Save() error {
+	log.WithField("member", u).Debug("saving member")
 	u.Updated = time.Now().UTC()
-	cache.Cache.SetUser(u.ID, u.ToMap())
+	cache.Cache.SetUser(u.Id, u.ToMap())
 
-	return stores.Users.Update(u.ID, u)
+	return stores.Users.Update(u.Id, u)
 }
 
-func (u *User) UpdateEventCount(count int64) {
+func (u *Member) UpdateEventCount(count int64) {
 	u.Events = count
 	u.LegacyEvents = u.Events
 	_ = u.Save()
 }
 
-func (u *User) IncrementEventCount() {
+func (u *Member) IncrementEventCount() {
 	u.Events++
 	u.LegacyEvents = u.Events
 	_ = u.Save()
 }
 
-func (u *User) DecrementEventCount() {
+func (u *Member) DecrementEventCount() {
 	u.Events--
 	u.LegacyEvents = u.Events
 	_ = u.Save()
 }
 
-func (u *User) IsAdmin() bool {
-	logger := log.WithField("id", u.ID)
+func (u *Member) IsAdmin() bool {
+	logger := log.WithField("id", u.Id)
 	logger.Debug("checking if admin")
 	if u.Rank <= ranks.Lieutenant {
 		return true
@@ -200,14 +211,12 @@ func (u *User) IsAdmin() bool {
 	return false
 }
 
-func (u *User) Login(code string) error {
+func (u *Member) Login(code string) error {
 	log.WithField("access code", code).Debug("logging in")
-	userAccess, err := auth.Authenticate(code)
+	access, err := auth.Authenticate(code)
 	if err != nil {
 		return err
 	}
-
-	u.Access = userAccess
 
 	req, err := http.NewRequest("GET", "https://discord.com/api/v10/users/@me", nil)
 	if err != nil {
@@ -215,7 +224,7 @@ func (u *User) Login(code string) error {
 	}
 
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", u.Access.AccessToken))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", access.Token))
 
 	log.Debug("request for login to discord")
 
@@ -235,13 +244,13 @@ func (u *User) Login(code string) error {
 		return errors.New(string(errorMessage))
 	}
 
-	discordUser := &discordgo.User{}
+	discordUser := &discordgo.Member{}
 	if err := json.NewDecoder(resp.Body).Decode(&discordUser); err != nil {
 		return err
 	}
 
-	if err := stores.Users.Get(discordUser.ID).Decode(&u); err != nil {
-		return errors.Wrap(err, "getting stored user")
+	if err := stores.Users.Get(discordUser.User.ID).Decode(&u); err != nil {
+		return errors.Wrap(err, "getting stored member")
 	}
 
 	u.Avatar = discordUser.Avatar
@@ -250,26 +259,22 @@ func (u *User) Login(code string) error {
 	return nil
 }
 
-func (u *User) StillLoggedIn() bool {
-	return time.Until(u.Access.ExpiresAt) > 0
-}
+func (u *Member) Delete() error {
+	log.WithField("member", u).Debug("deleting member")
 
-func (u *User) Delete() error {
-	log.WithField("user", u).Debug("deleting user")
-
-	cache.Cache.DeleteUser(u.ID)
+	cache.Cache.DeleteUser(u.Id)
 
 	return nil
 }
 
-func (u *User) ToMap() map[string]interface{} {
+func (u *Member) ToMap() map[string]interface{} {
 	r := map[string]interface{}{}
 	b, _ := json.Marshal(u)
 	_ = json.Unmarshal(b, &r)
 	return r
 }
 
-func (u *User) Issues() []string {
+func (u *Member) Issues() []string {
 	issues := []string{}
 
 	if u.IsBot {
@@ -318,7 +323,7 @@ func (u *User) Issues() []string {
 	return issues
 }
 
-func (u *User) GiveMerit(reason string, who *User) error {
+func (u *Member) GiveMerit(reason string, who *Member) error {
 	u.Merits = append(u.Merits, &Merit{
 		Giver:  *who,
 		Reason: reason,
@@ -328,7 +333,7 @@ func (u *User) GiveMerit(reason string, who *User) error {
 	return u.Save()
 }
 
-func (u *User) GiveDemerit(reason string, who *User) error {
+func (u *Member) GiveDemerit(reason string, who *Member) error {
 	u.Demerits = append(u.Demerits, &Demerit{
 		Giver:  *who,
 		Reason: reason,

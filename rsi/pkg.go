@@ -8,19 +8,20 @@ import (
 	"github.com/apex/log"
 	"github.com/gocolly/colly/v2"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/users"
 	"github.com/sol-armada/admin/utils"
 )
 
 var (
-	UserNotFound error            = errors.New("user was not found")
+	UserNotFound error            = errors.New("rsi user was not found")
 	c            *colly.Collector = colly.NewCollector(colly.AllowURLRevisit())
 )
 
-func GetOrgInfo(u *users.User) (*users.User, error) {
-	u.Rank = ranks.Guest
-	u.PrimaryOrg = ""
+func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
+	member.Rank = ranks.Guest
+	member.PrimaryOrg = ""
+
 	var err error
 	c.OnResponse(func(r *colly.Response) {
 		if r.StatusCode == 404 {
@@ -32,43 +33,43 @@ func GetOrgInfo(u *users.User) (*users.User, error) {
 		if e.Text == "" {
 			e.Text = "None"
 		}
-		u.PrimaryOrg = e.Text
+		member.PrimaryOrg = e.Text
 	})
 
 	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		if u.PrimaryOrg == config.GetString("rsi_org_sid") {
-			u.Rank = ranks.GetRankByRSIRankName(e.Text)
+		if member.PrimaryOrg == config.GetString("rsi_org_sid") {
+			member.Rank = ranks.GetRankByRSIRankName(e.Text)
 		}
 	})
 
 	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
-		u.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
-		if len(u.Affilations) == 0 {
-			u.Affilations = append(u.Affilations, "None")
+		member.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
+		if len(member.Affilations) == 0 {
+			member.Affilations = append(member.Affilations, "None")
 			return
 		}
 	})
 
 	c.OnXML(`//div[contains(@class, "org main")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
-		u.PrimaryOrg = "REDACTED"
-		u.Rank = ranks.Guest
+		member.PrimaryOrg = "REDACTED"
+		member.Rank = ranks.Guest
 	})
 
-	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", strings.ReplaceAll(u.GetTrueNick(), ".", ""))
+	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", strings.ReplaceAll(member.Name, ".", ""))
 	if err := c.Visit(url); err != nil {
 		t := err.Error()
 		if t == "Not Found" {
-			return u, UserNotFound
+			return member, UserNotFound
 		}
 
-		return u, err
+		return member, err
 	}
 
 	log.WithFields(log.Fields{
-		"user": u,
+		"user": member,
 	}).Debug("rsi info")
 
-	return u, err
+	return member, err
 }
 
 func IsAllyOrg(org string) bool {
@@ -76,7 +77,7 @@ func IsAllyOrg(org string) bool {
 	return utils.StringSliceContains(whiteListOrgs, org)
 }
 
-func ValidHandle(username string) bool {
+func ValidHandle(handle string) bool {
 	c := colly.NewCollector()
 
 	exists := true
@@ -86,7 +87,7 @@ func ValidHandle(username string) bool {
 		}
 	})
 
-	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", username)); err != nil {
+	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", handle)); err != nil {
 		if err.Error() == "Not Found" {
 			exists = false
 		}
@@ -95,7 +96,7 @@ func ValidHandle(username string) bool {
 	return exists
 }
 
-func IsMemberOfOrg(username string, org string) (bool, error) {
+func IsMemberOfOrg(handle string, org string) (bool, error) {
 	c := colly.NewCollector()
 
 	var orgs []string
@@ -110,7 +111,7 @@ func IsMemberOfOrg(username string, org string) (bool, error) {
 		orgs = []string{}
 	})
 
-	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", username)); err != nil {
+	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", handle)); err != nil {
 		if err.Error() == "Not Found" {
 			return false, UserNotFound
 		}
@@ -119,8 +120,8 @@ func IsMemberOfOrg(username string, org string) (bool, error) {
 	}
 
 	log.WithFields(log.Fields{
-		"username": username,
-		"orgs":     orgs,
+		"handle": handle,
+		"orgs":   orgs,
 	}).Debug("rsi info")
 
 	for _, o := range orgs {
@@ -132,7 +133,7 @@ func IsMemberOfOrg(username string, org string) (bool, error) {
 	return false, err
 }
 
-func GetBio(nick string) (string, error) {
+func GetBio(handle string) (string, error) {
 	var err error
 	c.OnResponse(func(r *colly.Response) {
 		if r.StatusCode == 404 {
@@ -148,7 +149,7 @@ func GetBio(nick string) (string, error) {
 		bio = e.Text
 	})
 
-	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", nick)); err != nil {
+	if err := c.Visit(fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", handle)); err != nil {
 		if err.Error() == "Not Found" {
 			return "", UserNotFound
 		}

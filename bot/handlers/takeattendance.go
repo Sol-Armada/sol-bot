@@ -10,35 +10,35 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/users"
 )
 
 type AttendanceIssue struct {
-	Member *users.User
+	Member *members.Member
 	Reason string
 }
 
 type Attendance struct {
-	ID      string
+	Id      string
 	Name    string
-	Members []*users.User
+	Members []*members.Member
 	Issues  []*AttendanceIssue
 }
 
 func (a *Attendance) GenerateList() string {
 	// remove duplicates
-	list := make(map[string]*users.User)
+	list := make(map[string]*members.Member)
 	for _, u := range a.Members {
-		list[u.ID] = u
+		list[u.Id] = u
 	}
 
-	a.Members = []*users.User{}
+	a.Members = []*members.Member{}
 	for _, u := range list {
 		a.Members = append(a.Members, u)
 	}
 
-	slices.SortFunc(a.Members, func(a, b *users.User) int {
+	slices.SortFunc(a.Members, func(a, b *members.Member) int {
 		if a.Rank > b.Rank {
 			return 1
 		}
@@ -57,7 +57,7 @@ func (a *Attendance) GenerateList() string {
 
 	m := ""
 	for i, u := range a.Members {
-		m += fmt.Sprintf("<@%s>", u.ID)
+		m += fmt.Sprintf("<@%s>", u.Id)
 		if i < len(a.Members)-1 {
 			m += "\n"
 		}
@@ -71,12 +71,12 @@ func (a *Attendance) GenerateList() string {
 }
 
 func (a *Attendance) removeDuplicates() {
-	list := []*users.User{}
+	list := []*members.Member{}
 
 	for _, u := range a.Members {
 		found := false
 		for _, v := range list {
-			if u.ID == v.ID {
+			if u.Id == v.Id {
 				found = true
 				break
 			}
@@ -93,13 +93,13 @@ func (a *Attendance) removeDuplicates() {
 func (a *Attendance) getIssuesEmbed() *discordgo.MessageEmbed {
 	embed := &discordgo.MessageEmbed{
 		Title:       "Users with Issues",
-		Description: "List of users with attendance credit issues",
+		Description: "List of members with attendance credit issues",
 		Fields:      []*discordgo.MessageEmbedField{},
 	}
 
 	fieldValue := ""
 	for _, issue := range a.Issues {
-		fieldValue += fmt.Sprintf("<@%s>: %s\n", issue.Member.ID, issue.Reason)
+		fieldValue += fmt.Sprintf("<@%s>: %s\n", issue.Member.Id, issue.Reason)
 	}
 	field := &discordgo.MessageEmbedField{
 		Name:  "Member - Issues",
@@ -116,7 +116,7 @@ func (a *Attendance) Parse(threadMessages []*discordgo.Message) {
 
 	// get the ID between ( )
 	reg := regexp.MustCompile(`(.*?)\((.*?)\)`)
-	a.ID = reg.FindStringSubmatch(mainMessage.Content)[1]
+	a.Id = reg.FindStringSubmatch(mainMessage.Content)[1]
 
 	// get the name before ( )
 	a.Name = reg.FindStringSubmatch(mainMessage.Content)[0]
@@ -131,7 +131,7 @@ func (a *Attendance) Parse(threadMessages []*discordgo.Message) {
 		uid = strings.ReplaceAll(uid, ">", "")
 		uid = strings.Split(uid, ":")[0]
 
-		u, err := users.Get(uid)
+		u, err := members.Get(uid)
 		if err != nil {
 			log.WithError(err).Error("getting user for existing attendance")
 			return
@@ -190,7 +190,7 @@ func TakeAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Intera
 }
 
 func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := users.Get(i.Member.User.ID)
+	user, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user")
 		return
@@ -216,20 +216,20 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 	userIds := data.Options[1:]
 
 	attendance := &Attendance{
-		ID:     xid.New().String(),
+		Id:     xid.New().String(),
 		Name:   eventName,
 		Issues: []*AttendanceIssue{},
 	}
 
 	channelId := config.GetString("DISCORD.CHANNELS.ATTENDANCE")
 
-	usersList := []*users.User{}
+	usersList := []*members.Member{}
 	for _, userId := range userIds {
-		user, err := users.Get(userId.UserValue(s).ID)
+		user, err := members.Get(userId.UserValue(s).ID)
 		if err != nil {
 			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
-				Member: &users.User{
-					ID:   userId.UserValue(s).ID,
+				Member: &members.Member{
+					Id:   userId.UserValue(s).ID,
 					Name: userId.UserValue(s).Username,
 				},
 				Reason: "not in system",
@@ -292,13 +292,13 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 						discordgo.Button{
 							Label:    "Record Attendance",
 							Style:    discordgo.PrimaryButton,
-							CustomID: "attendance:record:" + attendance.ID,
+							CustomID: "attendance:record:" + attendance.Id,
 							Emoji:    &discordgo.ComponentEmoji{Name: "📝"},
 						},
 						discordgo.Button{
 							Label:    "Recheck Issues",
 							Style:    discordgo.SecondaryButton,
-							CustomID: "attendance:recheck:" + attendance.ID,
+							CustomID: "attendance:recheck:" + attendance.Id,
 							Emoji:    &discordgo.ComponentEmoji{Name: "🔄"},
 						},
 					},
@@ -323,7 +323,7 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 		uid = strings.ReplaceAll(uid, ">", "")
 		uid = strings.Split(uid, ":")[0]
 
-		u, err := users.Get(uid)
+		u, err := members.Get(uid)
 		if err != nil {
 			log.WithError(err).Error("getting user for existing attendance")
 			return
@@ -379,7 +379,7 @@ func RemoveAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Inte
 }
 
 func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	user, err := users.Get(i.Member.User.ID)
+	user, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		log.WithError(err).Error("getting user")
 		return
@@ -425,7 +425,7 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 		return
 	}
 
-	// remove all users in usersList from currentUsersSplit
+	// remove all members in usersList from currentUsersSplit
 	message := etms[len(etms)-2]
 	currentUsersSplit := strings.Split(message.Content, "\n")
 	currentUsersSplit = append(currentUsersSplit, strings.Split(message.Embeds[0].Fields[0].Value, "\n")...)
@@ -449,7 +449,7 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 			continue
 		}
 
-		user, err := users.Get(userId)
+		user, err := members.Get(userId)
 		if err != nil {
 			log.WithError(err).Error("getting user")
 			return
@@ -511,15 +511,15 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 		switch u.Rank {
 		case ranks.Recruit:
 			if u.Events >= 3 {
-				rankUps += fmt.Sprintf("<@%s> has made Member\n", u.ID)
+				rankUps += fmt.Sprintf("<@%s> has made Member\n", u.Id)
 			}
 		case ranks.Member:
 			if u.Events >= 10 {
-				rankUps += fmt.Sprintf("<@%s> has made Technician\n", u.ID)
+				rankUps += fmt.Sprintf("<@%s> has made Technician\n", u.Id)
 			}
 		case ranks.Technician:
 			if u.Events >= 20 {
-				rankUps += fmt.Sprintf("<@%s> has made Specialist\n", u.ID)
+				rankUps += fmt.Sprintf("<@%s> has made Specialist\n", u.Id)
 			}
 		}
 	}
@@ -585,13 +585,13 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 	attendance := &Attendance{}
 	attendance.Parse(threadMessages)
 
-	usersList := []*users.User{}
+	usersList := []*members.Member{}
 	for _, member := range attendance.Members {
-		user, err := users.Get(member.ID)
+		user, err := members.Get(member.Id)
 		if err != nil {
 			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
-				Member: &users.User{
-					ID:   member.ID,
+				Member: &members.Member{
+					Id:   member.Id,
 					Name: member.Name,
 				},
 				Reason: "not in system",

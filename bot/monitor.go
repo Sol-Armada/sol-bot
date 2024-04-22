@@ -11,17 +11,17 @@ import (
 	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/health"
+	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
 	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/exp/slices"
 )
 
 func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 	logger := log.WithField("func", "UserMonitor")
-	logger.Info("monitoring discord for users")
+	logger.Info("monitoring discord for members")
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
@@ -40,7 +40,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				continue
 			}
 			if time.Now().After(lastChecked.Add(30 * time.Minute)) {
-				logger.Info("scanning users")
+				logger.Info("scanning members")
 				if !stores.Connected() {
 					logger.Debug("storage not setup, waiting a bit")
 					time.Sleep(10 * time.Second)
@@ -74,20 +74,11 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				}
 
 				// get the stored members
-				storedUsers := []*users.User{}
-				// cur, err := stores.Users.List(bson.M{"updated": bson.M{"$lte": time.Now().Add(-30 * time.Minute).UTC()}})
-				// if err != nil {
-				// 	logger.WithError(err).Error("getting users for updating")
-				// 	continue
-				// }
-				// if err := cur.All(context.Background(), &storedUsers); err != nil {
-				// 	logger.WithError(err).Error("getting users from collection for update")
-				// 	continue
-				// }
+				storedUsers := []*members.Member{}
 				rawUsers := cache.Cache.GetUsers()
 				for _, v := range rawUsers {
 					uByte, _ := json.Marshal(v)
-					u := users.User{}
+					u := members.Member{}
 					if err := json.Unmarshal(uByte, &u); err != nil {
 						logger.WithError(err).Error("unmarshalling user from cache")
 						continue
@@ -136,37 +127,36 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 	return member, nil
 }
 
-func updateMembers(m []*discordgo.Member) error {
+func updateMembers(discordMembers []*discordgo.Member) error {
 	logger := log.WithField("func", "updateMembers")
 	logger.WithFields(log.Fields{
-		"discord_members": len(m),
-	}).Debug("checking users")
+		"discord_members": len(discordMembers),
+	}).Debug("checking members")
 
-	logger.Debugf("updating %d members", len(m))
-	for _, member := range m {
+	logger.Debugf("updating %d members", len(discordMembers))
+	for _, discordMember := range discordMembers {
 		time.Sleep(1 * time.Second)
-		mlogger := logger.WithField("member", member)
+		mlogger := logger.WithField("member", discordMember)
 		mlogger.Debug("updating member")
 
 		// get the stord user, if we have one
-		u, err := users.Get(member.User.ID)
-		if err != nil && !errors.Is(err, users.UserNotFound) {
+		member, err := members.Get(discordMember.User.ID)
+		if err != nil && !errors.Is(err, members.MemberNotFound) {
 			if !errors.Is(err, mongo.ErrNoDocuments) {
 				mlogger.WithError(err).Error("getting member for update")
 				continue
 			}
 
-			u = users.New(member)
+			member = members.New(discordMember)
 		}
-		if u == nil {
-			u = users.New(member)
+		if member == nil {
+			member = members.New(discordMember)
 		}
-		u.Discord = member
-		u.Name = strings.ReplaceAll(u.GetTrueNick(), ".", "")
-		u.RSIMember = true
+		member.Name = strings.ReplaceAll(member.GetTrueNick(discordMember), ".", "")
+		member.RSIMember = true
 
 		// rsi related stuff
-		u, err = rsi.GetOrgInfo(u)
+		member, err = rsi.UpdateRsiInfo(member)
 		if err != nil {
 			if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
 				return err
@@ -176,42 +166,42 @@ func updateMembers(m []*discordgo.Member) error {
 				return errors.Wrap(err, "getting rsi based rank")
 			}
 
-			mlogger.WithField("user", u).Debug("user not found")
-			u.RSIMember = false
+			mlogger.WithField("user", member).Debug("user not found")
+			member.RSIMember = false
 		}
 
-		if u.RSIMember {
-			u.BadAffiliation = false
-			u.IsAlly = false
+		if member.RSIMember {
+			member.BadAffiliation = false
+			member.IsAlly = false
 
-			for _, affiliatedOrg := range u.Affilations {
+			for _, affiliatedOrg := range member.Affilations {
 				if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
-					u.BadAffiliation = true
+					member.BadAffiliation = true
 					break
 				}
 			}
 			for _, ally := range config.GetStringSlice("allies") {
-				if strings.EqualFold(u.PrimaryOrg, ally) {
-					u.IsAlly = true
+				if strings.EqualFold(member.PrimaryOrg, ally) {
+					member.IsAlly = true
 					break
 				}
 			}
 		}
 
 		// discord related stuff
-		u.Avatar = member.Avatar
-		if slices.Contains(member.Roles, config.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
+		member.Avatar = discordMember.Avatar
+		if slices.Contains(discordMember.Roles, config.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
 			mlogger.Debug("is recruit")
-			u.Rank = ranks.Recruit
+			member.Rank = ranks.Recruit
 		}
-		if member.User.Bot {
-			u.IsBot = true
+		if discordMember.User.Bot {
+			member.IsBot = true
 		}
 
 		// fill legacy
-		u.LegacyEvents = u.Events
+		member.LegacyEvents = member.Events
 
-		if err := u.Save(); err != nil {
+		if err := member.Save(); err != nil {
 			return err
 		}
 	}
@@ -219,16 +209,16 @@ func updateMembers(m []*discordgo.Member) error {
 	return nil
 }
 
-func cleanMembers(m []*discordgo.Member, storedUsers []*users.User) error {
-	for _, user := range storedUsers {
-		for _, member := range m {
-			if user.ID == member.User.ID {
+func cleanMembers(discordMembers []*discordgo.Member, storedMembers []*members.Member) error {
+	for _, member := range storedMembers {
+		for _, discordMember := range discordMembers {
+			if member.Id == discordMember.User.ID {
 				goto CONTINUE
 			}
 		}
 
-		log.WithField("user", user).Info("deleting user")
-		if err := user.Delete(); err != nil {
+		log.WithField("member", member).Info("deleting member")
+		if err := member.Delete(); err != nil {
 			return errors.Wrap(err, "cleaning members")
 		}
 	CONTINUE:
