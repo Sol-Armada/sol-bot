@@ -1,21 +1,22 @@
 package bot
 
 import (
-	"encoding/json"
+	"context"
 	"strings"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
 	"github.com/sol-armada/admin/stores"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/exp/slices"
 )
 
@@ -39,7 +40,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			if time.Now().After(lastChecked.Add(30 * time.Minute)) {
+			if time.Now().After(lastChecked.Add(1 * time.Minute)) {
 				logger.Info("scanning members")
 				if !stores.Connected() {
 					logger.Debug("storage not setup, waiting a bit")
@@ -56,7 +57,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				}
 
 				// get the discord members
-				m, err := b.GetMembers()
+				m, err := b.GetDiscordMembers()
 				if err != nil {
 					logger.WithError(err).Error("bot getting members")
 					continue
@@ -74,22 +75,28 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				}
 
 				// get the stored members
-				storedUsers := []*members.Member{}
-				rawUsers := cache.Cache.GetUsers()
-				for _, v := range rawUsers {
-					uByte, _ := json.Marshal(v)
-					u := members.Member{}
-					if err := json.Unmarshal(uByte, &u); err != nil {
-						logger.WithError(err).Error("unmarshalling user from cache")
-						continue
-					}
-					storedUsers = append(storedUsers, &u)
+				storedMembers := []*members.Member{}
+				cur, err := stores.Members.List(bson.M{}, &options.FindOptions{
+					Sort: bson.M{"rank": 1, "name": 1},
+				})
+				if err != nil {
+					logger.WithError(err).Error("getting stored members")
+					continue
+				}
+
+				if err := cur.All(context.Background(), &storedMembers); err != nil {
+					logger.WithError(err).Error("reading in stored members")
+					continue
 				}
 
 				// do some cleaning
-				if err := cleanMembers(m, storedUsers); err != nil {
-					logger.WithError(err).Error("cleaning up the members")
-					continue
+				for _, member := range storedMembers {
+					if !stillInDiscord(member, m) {
+						if err := member.Delete(); err != nil {
+							logger.WithField("member", member).WithError(err).Error("deleting member")
+							continue
+						}
+					}
 				}
 
 				lastChecked = time.Now()
@@ -109,7 +116,7 @@ func (b *Bot) UpdateMember() error {
 	return nil
 }
 
-func (b *Bot) GetMembers() ([]*discordgo.Member, error) {
+func (b *Bot) GetDiscordMembers() ([]*discordgo.Member, error) {
 	members, err := b.GuildMembers(b.GuildId, "", 1000)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting guild members")
@@ -209,21 +216,12 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 	return nil
 }
 
-func cleanMembers(discordMembers []*discordgo.Member, storedMembers []*members.Member) error {
-	for _, member := range storedMembers {
-		for _, discordMember := range discordMembers {
-			if member.Id == discordMember.User.ID {
-				goto CONTINUE
-			}
+func stillInDiscord(member *members.Member, discordMembers []*discordgo.Member) bool {
+	for _, discordMember := range discordMembers {
+		if member.Id == discordMember.User.ID {
+			return true
 		}
-
-		log.WithField("member", member).Info("deleting member")
-		if err := member.Delete(); err != nil {
-			return errors.Wrap(err, "cleaning members")
-		}
-	CONTINUE:
-		continue
 	}
 
-	return nil
+	return false
 }

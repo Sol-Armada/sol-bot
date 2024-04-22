@@ -10,25 +10,7 @@ import (
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/stores"
 )
-
-func AttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	storedUser := &members.Member{}
-	if err := stores.Users.Get(i.Member.User.ID).Decode(&storedUser); err != nil {
-		log.WithError(err).Error("getting user from storage")
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("This is a depricated command and will be removed in the future, please use `/profile` instead.\n\n%d events", storedUser.Events),
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		log.WithError(err).Error("responding to attendance command interaction")
-	}
-}
 
 func ProfileCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	user, err := members.Get(i.Member.User.ID)

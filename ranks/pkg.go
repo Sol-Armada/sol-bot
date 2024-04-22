@@ -14,7 +14,6 @@ const (
 	Member
 	Recruit
 	Guest
-	Ally Rank = 99
 )
 
 var Prefix map[Rank]string = map[Rank]string{
@@ -84,8 +83,6 @@ func (r Rank) String() string {
 		return "Member"
 	case Recruit:
 		return "Recruit"
-	case Ally:
-		return "Anyone"
 	}
 	return "Unknown"
 }

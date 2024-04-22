@@ -23,7 +23,6 @@ var bot *Bot
 // command handlers
 var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
 	"bank":             handlers.BankCommandHandler,
-	"attendance":       handlers.AttendanceCommandHandler,
 	"takeattendance":   handlers.TakeAttendanceCommandHandler,
 	"removeattendance": handlers.RemoveAttendanceCommandHandler,
 	"profile":          handlers.ProfileCommandHandler,
@@ -105,6 +104,9 @@ func (b *Bot) Setup() error {
 		}
 	})
 
+	// watch for on join
+	b.AddHandler(handlers.OnJoinHandler)
+
 	// clear commands
 	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
 	if err != nil {
@@ -113,9 +115,9 @@ func (b *Bot) Setup() error {
 
 	for _, cmd := range cmds {
 		log.WithField("command", cmd.Name).Info("deleting command")
-		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
-			return err
-		}
+		// if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
+		// 	return err
+		// }
 	}
 
 	// register commands

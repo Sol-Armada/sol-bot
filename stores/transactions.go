@@ -8,7 +8,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type templateStore struct {
+type transactionsStore struct {
 	*mongo.Collection
 	ctx context.Context
 }

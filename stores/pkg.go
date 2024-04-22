@@ -34,18 +34,8 @@ func Setup(cctx context.Context, host string, port int, username string, passwor
 	client = c
 	ctx = cctx
 
-	Users = &usersStore{
-		Collection: client.Database(database).Collection("users"),
-		ctx:        ctx,
-	}
-
-	Events = &eventsStore{
-		Collection: client.Database(database).Collection("events"),
-		ctx:        ctx,
-	}
-
-	Templates = &templateStore{
-		Collection: client.Database(database).Collection("event-templates"),
+	Members = &membersStore{
+		Collection: client.Database(database).Collection("members"),
 		ctx:        ctx,
 	}
 

@@ -65,6 +65,10 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 		return member, err
 	}
 
+	if IsAllyOrg(member.PrimaryOrg) {
+		member.IsAlly = true
+	}
+
 	log.WithFields(log.Fields{
 		"user": member,
 	}).Debug("rsi info")

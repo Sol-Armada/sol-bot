@@ -12,7 +12,6 @@ import (
 	"github.com/apex/log/handlers/cli"
 	jsn "github.com/apex/log/handlers/json"
 	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/stores"
@@ -58,8 +57,8 @@ func main() {
 	database := config.GetStringWithDefault("MONGO.DATABASE", "org")
 	if err := stores.Setup(context.Background(), host, port, username, pswd, database); err != nil {
 		log.WithError(err).Error("failed to setup storage")
+		return
 	}
-	cache.Setup()
 
 	// start up the bot
 	b, err := bot.New()
@@ -76,7 +75,7 @@ func main() {
 
 	doneMonitoring := make(chan bool, 1)
 	stopMonitoring := make(chan bool, 1)
-	if config.GetBoolWithDefault("FEATURES.MONITOR", false) {
+	if config.GetBool("FEATURES.MONITOR.ENABLED") {
 		go b.UserMonitor(stopMonitoring, doneMonitoring)
 	} else {
 		doneMonitoring <- true
@@ -91,8 +90,6 @@ func main() {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	go func() {
-		<-c
-		stopMonitoring <- true
-	}()
+	<-c
+	stopMonitoring <- true
 }

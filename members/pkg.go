@@ -12,7 +12,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/admin/auth"
-	"github.com/sol-armada/admin/cache"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
@@ -54,6 +53,7 @@ type Member struct {
 	IsAlly         bool       `json:"is_ally" bson:"is_ally"`
 	Validated      bool       `json:"validated" bson:"validated"`
 	ValidationCode string     `json:"validation_code" bson:"validation_code"`
+	Joined         time.Time  `json:"joined" bson:"joined"`
 
 	Merits   []*Merit   `json:"merits" bson:"merits"`
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
@@ -89,43 +89,30 @@ var (
 )
 
 func New(discordMember *discordgo.Member) *Member {
-	u := &Member{
-		Id:             discordMember.User.ID,
-		Rank:           ranks.Guest,
-		PrimaryOrg:     "",
-		Notes:          "",
-		Events:         0,
-		RSIMember:      true,
-		BadAffiliation: false,
-		Avatar:         discordMember.Avatar,
+	m := &Member{
+		Id:     discordMember.User.ID,
+		Rank:   ranks.Guest,
+		Avatar: discordMember.Avatar,
+		Joined: discordMember.JoinedAt,
 	}
 
-	u.Name = u.GetTrueNick(discordMember)
+	m.Name = m.GetTrueNick(discordMember)
 
-	return u
+	return m
 }
 
 func Get(id string) (*Member, error) {
 	member := &Member{}
 
-	// check the cache
-	rawUser := cache.Cache.GetUser(id)
-	if rawUser != nil {
-		userByte, _ := json.Marshal(rawUser)
-		if err := json.Unmarshal(userByte, member); err != nil {
-			return nil, err
-		}
-	}
-
 	// check the store
-	if err := stores.Users.Get(id).Decode(member); err != nil {
+	if err := stores.Members.Get(id).Decode(member); err != nil {
 		return nil, err
 	}
 	return member, nil
 }
 
 func GetRandom(max int, maxRank int) ([]Member, error) {
-	stores := stores.Users
+	stores := stores.Members
 	randomUsers, err := stores.Aggregate(stores.GetContext(), bson.A{
 		bson.D{
 			{Key: "$match",
@@ -157,9 +144,9 @@ func GetRandom(max int, maxRank int) ([]Member, error) {
 	return users, nil
 }
 
-func (u *Member) GetTrueNick(discordMember *discordgo.Member) string {
+func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
 	if discordMember == nil {
-		return u.Name
+		return m.Name
 	}
 
 	trueNick := discordMember.User.Username
@@ -175,43 +162,42 @@ func (u *Member) GetTrueNick(discordMember *discordgo.Member) string {
 	return trueNick
 }
 
-func (u *Member) Save() error {
-	log.WithField("member", u).Debug("saving member")
-	u.Updated = time.Now().UTC()
-	cache.Cache.SetUser(u.Id, u.ToMap())
+func (m *Member) Save() error {
+	log.WithField("member", m).Debug("saving member")
+	m.Updated = time.Now().UTC()
 
-	return stores.Users.Update(u.Id, u)
+	return stores.Members.Update(m.Id, m)
 }
 
-func (u *Member) UpdateEventCount(count int64) {
-	u.Events = count
-	u.LegacyEvents = u.Events
-	_ = u.Save()
+func (m *Member) UpdateEventCount(count int64) {
+	m.Events = count
+	m.LegacyEvents = m.Events
+	_ = m.Save()
 }
 
-func (u *Member) IncrementEventCount() {
-	u.Events++
-	u.LegacyEvents = u.Events
-	_ = u.Save()
+func (m *Member) IncrementEventCount() {
+	m.Events++
+	m.LegacyEvents = m.Events
+	_ = m.Save()
 }
 
-func (u *Member) DecrementEventCount() {
-	u.Events--
-	u.LegacyEvents = u.Events
-	_ = u.Save()
+func (m *Member) DecrementEventCount() {
+	m.Events--
+	m.LegacyEvents = m.Events
+	_ = m.Save()
 }
 
-func (u *Member) IsAdmin() bool {
-	logger := log.WithField("id", u.Id)
+func (m *Member) IsAdmin() bool {
+	logger := log.WithField("id", m.Id)
 	logger.Debug("checking if admin")
-	if u.Rank <= ranks.Lieutenant {
+	if m.Rank <= ranks.Lieutenant {
 		return true
 	}
 	logger.Debug("is NOT admin")
 	return false
 }
 
-func (u *Member) Login(code string) error {
+func (m *Member) Login(code string) error {
 	log.WithField("access code", code).Debug("logging in")
 	access, err := auth.Authenticate(code)
 	if err != nil {
@@ -249,73 +235,71 @@ func (u *Member) Login(code string) error {
 		return err
 	}
 
-	if err := stores.Users.Get(discordUser.User.ID).Decode(&u); err != nil {
+	if err := stores.Members.Get(discordUser.User.ID).Decode(&m); err != nil {
 		return errors.Wrap(err, "getting stored member")
 	}
 
-	u.Avatar = discordUser.Avatar
-	_ = u.Save()
+	m.Avatar = discordUser.Avatar
+	_ = m.Save()
 
 	return nil
 }
 
-func (u *Member) Delete() error {
-	log.WithField("member", u).Debug("deleting member")
+func (m *Member) Delete() error {
+	log.WithField("member", m).Debug("deleting member")
 
-	cache.Cache.DeleteUser(u.Id)
-
-	return nil
+	return stores.Members.Delete(m.Id)
 }
 
-func (u *Member) ToMap() map[string]interface{} {
+func (m *Member) ToMap() map[string]interface{} {
 	r := map[string]interface{}{}
-	b, _ := json.Marshal(u)
+	b, _ := json.Marshal(m)
 	_ = json.Unmarshal(b, &r)
 	return r
 }
 
-func (u *Member) Issues() []string {
+func (m *Member) Issues() []string {
 	issues := []string{}
 
-	if u.IsBot {
+	if m.IsBot {
 		issues = append(issues, "bot")
 	}
 
-	if u.Rank == ranks.Guest {
+	if m.Rank == ranks.Guest {
 		issues = append(issues, "guest")
 	}
 
-	if u.Rank == ranks.Recruit && !u.RSIMember {
+	if m.Rank == ranks.Recruit && !m.RSIMember {
 		issues = append(issues, "non-rsi member but is recruit")
 	}
 
-	if u.Rank == ranks.Ally {
+	if m.IsAlly {
 		issues = append(issues, "ally")
 	}
 
-	if u.BadAffiliation {
+	if m.BadAffiliation {
 		issues = append(issues, "bad affiliation")
 	}
 
-	if u.PrimaryOrg == "REDACTED" {
+	if m.PrimaryOrg == "REDACTED" {
 		issues = append(issues, "redacted org")
 	}
 
-	if u.Rank <= ranks.Member && u.PrimaryOrg != config.GetString("rsi_org_sid") {
+	if m.Rank <= ranks.Member && m.PrimaryOrg != config.GetString("rsi_org_sid") {
 		issues = append(issues, "bad primary org")
 	}
 
-	switch u.Rank {
+	switch m.Rank {
 	case ranks.Recruit:
-		if u.Events >= 3 {
+		if m.Events >= 3 {
 			issues = append(issues, "max event credits for this rank (3)")
 		}
 	case ranks.Member:
-		if u.Events >= 10 {
+		if m.Events >= 10 {
 			issues = append(issues, "max event credits for this rank (10)")
 		}
 	case ranks.Technician:
-		if u.Events >= 20 {
+		if m.Events >= 20 {
 			issues = append(issues, "max event credits for this rank (20)")
 		}
 	}
@@ -323,22 +307,22 @@ func (u *Member) Issues() []string {
 	return issues
 }
 
-func (u *Member) GiveMerit(reason string, who *Member) error {
-	u.Merits = append(u.Merits, &Merit{
+func (m *Member) GiveMerit(reason string, who *Member) error {
+	m.Merits = append(m.Merits, &Merit{
 		Giver:  *who,
 		Reason: reason,
 		When:   time.Now().UTC(),
 	})
 
-	return u.Save()
+	return m.Save()
 }
 
-func (u *Member) GiveDemerit(reason string, who *Member) error {
-	u.Demerits = append(u.Demerits, &Demerit{
+func (m *Member) GiveDemerit(reason string, who *Member) error {
+	m.Demerits = append(m.Demerits, &Demerit{
 		Giver:  *who,
 		Reason: reason,
 		When:   time.Now().UTC(),
 	})
 
-	return u.Save()
+	return m.Save()
 }
