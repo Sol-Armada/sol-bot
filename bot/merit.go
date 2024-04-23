@@ -7,9 +7,9 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/settings"
 	"github.com/sol-armada/admin/utils"
 )
 
@@ -22,7 +22,7 @@ func giveMeritCommandHandler(ctx context.Context, s *discordgo.Session, i *disco
 		return errors.Wrap(err, "getting user from storage for merit command")
 	}
 
-	if user.Rank > ranks.GetRankByName(config.GetStringWithDefault("FEATURES.ATTENDANCE.MIN_RANK", "admiral")) {
+	if user.Rank > ranks.GetRankByName(settings.GetStringWithDefault("FEATURES.ATTENDANCE.MIN_RANK", "admiral")) {
 		logger.Debug("invalid permissions")
 
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

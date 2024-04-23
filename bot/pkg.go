@@ -8,8 +8,8 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
+	"github.com/sol-armada/admin/settings"
 	"github.com/sol-armada/admin/utils"
 )
 
@@ -47,20 +47,20 @@ var attendanceButtonHandlers = map[string]Handler{
 
 func New() (*Bot, error) {
 	log.Info("creating discord bot")
-	b, err := discordgo.New(fmt.Sprintf("Bot %s", config.GetString("DISCORD.BOT_TOKEN")))
+	b, err := discordgo.New(fmt.Sprintf("Bot %s", settings.GetString("DISCORD.BOT_TOKEN")))
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := b.Guild(config.GetString("DISCORD.GUILD_ID")); err != nil {
+	if _, err := b.Guild(settings.GetString("DISCORD.GUILD_ID")); err != nil {
 		return nil, err
 	}
 
 	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions
 
 	bot = &Bot{
-		config.GetString("DISCORD.GUILD_ID"),
-		config.GetString("DISCORD.CLIENT_ID"),
+		settings.GetString("DISCORD.GUILD_ID"),
+		settings.GetString("DISCORD.CLIENT_ID"),
 		context.Background(),
 		b,
 	}
@@ -257,7 +257,7 @@ func (b *Bot) Setup() error {
 	if err := b.DeleteCommand("bank"); err != nil {
 		log.WithError(err).Error("unable to delete bank command")
 	}
-	if config.GetBoolWithDefault("FEATURES.BANK", false) {
+	if settings.GetBoolWithDefault("FEATURES.BANK", false) {
 		log.Info("using bank feature")
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "bank",
@@ -355,7 +355,7 @@ func (b *Bot) Setup() error {
 	if err := b.DeleteCommand("demerit"); err != nil {
 		log.WithError(err).Error("unable to delete demerit command")
 	}
-	if config.GetBoolWithDefault("FEATURES.MERIT.ENABLED", false) {
+	if settings.GetBoolWithDefault("FEATURES.MERIT.ENABLED", false) {
 		log.Info("using merit feature")
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "merit",
@@ -427,7 +427,7 @@ func (b *Bot) GetEmojis() ([]*discordgo.Emoji, error) {
 }
 
 func (b *Bot) DeleteEventMessage(id string) error {
-	return b.ChannelMessageDelete(config.GetString("DISCORD.CHANNELS.EVENTS"), id)
+	return b.ChannelMessageDelete(settings.GetString("DISCORD.CHANNELS.EVENTS"), id)
 }
 
 func (b *Bot) DeleteCommand(name string) error {

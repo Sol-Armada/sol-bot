@@ -12,8 +12,9 @@ import (
 	"github.com/apex/log/handlers/cli"
 	jsn "github.com/apex/log/handlers/json"
 	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/health"
+	"github.com/sol-armada/admin/members"
+	"github.com/sol-armada/admin/settings"
 	"github.com/sol-armada/admin/stores"
 )
 
@@ -26,38 +27,47 @@ func (f *customFormatter) HandleLog(e *log.Entry) error {
 	return f.hander.HandleLog(e)
 }
 
+func init() {
+	// setup storage
+	host := settings.GetStringWithDefault("mongo.host", "localhost")
+	port := settings.GetIntWithDefault("mongo.port", 27017)
+	username := settings.GetString("MONGO.USERNAME")
+	pswd := strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`)
+	database := settings.GetStringWithDefault("MONGO.DATABASE", "org")
+	ctx := context.Background()
+
+	if _, err := stores.New(ctx, host, port, username, pswd, database); err != nil {
+		log.WithError(err).Error("failed to create storage client")
+		return
+	}
+
+	if err := members.Setup(); err != nil {
+		log.WithError(err).Error("failed to setup members")
+		return
+	}
+}
+
 func main() {
 	defer func() {
 		log.Info("gracefully shutdown")
 	}()
 
-	config.SetConfigName("settings")
-	config.AddConfigPath(".")
-	config.AddConfigPath("../")
-	if err := config.ReadInConfig(); err != nil {
+	settings.SetConfigName("settings")
+	settings.AddConfigPath(".")
+	settings.AddConfigPath("../")
+	if err := settings.ReadInConfig(); err != nil {
 		log.Fatal("could not parse configuration")
 		os.Exit(1)
 	}
 
 	log.SetHandler(jsn.New(os.Stdout))
-	if config.GetBool("LOG.DEBUG") {
+	if settings.GetBool("LOG.DEBUG") {
 		log.SetLevel(log.DebugLevel)
-		if config.GetBool("LOG.CLI") {
+		if settings.GetBool("LOG.CLI") {
 			handler := &customFormatter{hander: cli.New(os.Stdout)}
 			log.SetHandler(handler)
 		}
 		log.Debug("debug mode on")
-	}
-
-	// setup storage
-	host := config.GetStringWithDefault("mongo.host", "localhost")
-	port := config.GetIntWithDefault("mongo.port", 27017)
-	username := config.GetString("MONGO.USERNAME")
-	pswd := strings.ReplaceAll(config.GetString("MONGO.PASSWORD"), "@", `%40`)
-	database := config.GetStringWithDefault("MONGO.DATABASE", "org")
-	if err := stores.Setup(context.Background(), host, port, username, pswd, database); err != nil {
-		log.WithError(err).Error("failed to setup storage")
-		return
 	}
 
 	// start up the bot
@@ -75,7 +85,7 @@ func main() {
 
 	doneMonitoring := make(chan bool, 1)
 	stopMonitoring := make(chan bool, 1)
-	if config.GetBool("FEATURES.MONITOR.ENABLED") {
+	if settings.GetBool("FEATURES.MONITOR.ENABLED") {
 		go b.UserMonitor(stopMonitoring, doneMonitoring)
 	} else {
 		doneMonitoring <- true

@@ -1,9 +1,9 @@
 package attendance
 
 import (
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/settings"
 )
 
 func Issues(m *members.Member) []string {
@@ -13,7 +13,7 @@ func Issues(m *members.Member) []string {
 		issues = append(issues, "bot")
 	}
 
-	if m.Rank == ranks.Guest {
+	if m.IsGuest {
 		issues = append(issues, "guest")
 	}
 
@@ -33,7 +33,7 @@ func Issues(m *members.Member) []string {
 		issues = append(issues, "redacted org")
 	}
 
-	if m.Rank <= ranks.Member && m.PrimaryOrg != config.GetString("rsi_org_sid") {
+	if m.Rank <= ranks.Member && m.PrimaryOrg != settings.GetString("rsi_org_sid") {
 		issues = append(issues, "bad primary org")
 	}
 

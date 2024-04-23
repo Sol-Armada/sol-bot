@@ -11,7 +11,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/settings"
 )
 
 type Access struct {
@@ -24,19 +24,19 @@ func Authenticate(code string) (*Access, error) {
 	logger := log.WithField("code", code)
 	logger.Info("creating new member access")
 
-	redirectUri := strings.TrimSuffix(config.GetString("DISCORD.REDIRECT_URI"), "/")
+	redirectUri := strings.TrimSuffix(settings.GetString("DISCORD.REDIRECT_URI"), "/")
 	redirectUri = fmt.Sprintf("%s/login", redirectUri)
 
 	data := url.Values{}
-	data.Set("client_id", config.GetString("DISCORD.CLIENT_ID"))
-	data.Set("client_secret", config.GetString("DISCORD.CLIENT_SECRET"))
+	data.Set("client_id", settings.GetString("DISCORD.CLIENT_ID"))
+	data.Set("client_secret", settings.GetString("DISCORD.CLIENT_SECRET"))
 	data.Set("redirect_uri", redirectUri)
 	data.Set("grant_type", "authorization_code")
 	data.Set("code", code)
 
 	logger.WithFields(log.Fields{
-		"client_id":     config.GetString("DISCORD.CLIENT_ID"),
-		"client_secret": config.GetString("DISCORD.CLIENT_SECRET"),
+		"client_id":     settings.GetString("DISCORD.CLIENT_ID"),
+		"client_secret": settings.GetString("DISCORD.CLIENT_SECRET"),
 		"redirect_uri":  redirectUri,
 		"grant_type":    "authorization_code",
 		"code":          code,

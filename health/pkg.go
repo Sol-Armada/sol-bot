@@ -12,7 +12,8 @@ var healthy bool = false
 func Monitor() {
 	logger := log.WithField("func", "health.Monitor")
 	for {
-		if !stores.Connected() {
+		s := stores.Get()
+		if !s.Connected() {
 			logger.Warn("not connected to storage")
 			healthy = false
 			goto WAIT

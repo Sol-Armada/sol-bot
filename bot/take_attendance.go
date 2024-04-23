@@ -10,9 +10,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	attdnc "github.com/sol-armada/admin/attendance"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/settings"
 	"github.com/sol-armada/admin/utils"
 )
 
@@ -25,7 +25,7 @@ func takeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Session
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 	switch {
 	case data.Options[0].Focused:
-		channelMessages, err := s.ChannelMessages(config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), 5, "", "", "")
+		channelMessages, err := s.ChannelMessages(settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), 5, "", "", "")
 		if err != nil {
 			return errors.Wrap(err, "getting latest attendance messages for autocomplete")
 		}
@@ -63,7 +63,7 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("taking attendance command")
 
-	if !utils.StringSliceContainsOneOf(i.Member.Roles, config.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
+	if !utils.StringSliceContainsOneOf(i.Member.Roles, settings.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -88,7 +88,7 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 		Issues: []*attdnc.AttendanceIssue{},
 	}
 
-	channelId := config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
+	channelId := settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
 
 	membersList := []*members.Member{}
 	for _, memberId := range memberIds {
@@ -230,7 +230,7 @@ func removeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Sessi
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 	switch {
 	case data.Options[0].Focused:
-		channelMessages, err := s.ChannelMessages(config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), 5, "", "", "")
+		channelMessages, err := s.ChannelMessages(settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), 5, "", "", "")
 		if err != nil {
 			return errors.Wrap(err, "getting latest messages for remove auto complete")
 		}
@@ -258,7 +258,7 @@ func removeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("removing attendance command")
 
-	if !utils.StringSliceContainsOneOf(i.Member.Roles, config.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
+	if !utils.StringSliceContainsOneOf(i.Member.Roles, settings.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
 		logger.Debug("invalid permissions")
 
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -279,7 +279,7 @@ func removeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i
 	eventName := data.Options[0]
 	userIds := data.Options[1:]
 
-	channelId := config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
+	channelId := settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
 	em, err := s.ChannelMessage(channelId, eventName.StringValue())
 	if err != nil {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

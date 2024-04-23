@@ -14,7 +14,6 @@ import (
 	"github.com/sol-armada/admin/auth"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/stores"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type GameplayTypes string
@@ -55,6 +54,7 @@ type Member struct {
 	IsBot       bool `json:"is_bot" bson:"is_bot"`
 	IsAlly      bool `json:"is_ally" bson:"is_ally"`
 	IsAffiliate bool `json:"is_affiliate" bson:"is_affiliate"`
+	IsGuest     bool `json:"is_guest" bson:"is_guest"`
 
 	Merits   []*Merit   `json:"merits" bson:"merits"`
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
@@ -89,12 +89,25 @@ var (
 	MemberNotFound MemberError = errors.New("member not found")
 )
 
+var membersStore *stores.MembersStore
+
+func Setup() error {
+	storesClient := stores.Get()
+	ms, ok := storesClient.GetMembersStore()
+	if !ok {
+		return errors.New("members store not found")
+	}
+	membersStore = ms
+
+	return nil
+}
+
 func New(discordMember *discordgo.Member) *Member {
 	m := &Member{
-		Id:     discordMember.User.ID,
-		Rank:   ranks.Guest,
-		Avatar: discordMember.Avatar,
-		Joined: discordMember.JoinedAt,
+		Id:      discordMember.User.ID,
+		Avatar:  discordMember.Avatar,
+		Joined:  discordMember.JoinedAt,
+		IsGuest: true,
 	}
 
 	m.Name = m.GetTrueNick(discordMember)
@@ -106,43 +119,30 @@ func Get(id string) (*Member, error) {
 	member := &Member{}
 
 	// check the store
-	if err := stores.Members.Get(id).Decode(member); err != nil {
+	if err := membersStore.Get(id).Decode(member); err != nil {
 		return nil, err
 	}
 	return member, nil
 }
 
-func GetRandom(max int, maxRank int) ([]Member, error) {
-	stores := stores.Members
-	randomUsers, err := stores.Aggregate(stores.GetContext(), bson.A{
-		bson.D{
-			{Key: "$match",
-				Value: bson.D{
-					{Key: "rank",
-						Value: bson.D{
-							{Key: "$lte", Value: maxRank},
-							{Key: "$ne", Value: 0},
-						},
-					},
-				},
-			},
-		},
-		bson.D{{Key: "$sample", Value: bson.D{{Key: "size", Value: max}}}},
-	})
+func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
+	membersMap, err := membersStore.GetRandom(max, int(maxRank))
 	if err != nil {
 		return nil, err
 	}
 
-	users := []Member{}
-	for randomUsers.Next(stores.GetContext()) {
-		member := Member{}
-		if err := randomUsers.Decode(&member); err != nil {
+	members := []Member{}
+
+	for _, memberMap := range membersMap {
+		j, _ := json.Marshal(memberMap)
+		member := &Member{}
+		if err := json.Unmarshal(j, member); err != nil {
 			return nil, err
 		}
-		users = append(users, member)
+		members = append(members, *member)
 	}
 
-	return users, nil
+	return members, nil
 }
 
 func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
@@ -167,7 +167,7 @@ func (m *Member) Save() error {
 	log.WithField("member", m).Debug("saving member")
 	m.Updated = time.Now().UTC()
 
-	return stores.Members.Update(m.Id, m)
+	return membersStore.Update(m.Id, m)
 }
 
 func (m *Member) UpdateEventCount(count int64) {
@@ -236,7 +236,7 @@ func (m *Member) Login(code string) error {
 		return err
 	}
 
-	if err := stores.Members.Get(discordUser.User.ID).Decode(&m); err != nil {
+	if err := membersStore.Get(discordUser.User.ID).Decode(&m); err != nil {
 		return errors.Wrap(err, "getting stored member")
 	}
 
@@ -249,7 +249,7 @@ func (m *Member) Login(code string) error {
 func (m *Member) Delete() error {
 	log.WithField("member", m).Debug("deleting member")
 
-	return stores.Members.Delete(m.Id)
+	return membersStore.Delete(m.Id)
 }
 
 func (m *Member) ToMap() map[string]interface{} {

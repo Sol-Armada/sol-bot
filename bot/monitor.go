@@ -8,12 +8,13 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/rsi"
+	"github.com/sol-armada/admin/settings"
 	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/admin/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -26,7 +27,14 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	lastChecked := time.Now().UTC().Add(-30 * time.Minute)
+	membersStore, ok := stores.Get().GetMembersStore()
+	if !ok {
+		logger.Error("failed to get members store")
+		done <- true
+		return
+	}
+
+	lastChecked := time.Now().UTC().Add(-31 * time.Minute)
 	d := false
 	for {
 		select {
@@ -40,13 +48,9 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			if time.Now().UTC().After(lastChecked.Add(3 * time.Minute)) {
+			if time.Now().UTC().After(lastChecked.Add(30 * time.Minute)) {
 				logger.Info("scanning members")
-				if !stores.Connected() {
-					logger.Debug("storage not setup, waiting a bit")
-					time.Sleep(10 * time.Second)
-					continue
-				}
+				// TODO: Check if system is healthy
 
 				// rate limit protection
 				rateBucket := b.Ratelimiter.GetBucket("guild_member_check")
@@ -76,7 +80,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 
 				// get the stored members
 				storedMembers := []*members.Member{}
-				cur, err := stores.Members.List(bson.M{}, &options.FindOptions{
+				cur, err := membersStore.List(bson.M{}, &options.FindOptions{
 					Sort: bson.M{"rank": 1},
 				})
 				if err != nil {
@@ -182,27 +186,27 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 			member.RSIMember = false
 		}
 
-		if member.RSIMember {
-			member.BadAffiliation = false
-			member.IsAlly = false
+		// if member.RSIMember {
+		// 	member.BadAffiliation = false
+		// 	member.IsAlly = false
 
-			for _, affiliatedOrg := range member.Affilations {
-				if slices.Contains(config.GetStringSlice("enemies"), affiliatedOrg) {
-					member.BadAffiliation = true
-					break
-				}
-			}
-			for _, ally := range config.GetStringSlice("allies") {
-				if strings.EqualFold(member.PrimaryOrg, ally) {
-					member.IsAlly = true
-					break
-				}
-			}
-		}
+		// 	for _, affiliatedOrg := range member.Affilations {
+		// 		if slices.Contains(settings.GetStringSlice("enemies"), affiliatedOrg) {
+		// 			member.BadAffiliation = true
+		// 			break
+		// 		}
+		// 	}
+		// 	for _, ally := range settings.GetStringSlice("allies") {
+		// 		if strings.EqualFold(member.PrimaryOrg, ally) {
+		// 			member.IsAlly = true
+		// 			break
+		// 		}
+		// 	}
+		// }
 
 		// discord related stuff
 		member.Avatar = discordMember.Avatar
-		if slices.Contains(discordMember.Roles, config.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
+		if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
 			mlogger.Debug("is recruit")
 			member.Rank = ranks.Recruit
 		}
@@ -212,6 +216,19 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 
 		// fill legacy
 		member.LegacyEvents = member.Events
+
+		// setup member's roles
+		rankRoles := settings.GetStringMapString("DISCORD.ROLES.RANKS")
+
+		if !utils.StringSliceContains(discordMember.Roles, rankRoles[strings.ToLower(member.Rank.String())]) {
+			for _, id := range rankRoles {
+				_ = bot.GuildMemberRoleRemove(bot.GuildId, member.Id, id)
+			}
+
+			if !member.IsGuest {
+				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles[strings.ToLower(member.Rank.String())])
+			}
+		}
 
 		if err := member.Save(); err != nil {
 			return err

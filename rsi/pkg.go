@@ -7,9 +7,9 @@ import (
 
 	"github.com/apex/log"
 	"github.com/gocolly/colly/v2"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
+	"github.com/sol-armada/admin/settings"
 	"github.com/sol-armada/admin/utils"
 )
 
@@ -19,7 +19,7 @@ var (
 )
 
 func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
-	member.Rank = ranks.Guest
+	member.IsGuest = true
 	member.PrimaryOrg = ""
 
 	var err error
@@ -37,21 +37,21 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 	})
 
 	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		if member.PrimaryOrg == config.GetString("rsi_org_sid") {
+		if member.PrimaryOrg == settings.GetString("rsi_org_sid") {
 			member.Rank = ranks.GetRankByRSIRankName(e.Text)
 		}
 	})
 
 	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
 		member.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
-		if member.PrimaryOrg != config.GetString("rsi_org_sid") && utils.StringSliceContains(member.Affilations, config.GetString("rsi_org_sid")) {
+		if member.PrimaryOrg != settings.GetString("rsi_org_sid") && utils.StringSliceContains(member.Affilations, settings.GetString("rsi_org_sid")) {
 			member.IsAffiliate = true
 		}
 	})
 
 	c.OnXML(`//div[contains(@class, "org main")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
 		member.PrimaryOrg = "REDACTED"
-		member.Rank = ranks.Guest
+		member.IsGuest = true
 	})
 
 	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", strings.ReplaceAll(member.Name, ".", ""))
@@ -76,7 +76,7 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 }
 
 func IsAllyOrg(org string) bool {
-	whiteListOrgs := config.GetStringSlice("ALLIES")
+	whiteListOrgs := settings.GetStringSlice("ALLIES")
 	return utils.StringSliceContains(whiteListOrgs, org)
 }
 

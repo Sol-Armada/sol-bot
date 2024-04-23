@@ -7,8 +7,8 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
+	"github.com/sol-armada/admin/settings"
 	"github.com/sol-armada/admin/utils"
 )
 
@@ -16,7 +16,7 @@ func giveDemeritCommandHandler(ctx context.Context, s *discordgo.Session, i *dis
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("demerit command")
 
-	if !utils.StringSliceContainsOneOf(i.Member.Roles, config.GetStringSlice("FEATURES.MERIT.ALLOWED_ROLES")) {
+	if !utils.StringSliceContainsOneOf(i.Member.Roles, settings.GetStringSlice("FEATURES.MERIT.ALLOWED_ROLES")) {
 		logger.Debug("invalid permissions")
 
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
