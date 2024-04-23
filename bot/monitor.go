@@ -26,7 +26,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	lastChecked := time.Now().Add(-30 * time.Minute)
+	lastChecked := time.Now().UTC().Add(-30 * time.Minute)
 	d := false
 	for {
 		select {
@@ -40,7 +40,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				time.Sleep(10 * time.Second)
 				continue
 			}
-			if time.Now().After(lastChecked.Add(1 * time.Minute)) {
+			if time.Now().UTC().After(lastChecked.Add(3 * time.Minute)) {
 				logger.Info("scanning members")
 				if !stores.Connected() {
 					logger.Debug("storage not setup, waiting a bit")
@@ -77,7 +77,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				// get the stored members
 				storedMembers := []*members.Member{}
 				cur, err := stores.Members.List(bson.M{}, &options.FindOptions{
-					Sort: bson.M{"rank": 1, "name": 1},
+					Sort: bson.M{"rank": 1},
 				})
 				if err != nil {
 					logger.WithError(err).Error("getting stored members")
@@ -91,7 +91,7 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 
 				// do some cleaning
 				for _, member := range storedMembers {
-					if !stillInDiscord(member, m) {
+					if !stillInDiscord(member, m) || member.IsBot {
 						if err := member.Delete(); err != nil {
 							logger.WithField("member", member).WithError(err).Error("deleting member")
 							continue
@@ -146,6 +146,11 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 		mlogger := logger.WithField("member", discordMember)
 		mlogger.Debug("updating member")
 
+		if discordMember.User.Bot {
+			mlogger.Debug("skipping bot")
+			continue
+		}
+
 		// get the stord user, if we have one
 		member, err := members.Get(discordMember.User.ID)
 		if err != nil && !errors.Is(err, members.MemberNotFound) {
@@ -173,7 +178,7 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 				return errors.Wrap(err, "getting rsi based rank")
 			}
 
-			mlogger.WithField("user", member).Debug("user not found")
+			mlogger.WithField("member", member).Debug("rsi user not found")
 			member.RSIMember = false
 		}
 

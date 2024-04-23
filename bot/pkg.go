@@ -1,43 +1,48 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/bot/handlers"
 	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/admin/members"
+	"github.com/sol-armada/admin/utils"
 )
 
 type Bot struct {
 	GuildId  string
 	ClientId string
 
+	ctx context.Context
+
 	*discordgo.Session
 }
+
+type Handler func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error
 
 var bot *Bot
 
 // command handlers
-var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"bank":             handlers.BankCommandHandler,
-	"takeattendance":   handlers.TakeAttendanceCommandHandler,
-	"removeattendance": handlers.RemoveAttendanceCommandHandler,
-	"profile":          handlers.ProfileCommandHandler,
-	"merit":            handlers.GiveMeritCommandHandler,
-	"demerit":          handlers.GiveDemeritCommandHandler,
+var commandHandlers = map[string]Handler{
+	"takeattendance":   takeAttendanceCommandHandler,
+	"removeattendance": removeAttendanceCommandHandler,
+	"profile":          profileCommandHandler,
+	"merit":            giveMeritCommandHandler,
+	"demerit":          giveDemeritCommandHandler,
 }
 
-var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"takeattendance":   handlers.TakeAttendanceAutocompleteHandler,
-	"removeattendance": handlers.RemoveAttendanceAutocompleteHandler,
+var autocompleteHandlers = map[string]Handler{
+	"takeattendance":   takeAttendanceAutocompleteHandler,
+	"removeattendance": removeAttendanceAutocompleteHandler,
 }
 
-var attendanceButtonHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"record":  handlers.RecordAttendanceButtonHandler,
-	"recheck": handlers.RecheckIssuesButtonHandler,
+var attendanceButtonHandlers = map[string]Handler{
+	"record":  recordAttendanceButtonHandler,
+	"recheck": recheckIssuesButtonHandler,
 }
 
 func New() (*Bot, error) {
@@ -56,6 +61,7 @@ func New() (*Bot, error) {
 	bot = &Bot{
 		config.GetString("DISCORD.GUILD_ID"),
 		config.GetString("DISCORD.CLIENT_ID"),
+		context.Background(),
 		b,
 	}
 
@@ -84,28 +90,73 @@ func (b *Bot) Setup() error {
 	b.AddHandler(ready)
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		member, err := members.Get(i.Member.User.ID)
+		if err != nil {
+			log.WithError(err).Error("getting member for incomming interaction")
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Ran into an error, please try again in a few minutes",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+
+		ctx := utils.SetMemberToContext(b.ctx, member)
+
+		logger := log.WithFields(log.Fields{
+			"guild": b.GuildId,
+			"user":  i.Member.User.ID,
+		})
+
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "application command",
+				"name":             i.ApplicationCommandData().Name,
+			})
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
+				ctx = utils.SetLoggerToContext(ctx, logger.WithField("interaction_type", "application command"))
+				err = h(ctx, s, i)
 			}
 		case discordgo.InteractionApplicationCommandAutocomplete:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "application command",
+				"name":             i.ApplicationCommandData().Name,
+			})
 			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
+				ctx = utils.SetLoggerToContext(ctx, logger.WithField("interaction_type", "application command autocomplete"))
+				err = h(ctx, s, i)
 			}
 		case discordgo.InteractionMessageComponent:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "message command",
+				"custom_id":        i.MessageComponentData().CustomID,
+			})
 			id := strings.Split(i.MessageComponentData().CustomID, ":")
+			ctx = utils.SetLoggerToContext(ctx, logger)
 			switch id[0] {
 			case "attendance":
 				if h, ok := attendanceButtonHandlers[id[1]]; ok {
-					h(s, i)
+					err = h(ctx, s, i)
 				}
 			}
+		}
+
+		if err != nil {
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Flags:   discordgo.MessageFlagsEphemeral,
+					Content: "It looks like I ran into an error. I have logged it and someone will look into it. Please try again in a few minutes.",
+				},
+			})
 		}
 	})
 
 	// watch for on join
-	b.AddHandler(handlers.OnJoinHandler)
+	b.AddHandler(onJoinHandler)
 
 	// clear commands
 	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
@@ -180,20 +231,6 @@ func (b *Bot) Setup() error {
 			Required:     true,
 			Autocomplete: true,
 		},
-		// {
-		// 	Name:        "recheck-issues",
-		// 	Description: "Recheck the list of users with attendance credit issues",
-		// 	Type:        discordgo.ApplicationCommandOptionSubCommand,
-		// 	Options: []*discordgo.ApplicationCommandOption{
-		// 		{
-		// 			Name:         "event",
-		// 			Description:  "the event to recheck issues for",
-		// 			Type:         discordgo.ApplicationCommandOptionString,
-		// 			Required:     true,
-		// 			Autocomplete: true,
-		// 		},
-		// 	},
-		// },
 	}
 	for i := 0; i < 10; i++ {
 		o := &discordgo.ApplicationCommandOption{

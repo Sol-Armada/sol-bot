@@ -39,11 +39,6 @@ func Setup(cctx context.Context, host string, port int, username string, passwor
 		ctx:        ctx,
 	}
 
-	Transactions = &transactionsStore{
-		Collection: client.Database(database).Collection("transactions"),
-		ctx:        ctx,
-	}
-
 	return nil
 }
 

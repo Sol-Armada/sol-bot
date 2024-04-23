@@ -1,165 +1,33 @@
-package handlers
+package bot
 
 import (
+	"context"
 	"fmt"
-	"regexp"
-	"slices"
 	"strings"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
+	"github.com/pkg/errors"
 	"github.com/rs/xid"
+	attdnc "github.com/sol-armada/admin/attendance"
 	"github.com/sol-armada/admin/config"
 	"github.com/sol-armada/admin/members"
 	"github.com/sol-armada/admin/ranks"
 	"github.com/sol-armada/admin/utils"
 )
 
-type AttendanceIssue struct {
-	Member *members.Member
-	Reason string
-}
+func takeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("taking attendance autocomplete")
 
-type Attendance struct {
-	Id      string
-	Name    string
-	Members []*members.Member
-	Issues  []*AttendanceIssue
-}
-
-func (a *Attendance) GenerateList() string {
-	// remove duplicates
-	list := make(map[string]*members.Member)
-	for _, u := range a.Members {
-		list[u.Id] = u
-	}
-
-	a.Members = []*members.Member{}
-	for _, u := range list {
-		a.Members = append(a.Members, u)
-	}
-
-	slices.SortFunc(a.Members, func(a, b *members.Member) int {
-		if a.Rank > b.Rank {
-			return 1
-		}
-		if a.Rank < b.Rank {
-			return -1
-		}
-		if a.Name < b.Name {
-			return 1
-		}
-		if a.Name > b.Name {
-			return -1
-		}
-
-		return 0
-	})
-
-	m := ""
-	for i, u := range a.Members {
-		m += fmt.Sprintf("<@%s>", u.Id)
-		if i < len(a.Members)-1 {
-			m += "\n"
-		}
-	}
-
-	if m == "" {
-		m = "No members"
-	}
-
-	return "Attendance List:\n" + m
-}
-
-func (a *Attendance) removeDuplicates() {
-	list := []*members.Member{}
-
-	for _, u := range a.Members {
-		found := false
-		for _, v := range list {
-			if u.Id == v.Id {
-				found = true
-				break
-			}
-		}
-		if found {
-			continue
-		}
-		list = append(list, u)
-	}
-
-	a.Members = list
-}
-
-func (a *Attendance) getIssuesEmbed() *discordgo.MessageEmbed {
-	embed := &discordgo.MessageEmbed{
-		Title:       "Users with Issues",
-		Description: "List of members with attendance credit issues",
-		Fields:      []*discordgo.MessageEmbedField{},
-	}
-
-	fieldValue := ""
-	for _, issue := range a.Issues {
-		fieldValue += fmt.Sprintf("<@%s>: %s\n", issue.Member.Id, issue.Reason)
-	}
-	field := &discordgo.MessageEmbedField{
-		Name:  "Member - Issues",
-		Value: fieldValue,
-	}
-	embed.Fields = append(embed.Fields, field)
-
-	return embed
-}
-
-func (a *Attendance) Parse(threadMessages []*discordgo.Message) {
-	mainMessage := threadMessages[len(threadMessages)-1].ReferencedMessage
-	attendanceMessage := threadMessages[len(threadMessages)-2]
-
-	// get the ID between ( )
-	reg := regexp.MustCompile(`(.*?)\((.*?)\)`)
-	a.Id = reg.FindStringSubmatch(mainMessage.Content)[1]
-
-	// get the name before ( )
-	a.Name = reg.FindStringSubmatch(mainMessage.Content)[0]
-
-	currentUsersSplit := strings.Split(attendanceMessage.Content, "\n")
-	currentUsersSplit = append(currentUsersSplit, strings.Split(attendanceMessage.Embeds[0].Fields[0].Value, "\n")...)
-	for _, cu := range currentUsersSplit[1:] {
-		if cu == "No members" || cu == "" {
-			continue
-		}
-		uid := strings.ReplaceAll(cu, "<@", "")
-		uid = strings.ReplaceAll(uid, ">", "")
-		uid = strings.Split(uid, ":")[0]
-
-		member, err := members.Get(uid)
-		if err != nil {
-			log.WithError(err).Error("getting user for existing attendance")
-			return
-		}
-
-		if len(issues(member)) > 0 {
-			a.Issues = append(a.Issues, &AttendanceIssue{
-				Member: member,
-				Reason: strings.Join(issues(member), ", "),
-			})
-			continue
-		}
-
-		a.Members = append(a.Members, member)
-	}
-}
-
-func TakeAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	data := i.ApplicationCommandData()
 
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 	switch {
 	case data.Options[0].Focused:
-		channelMessages, err := s.ChannelMessages(config.GetString("DISCORD.CHANNELS.ATTENDANCE"), 5, "", "", "")
+		channelMessages, err := s.ChannelMessages(config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), 5, "", "", "")
 		if err != nil {
-			log.WithError(err).Error("getting all attendance messages")
-			return
+			return errors.Wrap(err, "getting latest attendance messages for autocomplete")
 		}
 		if data.Options[0].StringValue() != "" {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
@@ -185,12 +53,16 @@ func TakeAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Intera
 			Choices: choices,
 		},
 	}); err != nil {
-		log.WithError(err).Error("responding to takeattendance command")
-		return
+		return errors.Wrap(err, "responding to take attendance auto complete")
 	}
+
+	return nil
 }
 
-func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("taking attendance command")
+
 	if !utils.StringSliceContainsOneOf(i.Member.Roles, config.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -199,10 +71,10 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 				Content: "You do not have permission to use this command",
 			},
 		}); err != nil {
-			log.WithError(err).Error("responding to onboarding command")
-			return
+			return errors.Wrap(err, "responding to take attendance command: invalid permissions")
 		}
-		return
+
+		return nil
 	}
 
 	data := i.ApplicationCommandData()
@@ -210,10 +82,10 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 	eventName := strings.TrimPrefix(data.Options[0].StringValue(), "(NEW) ")
 	memberIds := data.Options[1:]
 
-	attendance := &Attendance{
+	attendance := &attdnc.Attendance{
 		Id:     xid.New().String(),
 		Name:   eventName,
-		Issues: []*AttendanceIssue{},
+		Issues: []*attdnc.AttendanceIssue{},
 	}
 
 	channelId := config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
@@ -222,7 +94,8 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 	for _, memberId := range memberIds {
 		member, err := members.Get(memberId.UserValue(s).ID)
 		if err != nil {
-			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
+			// this should never happen
+			attendance.Issues = append(attendance.Issues, &attdnc.AttendanceIssue{
 				Member: &members.Member{
 					Id:   memberId.UserValue(s).ID,
 					Name: memberId.UserValue(s).Username,
@@ -232,10 +105,10 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 			continue
 		}
 
-		if len(issues(member)) > 0 {
-			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
+		if len(attdnc.Issues(member)) > 0 {
+			attendance.Issues = append(attendance.Issues, &attdnc.AttendanceIssue{
 				Member: member,
-				Reason: strings.Join(issues(member), ", "),
+				Reason: strings.Join(attdnc.Issues(member), ", "),
 			})
 			continue
 		}
@@ -245,7 +118,16 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 
 	attendance.Members = membersList
 
-	takeAttendanceComplete(s, i)
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: "Attendance taken",
+		},
+	}); err != nil {
+		// TODO: just log this
+		return errors.Wrap(err, "responding to take attendance command")
+	}
 
 	var eventMessage *discordgo.Message
 	eventMessage, _ = s.ChannelMessage(channelId, attendance.Name)
@@ -254,14 +136,12 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 		// create a new attendance message
 		eventMessage, err := s.ChannelMessageSend(channelId, fmt.Sprintf("%s (%s)", attendance.Name, xid.New().String()))
 		if err != nil {
-			log.WithError(err).Error("creating new attendance message")
-			return
+			return errors.Wrap(err, "creating new attendance message")
 		}
 
 		emThread, err := s.MessageThreadStart(eventMessage.ChannelID, eventMessage.ID, attendance.Name+" Attendance Thread", 1440)
 		if err != nil {
-			log.WithError(err).Error("creating new attendance message")
-			return
+			return errors.Wrap(err, "creating new attendance thread")
 		}
 
 		eventMessage.Thread = emThread
@@ -269,8 +149,7 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 
 	eventThreadMessages, err := s.ChannelMessages(eventMessage.Thread.ID, 100, "", "", "")
 	if err != nil {
-		log.WithError(err).Error("getting attendance thread messages")
-		return
+		return errors.Wrap(err, "getting attendance thread messages")
 	}
 	log.WithField("messages", eventThreadMessages).Debug("event message list")
 
@@ -279,7 +158,7 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 		// make the primary list
 		_, err := s.ChannelMessageSendComplex(eventMessage.Thread.ID, &discordgo.MessageSend{
 			Content: attendance.GenerateList(),
-			Embeds:  []*discordgo.MessageEmbed{attendance.getIssuesEmbed()},
+			Embeds:  []*discordgo.MessageEmbed{attendance.GetIssuesEmbed()},
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
@@ -300,9 +179,10 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 			},
 		})
 		if err != nil {
-			log.WithError(err).Error("creating attendance thread message")
+			return errors.Wrap(err, "creating attendance thread message")
 		}
-		return
+
+		return nil
 	}
 
 	// we have a message already
@@ -319,17 +199,15 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 
 		member, err := members.Get(uid)
 		if err != nil {
-			log.WithError(err).Error("getting member for existing attendance")
-			return
+			return errors.Wrap(err, "getting member from existing attendance")
 		}
-		attendance.Members = append(attendance.Members, member)
+		attendance.AddMember(member)
 	}
-	attendance.removeDuplicates()
 
 	attendaceList := attendance.GenerateList()
 
 	emb := []*discordgo.MessageEmbed{
-		attendance.getIssuesEmbed(),
+		attendance.GetIssuesEmbed(),
 	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: eventMessage.Thread.ID,
@@ -337,12 +215,16 @@ func TakeAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interaction
 		Content: &attendaceList,
 		Embeds:  &emb,
 	}); err != nil {
-		log.WithError(err).Error("editing attendance thread message")
-		return
+		return errors.Wrap(err, "editing attendance thread message")
 	}
+
+	return nil
 }
 
-func RemoveAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func removeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("removing attendance autocomplete")
+
 	data := i.ApplicationCommandData()
 
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
@@ -350,8 +232,7 @@ func RemoveAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Inte
 	case data.Options[0].Focused:
 		channelMessages, err := s.ChannelMessages(config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), 5, "", "", "")
 		if err != nil {
-			log.WithError(err).Error("getting all attendance messages")
-			return
+			return errors.Wrap(err, "getting latest messages for remove auto complete")
 		}
 		for _, message := range channelMessages {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
@@ -367,13 +248,19 @@ func RemoveAttendanceAutocompleteHandler(s *discordgo.Session, i *discordgo.Inte
 			Choices: choices,
 		},
 	}); err != nil {
-		log.WithError(err).Error("responding to removeattendance autocomplete")
-		return
+		return errors.Wrap(err, "responding to removeattendance autocomplete")
 	}
+
+	return nil
 }
 
-func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func removeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("removing attendance command")
+
 	if !utils.StringSliceContainsOneOf(i.Member.Roles, config.GetStringSlice("ATTENDANCE.ALLOWED_ROLES")) {
+		logger.Debug("invalid permissions")
+
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -381,10 +268,10 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 				Content: "You do not have permission to use this command",
 			},
 		}); err != nil {
-			log.WithError(err).Error("responding to onboarding command")
-			return
+			return errors.Wrap(err, "responding to onboarding command invalid permissions")
 		}
-		return
+
+		return nil
 	}
 
 	data := i.ApplicationCommandData()
@@ -392,7 +279,7 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 	eventName := data.Options[0]
 	userIds := data.Options[1:]
 
-	channelId := config.GetString("DISCORD.CHANNELS.ATTENDANCE")
+	channelId := config.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
 	em, err := s.ChannelMessage(channelId, eventName.StringValue())
 	if err != nil {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -402,15 +289,15 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 				Content: "Event not found",
 			},
 		}); err != nil {
-			log.WithError(err).Error("responding to onboarding command")
+			return errors.Wrap(err, "responding with event not found")
 		}
-		return
+
+		return nil
 	}
 
 	etms, err := s.ChannelMessages(em.Thread.ID, 10, "", "", "")
 	if err != nil {
-		log.WithError(err).Error("getting attendance thread messages")
-		return
+		return errors.Wrap(err, "getting attendance thread messages")
 	}
 
 	// remove all members in usersList from currentUsersSplit
@@ -423,7 +310,9 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 		removedIds += user.UserValue(s).ID + ","
 	}
 
-	attendance := &Attendance{}
+	logger.WithField("ids", removedIds).Debug("removing from attendance")
+
+	attendance := &attdnc.Attendance{}
 	for _, discordUserId := range currentUsersSplit[1:] {
 		if discordUserId == "No members" {
 			continue
@@ -439,26 +328,24 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 
 		member, err := members.Get(discordUserId)
 		if err != nil {
-			log.WithError(err).Error("getting user")
-			return
+			return errors.Wrap(err, "getting user for removing from attendance")
 		}
 
-		if len(issues(member)) > 0 {
-			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
+		if len(attdnc.Issues(member)) > 0 {
+			attendance.Issues = append(attendance.Issues, &attdnc.AttendanceIssue{
 				Member: member,
-				Reason: strings.Join(issues(member), ", "),
+				Reason: strings.Join(attdnc.Issues(member), ", "),
 			})
 			continue
 		}
 
-		attendance.Members = append(attendance.Members, member)
+		attendance.AddMember(member)
 	}
-	attendance.removeDuplicates()
 
 	attendaceList := attendance.GenerateList()
 
 	emb := []*discordgo.MessageEmbed{
-		attendance.getIssuesEmbed(),
+		attendance.GetIssuesEmbed(),
 	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: em.Thread.ID,
@@ -466,14 +353,26 @@ func RemoveAttendanceCommandHandler(s *discordgo.Session, i *discordgo.Interacti
 		Content: &attendaceList,
 		Embeds:  &emb,
 	}); err != nil {
-		log.WithError(err).Error("editing attendance thread message")
-		return
+		return errors.Wrap(err, "editing attendance thread message")
 	}
 
-	removeAttendanceComplete(s, i)
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: "Removed from attendance",
+		},
+	}); err != nil {
+		return errors.Wrap(err, "responding to takeattendance command")
+	}
+
+	return nil
 }
 
-func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
+func recordAttendanceButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("recording attendance button handler")
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		Data: &discordgo.InteractionResponseData{
@@ -485,12 +384,13 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 
 	threadMessages, err := s.ChannelMessages(threadId, 100, "", "", "")
 	if err != nil {
-		log.WithError(err).Error("getting attendance thread")
-		return
+		return errors.Wrap(err, "getting attendance thread messages")
 	}
 
-	attendance := &Attendance{}
-	attendance.Parse(threadMessages)
+	attendance := &attdnc.Attendance{}
+	attendance.NewFromThreadMessages(threadMessages)
+
+	logger.WithField("members", attendance.Members).Debug("marking for attendance")
 
 	rankUps := ""
 	for _, u := range attendance.Members {
@@ -526,35 +426,14 @@ func RecordAttendanceButtonHandler(s *discordgo.Session, i *discordgo.Interactio
 
 	parentMessage := threadMessages[len(threadMessages)-1].MessageReference
 	_ = s.MessageReactionAdd(parentMessage.ChannelID, parentMessage.MessageID, "✅")
+
+	return nil
 }
 
-func takeAttendanceComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "Attendance taken",
-		},
-	}); err != nil {
-		log.WithError(err).Error("responding to takeattendance command")
-		return
-	}
-}
+func recheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("rechecking issues button handler")
 
-func removeAttendanceComplete(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "Removed from attendance",
-		},
-	}); err != nil {
-		log.WithError(err).Error("responding to takeattendance command")
-		return
-	}
-}
-
-func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 		Data: &discordgo.InteractionResponseData{
@@ -566,18 +445,17 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 
 	threadMessages, err := s.ChannelMessages(threadId, 100, "", "", "")
 	if err != nil {
-		log.WithError(err).Error("getting attendance thread")
-		return
+		return errors.Wrap(err, "getting attendance thread messages")
 	}
 
-	attendance := &Attendance{}
-	attendance.Parse(threadMessages)
+	attendance := &attdnc.Attendance{}
+	attendance.NewFromThreadMessages(threadMessages)
 
 	membersList := []*members.Member{}
 	for _, aMember := range attendance.Members {
 		member, err := members.Get(aMember.Id)
 		if err != nil {
-			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
+			attendance.Issues = append(attendance.Issues, &attdnc.AttendanceIssue{
 				Member: &members.Member{
 					Id:   aMember.Id,
 					Name: aMember.Name,
@@ -587,10 +465,10 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 			continue
 		}
 
-		if len(issues(member)) > 0 {
-			attendance.Issues = append(attendance.Issues, &AttendanceIssue{
+		if len(attdnc.Issues(member)) > 0 {
+			attendance.Issues = append(attendance.Issues, &attdnc.AttendanceIssue{
 				Member: member,
-				Reason: strings.Join(issues(member), ", "),
+				Reason: strings.Join(attdnc.Issues(member), ", "),
 			})
 			continue
 		}
@@ -600,19 +478,26 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 
 	attendance.Members = membersList
 
-	takeAttendanceComplete(s, i)
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Content: "Attendance taken",
+		},
+	}); err != nil {
+		logger.WithError(err).Error("responding to recheck issues button")
+	}
 
 	etms, err := s.ChannelMessages(i.ChannelID, 100, "", "", "")
 	if err != nil {
-		log.WithError(err).Error("getting attendance thread messages")
-		return
+		return errors.Wrap(err, "getting attendance thread messages")
 	}
 	log.WithField("messages", etms).Debug("event message list")
 
 	attendaceList := attendance.GenerateList()
 
 	emb := []*discordgo.MessageEmbed{
-		attendance.getIssuesEmbed(),
+		attendance.GetIssuesEmbed(),
 	}
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: i.ChannelID,
@@ -620,56 +505,8 @@ func RecheckIssuesButtonHandler(s *discordgo.Session, i *discordgo.InteractionCr
 		Content: &attendaceList,
 		Embeds:  &emb,
 	}); err != nil {
-		log.WithError(err).Error("editing attendance thread message")
-		return
-	}
-}
-
-func issues(m *members.Member) []string {
-	issues := []string{}
-
-	if m.IsBot {
-		issues = append(issues, "bot")
+		return errors.Wrap(err, "editing attendance thread message")
 	}
 
-	if m.Rank == ranks.Guest {
-		issues = append(issues, "guest")
-	}
-
-	if m.Rank == ranks.Recruit && !m.RSIMember {
-		issues = append(issues, "non-rsi member but is recruit")
-	}
-
-	if m.IsAlly {
-		issues = append(issues, "ally")
-	}
-
-	if m.BadAffiliation {
-		issues = append(issues, "bad affiliation")
-	}
-
-	if m.PrimaryOrg == "REDACTED" {
-		issues = append(issues, "redacted org")
-	}
-
-	if m.Rank <= ranks.Member && m.PrimaryOrg != config.GetString("rsi_org_sid") {
-		issues = append(issues, "bad primary org")
-	}
-
-	switch m.Rank {
-	case ranks.Recruit:
-		if m.Events >= 3 {
-			issues = append(issues, "max event credits for this rank (3)")
-		}
-	case ranks.Member:
-		if m.Events >= 10 {
-			issues = append(issues, "max event credits for this rank (10)")
-		}
-	case ranks.Technician:
-		if m.Events >= 20 {
-			issues = append(issues, "max event credits for this rank (20)")
-		}
-	}
-
-	return issues
+	return nil
 }
