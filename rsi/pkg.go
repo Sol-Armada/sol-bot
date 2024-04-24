@@ -39,6 +39,7 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
 		if member.PrimaryOrg == settings.GetString("rsi_org_sid") {
 			member.Rank = ranks.GetRankByRSIRankName(e.Text)
+			member.IsGuest = false
 		}
 	})
 
@@ -46,6 +47,7 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 		member.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
 		if member.PrimaryOrg != settings.GetString("rsi_org_sid") && utils.StringSliceContains(member.Affilations, settings.GetString("rsi_org_sid")) {
 			member.IsAffiliate = true
+			member.IsGuest = false
 		}
 	})
 

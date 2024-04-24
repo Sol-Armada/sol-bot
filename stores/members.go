@@ -62,12 +62,9 @@ func (s *MembersStore) List(filter interface{}, opts ...*options.FindOptions) (*
 	return s.Find(s.ctx, filter, opts...)
 }
 
-func (s *MembersStore) Update(id string, member any) error {
-	if err := s.FindOneAndReplace(s.ctx, bson.D{{Key: "_id", Value: id}}, member).Err(); err != nil {
-		if err != mongo.ErrNoDocuments {
-			return err
-		}
-		_, err = s.InsertOne(s.ctx, member)
+func (s *MembersStore) Upsert(id string, member any) error {
+	opts := options.FindOneAndReplace().SetUpsert(true)
+	if err := s.FindOneAndReplace(s.ctx, bson.D{{Key: "_id", Value: id}}, member, opts).Err(); err != nil {
 		return err
 	}
 	return nil

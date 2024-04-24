@@ -214,9 +214,6 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 			member.IsBot = true
 		}
 
-		// fill legacy
-		member.LegacyEvents = member.Events
-
 		// setup member's roles
 		rankRoles := settings.GetStringMapString("DISCORD.ROLES.RANKS")
 

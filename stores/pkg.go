@@ -13,8 +13,9 @@ import (
 type Collection string
 
 const (
-	MEMBERS Collection = "members"
-	CONFIGS Collection = "configs"
+	MEMBERS    Collection = "members"
+	CONFIGS    Collection = "configs"
+	ATTENDANCE Collection = "attendance"
 )
 
 type store struct {
@@ -61,6 +62,7 @@ func New(ctx context.Context, host string, port int, username string, password s
 
 	client.databases[MEMBERS] = newMembersStore(ctx, client.Client, database)
 	client.databases[CONFIGS] = newConfigsStore(ctx, client.Client, database)
+	client.databases[ATTENDANCE] = newAttendanceStore(ctx, client.Client, database)
 
 	return client, nil
 }
@@ -77,6 +79,11 @@ func (c *Client) GetMembersStore() (*MembersStore, bool) {
 func (c *Client) GetConfigsStore() (*ConfigsStore, bool) {
 	storeInterface, ok := c.GetCollection(CONFIGS)
 	return storeInterface.(*ConfigsStore), ok
+}
+
+func (c *Client) GetAttendanceStore() (*AttendanceStore, bool) {
+	storeInterface, ok := c.GetCollection(ATTENDANCE)
+	return storeInterface.(*AttendanceStore), ok
 }
 
 func (c *Client) GetCollection(collection Collection) (interface{}, bool) {

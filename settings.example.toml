@@ -41,13 +41,13 @@ database = "MyOrg"
 enabled = false
 
 ################################################################
-# features.bank                                                #
+# features.merit                                               #
 # ------------------------------------------------------------ #
-# holders | string array | The bank holders                    #
+# enabled    | bool         | false | enable events            #
+# holders    | string array |       | The bank holders         #
 ################################################################
-[features.bank]
+[features.merit]
 enabled = false
-holders = ["92030047161970688"]
 
 ################################################################
 # features.attendance                                          #

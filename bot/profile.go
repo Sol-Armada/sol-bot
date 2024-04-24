@@ -48,7 +48,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 		{
 			Name:   "Event Attendance Count",
-			Value:  fmt.Sprintf("%d", member.Events),
+			Value:  fmt.Sprintf("%d", member.LegacyEvents),
 			Inline: true,
 		},
 	}
@@ -69,10 +69,11 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		emFields = append(emFields, rsiFields...)
 	}
 
-	if len(attdnc.Issues(member)) > 0 {
+	memberIssues := attdnc.Issues(member)
+	if len(memberIssues) > 0 {
 		emFields = append(emFields, &discordgo.MessageEmbedField{
 			Name:   "Restrictions to Promotion",
-			Value:  strings.Join(attdnc.Issues(member), ", "),
+			Value:  strings.Join(memberIssues, ", "),
 			Inline: false,
 		})
 	}

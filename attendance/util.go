@@ -6,48 +6,55 @@ import (
 	"github.com/sol-armada/admin/settings"
 )
 
-func Issues(m *members.Member) []string {
+func Issues(member *members.Member) []string {
 	issues := []string{}
 
-	if m.IsBot {
+	if member.IsBot {
 		issues = append(issues, "bot")
 	}
 
-	if m.IsGuest {
+	if member.IsGuest {
 		issues = append(issues, "guest")
 	}
 
-	if m.Rank == ranks.Recruit && !m.RSIMember {
-		issues = append(issues, "non-rsi member but is recruit")
+	if !member.RSIMember && member.Rank != ranks.None {
+		issues = append(issues, "non-rsi member but has a rank")
 	}
 
-	if m.IsAlly {
+	if !member.RSIMember && member.IsAlly {
+		issues = append(issues, "marked as ally, but not a rsi member")
+	}
+
+	if member.RSIMember && member.IsAlly {
 		issues = append(issues, "ally")
 	}
 
-	if m.BadAffiliation {
+	if member.RSIMember && member.BadAffiliation {
 		issues = append(issues, "bad affiliation")
 	}
 
-	if m.PrimaryOrg == "REDACTED" {
+	if member.RSIMember && member.PrimaryOrg == "REDACTED" {
 		issues = append(issues, "redacted org")
 	}
 
-	if m.Rank <= ranks.Member && m.PrimaryOrg != settings.GetString("rsi_org_sid") {
+	if member.RSIMember && member.Rank <= ranks.Member && member.PrimaryOrg != settings.GetString("rsi_org_sid") {
 		issues = append(issues, "bad primary org")
 	}
 
-	switch m.Rank {
+	attendedEvents := GetMemberAttendanceCount(member.Id)
+	total := member.LegacyEvents + attendedEvents
+
+	switch member.Rank {
 	case ranks.Recruit:
-		if m.Events >= 3 {
+		if total >= 3 {
 			issues = append(issues, "max event credits for this rank (3)")
 		}
 	case ranks.Member:
-		if m.Events >= 10 {
+		if total >= 10 {
 			issues = append(issues, "max event credits for this rank (10)")
 		}
 	case ranks.Technician:
-		if m.Events >= 20 {
+		if total >= 20 {
 			issues = append(issues, "max event credits for this rank (20)")
 		}
 	}

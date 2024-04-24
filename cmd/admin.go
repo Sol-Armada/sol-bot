@@ -11,6 +11,7 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
 	jsn "github.com/apex/log/handlers/json"
+	"github.com/sol-armada/admin/attendance"
 	"github.com/sol-armada/admin/bot"
 	"github.com/sol-armada/admin/health"
 	"github.com/sol-armada/admin/members"
@@ -38,13 +39,21 @@ func init() {
 
 	if _, err := stores.New(ctx, host, port, username, pswd, database); err != nil {
 		log.WithError(err).Error("failed to create storage client")
-		return
+		os.Exit(1)
 	}
 
 	if err := members.Setup(); err != nil {
 		log.WithError(err).Error("failed to setup members")
-		return
+		os.Exit(1)
 	}
+
+	if err := attendance.Setup(); err != nil {
+		log.WithError(err).Error("failed to setup attendance")
+		os.Exit(1)
+	}
+
+	// monitor health of the server
+	go health.Monitor()
 }
 
 func main() {
@@ -85,7 +94,7 @@ func main() {
 
 	doneMonitoring := make(chan bool, 1)
 	stopMonitoring := make(chan bool, 1)
-	if settings.GetBool("FEATURES.MONITOR.ENABLED") {
+	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
 		go b.UserMonitor(stopMonitoring, doneMonitoring)
 	} else {
 		doneMonitoring <- true
@@ -94,9 +103,6 @@ func main() {
 		doneMonitoring <- true
 		stopMonitoring <- true
 	}()
-
-	// monitor health of the server
-	go health.Monitor()
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
