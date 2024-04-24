@@ -11,7 +11,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/sol-bot/config"
 )
 
 type UserAccess struct {

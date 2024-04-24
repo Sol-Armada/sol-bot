@@ -12,13 +12,13 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
-	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/cache"
-	"github.com/sol-armada/admin/config"
-	customerrors "github.com/sol-armada/admin/errors"
-	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/rsi"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/bot"
+	"github.com/sol-armada/sol-bot/cache"
+	"github.com/sol-armada/sol-bot/config"
+	customerrors "github.com/sol-armada/sol-bot/errors"
+	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/rsi"
+	"github.com/sol-armada/sol-bot/users"
 )
 
 type processing struct {

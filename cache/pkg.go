@@ -6,7 +6,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/redis/go-redis/v9"
-	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/sol-bot/config"
 )
 
 type cache struct {

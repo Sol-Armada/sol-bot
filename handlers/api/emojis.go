@@ -6,7 +6,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/bot"
+	"github.com/sol-armada/sol-bot/bot"
 )
 
 type GetEmojisResponse struct {

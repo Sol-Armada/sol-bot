@@ -9,9 +9,9 @@ import (
 	echojwt "github.com/labstack/echo-jwt/v4"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/handlers/api"
-	"github.com/sol-armada/admin/web"
+	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/handlers/api"
+	"github.com/sol-armada/sol-bot/web"
 )
 
 func New() (*echo.Echo, error) {

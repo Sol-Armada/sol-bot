@@ -9,11 +9,11 @@ import (
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/cache"
-	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/request"
-	"github.com/sol-armada/admin/stores"
-	usersP "github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/cache"
+	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/request"
+	"github.com/sol-armada/sol-bot/stores"
+	usersP "github.com/sol-armada/sol-bot/users"
 )
 
 type getUsersRequest struct {

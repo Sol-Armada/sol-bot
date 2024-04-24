@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/users"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )

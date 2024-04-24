@@ -11,11 +11,11 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/auth"
-	"github.com/sol-armada/admin/cache"
-	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/sol-bot/auth"
+	"github.com/sol-armada/sol-bot/cache"
+	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
 )
 

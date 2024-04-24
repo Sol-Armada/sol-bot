@@ -4,7 +4,7 @@ import (
 	"time"
 
 	"github.com/apex/log"
-	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/sol-bot/stores"
 )
 
 var healthy bool = false

@@ -5,7 +5,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/web"
+	"github.com/sol-armada/sol-bot/web"
 )
 
 func IndexHander(c echo.Context) error {

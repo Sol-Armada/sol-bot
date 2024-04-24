@@ -6,8 +6,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/bot"
+	"github.com/sol-armada/sol-bot/users"
 )
 
 // event command handlers

@@ -9,9 +9,9 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
-	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/users"
 )
 
 type AttendanceIssue struct {

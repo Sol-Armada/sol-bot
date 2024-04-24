@@ -5,7 +5,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/users"
 )
 
 type randomUsersRequest struct {

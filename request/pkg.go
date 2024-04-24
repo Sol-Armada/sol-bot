@@ -7,8 +7,8 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/users"
 )
 
 func GetUser(r *http.Request) (*users.User, error) {

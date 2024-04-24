@@ -7,8 +7,8 @@ import (
 	"github.com/apex/log"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/users"
+	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/users"
 )
 
 type loginRequest struct {

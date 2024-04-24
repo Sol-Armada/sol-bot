@@ -1,4 +1,4 @@
-module github.com/sol-armada/admin
+module github.com/sol-armada/sol-bot
 
 go 1.22
 

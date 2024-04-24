@@ -7,8 +7,8 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/bot/handlers"
-	"github.com/sol-armada/admin/config"
+	"github.com/sol-armada/sol-bot/bot/handlers"
+	"github.com/sol-armada/sol-bot/config"
 )
 
 type Bot struct {

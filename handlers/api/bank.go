@@ -5,8 +5,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/transactions"
+	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/transactions"
 	"go.mongodb.org/mongo-driver/bson"
 )
 

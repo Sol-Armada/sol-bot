@@ -7,8 +7,8 @@ import (
 
 	"github.com/apex/log"
 	"github.com/labstack/echo/v4"
-	"github.com/sol-armada/admin/config"
-	"github.com/sol-armada/admin/router"
+	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/router"
 )
 
 type Server struct {
