@@ -24,7 +24,7 @@ type AttendanceIssue struct {
 type Attendance struct {
 	Id          string             `json:"id" bson:"_id"`
 	Name        string             `json:"name"`
-	SubmittedBy string             `json:"submitted_by" bson:"submitted_by"`
+	SubmittedBy *members.Member    `json:"submitted_by" bson:"submitted_by"`
 	Members     []*members.Member  `json:"members"`
 	Issues      []*AttendanceIssue `json:"issues"`
 	Recorded    bool               `json:"recorded"`
@@ -52,7 +52,7 @@ func Setup() error {
 	return nil
 }
 
-func New(name, submittedBy string) *Attendance {
+func New(name string, submittedBy *members.Member) *Attendance {
 	attendance := &Attendance{
 		Id:          xid.New().String(),
 		Name:        name,
@@ -245,7 +245,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 	fields := []*discordgo.MessageEmbedField{
 		{
 			Name:  "Submitted By",
-			Value: "<@" + a.SubmittedBy + ">",
+			Value: "<@" + a.SubmittedBy.Id + ">",
 		},
 		{
 			Name:   "Attendees",
@@ -377,12 +377,16 @@ func (a *Attendance) Save() error {
 	}
 	attendanceMap["members"] = memberIds
 
+	// convert issues to just ids for mongo optimization
 	issues, _ := attendanceMap["issues"].([]interface{})
 	for i := range issues {
 		issue, _ := issues[i].(map[string]interface{})
 		issue["member"] = issue["member"].(map[string]interface{})["id"].(string)
 		issues[i] = issue
 	}
+
+	// convert submitted by to just id for mongo optimization
+	attendanceMap["submitted_by"] = a.SubmittedBy.Id
 
 	return attendanceStore.Upsert(a.Id, attendanceMap)
 }

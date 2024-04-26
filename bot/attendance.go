@@ -105,6 +105,8 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("taking attendance command")
 
+	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
+
 	if !allowed(i.Member) {
 		return InvalidPermissions
 	}
@@ -131,7 +133,7 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 	if exists { // get an existing attendance record
 		attendance, err = attdnc.Get(eventName)
 	} else { // create a new attendance record
-		attendance = attdnc.New(eventName, i.Member.User.ID)
+		attendance = attdnc.New(eventName, commandMember)
 	}
 	if err != nil {
 		return errors.Wrap(err, "getting or creating attendance record")
