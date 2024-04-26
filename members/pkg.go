@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"regexp"
 	"strings"
@@ -17,6 +17,7 @@ import (
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type GameplayTypes string
@@ -153,8 +154,19 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 	return members, nil
 }
 
-func List() ([]Member, error) {
-	cur, err := membersStore.List(bson.M{})
+func List(page int) ([]Member, error) {
+	opts := options.Find().SetSort(bson.A{
+		bson.A{
+			"rank",
+			1,
+		},
+		bson.A{
+			"name",
+			1,
+		},
+	}).SetLimit(100).SetSkip(int64(100 * (page - 1)))
+
+	cur, err := membersStore.List(bson.D{{Key: "is_bot", Value: bson.D{{Key: "$eq", Value: false}}}}, opts)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +267,7 @@ func (m *Member) Login(code string) error {
 			return errors.New("Unauthorized")
 		}
 
-		errorMessage, _ := ioutil.ReadAll(resp.Body)
+		errorMessage, _ := io.ReadAll(resp.Body)
 		return errors.New(string(errorMessage))
 	}
 
