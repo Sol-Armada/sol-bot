@@ -1,6 +1,7 @@
 package members
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,6 +16,7 @@ import (
 	"github.com/sol-armada/sol-bot/auth"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/stores"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 type GameplayTypes string
@@ -146,6 +148,25 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 			return nil, err
 		}
 		members = append(members, *member)
+	}
+
+	return members, nil
+}
+
+func (m *Member) List() ([]Member, error) {
+	cur, err := membersStore.List(bson.M{})
+	if err != nil {
+		return nil, err
+	}
+
+	members := []Member{}
+
+	for cur.Next(context.Background()) {
+		member := Member{}
+		if err := cur.Decode(&member); err != nil {
+			return nil, err
+		}
+		members = append(members, member)
 	}
 
 	return members, nil

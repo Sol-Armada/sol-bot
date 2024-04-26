@@ -94,15 +94,14 @@ func main() {
 	}
 	defer b.Close()
 
-	doneMonitoring := make(chan bool, 1)
 	stopMonitoring := make(chan bool, 1)
 	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
-		go b.MonitorMembers(stopMonitoring, doneMonitoring)
-	} else {
-		doneMonitoring <- true
+		go bot.MemberMonitor(stopMonitoring)
+	}
+	if settings.GetBool("FEATURES.ATTENDANCE.MONITOR") { // only enable if attendance is enabled
+		go bot.MonitorAttendance(stopMonitoring)
 	}
 	defer func() {
-		doneMonitoring <- true
 		stopMonitoring <- true
 	}()
 

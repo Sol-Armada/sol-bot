@@ -265,10 +265,6 @@ func (b *Bot) Setup() error {
 	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
 		log.Debug("using attendance feature")
 
-		if settings.GetBool("FEATURES.ATTENDANCE.MONITOR") { // only enable if attendance is enabled
-			go monitorAttendance()
-		}
-
 		options := []*discordgo.ApplicationCommandOption{
 			{
 				Name:         "event",

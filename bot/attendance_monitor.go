@@ -11,7 +11,7 @@ import (
 	"github.com/sol-armada/sol-bot/settings"
 )
 
-func monitorAttendance() {
+func MonitorAttendance(stop <-chan bool) {
 	logger := log.WithField("func", "monitorAttendance")
 	logger.Info("monitoring attendance")
 
@@ -21,6 +21,13 @@ func monitorAttendance() {
 	defer ticker.Stop()
 
 	for {
+		select {
+		case <-stop:
+			logger.Warn("stopping monitor")
+			return
+		case <-ticker.C:
+		}
+
 		attendanceMessages := []*discordgo.Message{}
 		latestId := ""
 	AGAIN:

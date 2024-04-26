@@ -21,7 +21,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func (b *Bot) MonitorMembers(stop <-chan bool, done chan bool) {
+func MemberMonitor(stop <-chan bool) {
 	logger := log.WithField("func", "UserMonitor")
 	logger.Info("monitoring discord for members")
 	ticker := time.NewTicker(time.Second)
@@ -30,89 +30,83 @@ func (b *Bot) MonitorMembers(stop <-chan bool, done chan bool) {
 	membersStore, ok := stores.Get().GetMembersStore()
 	if !ok {
 		logger.Error("failed to get members store")
-		done <- true
 		return
 	}
 
-	lastChecked := time.Now().UTC().Add(-31 * time.Minute)
-	d := false
+	lastChecked := time.Now().UTC().Add(-30 * time.Minute)
 	for {
 		select {
 		case <-stop:
 			logger.Warn("stopping monitor")
-			d = true
-			goto DONE
+			return
 		case <-ticker.C:
-			if !health.IsHealthy() {
-				logger.Debug("not healthy")
-				time.Sleep(10 * time.Second)
-				continue
-			}
-			if time.Now().UTC().After(lastChecked.Add(30 * time.Minute)) {
-				logger.Info("scanning members")
-				// TODO: Check if system is healthy
+		}
 
-				// rate limit protection
-				rateBucket := b.Ratelimiter.GetBucket("guild_member_check")
-				if rateBucket.Remaining == 0 {
-					logger.Warn("hit a rate limit. relaxing until it goes away")
-					time.Sleep(b.Ratelimiter.GetWaitTime(rateBucket, 0))
-					continue
-				}
-
-				// get the discord members
-				discordMembers, err := b.GetDiscordMembers()
-				if err != nil {
-					logger.WithError(err).Error("bot getting members")
-					continue
-				}
-
-				// actually do the members update
-				if err := updateMembers(discordMembers); err != nil {
-					if strings.Contains(err.Error(), "Forbidden") {
-						lastChecked = time.Now()
-						continue
-					}
-
-					logger.WithError(err).Error("updating members")
-					continue
-				}
-
-				// get the stored members
-				storedMembers := []*members.Member{}
-				cur, err := membersStore.List(bson.M{}, &options.FindOptions{
-					Sort: bson.M{"rank": 1},
-				})
-				if err != nil {
-					logger.WithError(err).Error("getting stored members")
-					continue
-				}
-
-				if err := cur.All(context.Background(), &storedMembers); err != nil {
-					logger.WithError(err).Error("reading in stored members")
-					continue
-				}
-
-				// do some cleaning
-				for _, storedMember := range storedMembers {
-					if !stillInDiscord(storedMember, discordMembers) || storedMember.IsBot {
-						if err := storedMember.Delete(); err != nil {
-							logger.WithField("member", storedMember).WithError(err).Error("deleting member")
-							continue
-						}
-					}
-				}
-
-				lastChecked = time.Now()
-			}
-
+		if !health.IsHealthy() {
+			logger.Debug("not healthy")
+			time.Sleep(10 * time.Second)
 			continue
 		}
-	DONE:
-		if d {
-			done <- true
-			return
+
+		if time.Now().UTC().After(lastChecked.Add(30 * time.Minute)) {
+			logger.Info("scanning members")
+			// TODO: Check if system is healthy
+
+			// rate limit protection
+			rateBucket := bot.Ratelimiter.GetBucket("guild_member_check")
+			if rateBucket.Remaining == 0 {
+				logger.Warn("hit a rate limit. relaxing until it goes away")
+				time.Sleep(bot.Ratelimiter.GetWaitTime(rateBucket, 0))
+				continue
+			}
+
+			// get the discord members
+			discordMembers, err := bot.GetDiscordMembers()
+			if err != nil {
+				logger.WithError(err).Error("bot getting members")
+				continue
+			}
+
+			// actually do the members update
+			if err := updateMembers(discordMembers); err != nil {
+				if strings.Contains(err.Error(), "Forbidden") {
+					lastChecked = time.Now()
+					continue
+				}
+
+				logger.WithError(err).Error("updating members")
+				continue
+			}
+
+			// get the stored members
+			storedMembers := []*members.Member{}
+			cur, err := membersStore.List(bson.M{}, &options.FindOptions{
+				Sort: bson.M{"rank": 1},
+			})
+			if err != nil {
+				logger.WithError(err).Error("getting stored members")
+				continue
+			}
+
+			if err := cur.All(context.Background(), &storedMembers); err != nil {
+				logger.WithError(err).Error("reading in stored members")
+				continue
+			}
+
+			// do some cleaning
+			for _, storedMember := range storedMembers {
+				if !stillInDiscord(storedMember, discordMembers) || storedMember.IsBot {
+					if err := storedMember.Delete(); err != nil {
+						logger.WithField("member", storedMember).WithError(err).Error("deleting member")
+						continue
+					}
+				}
+			}
+
+			lastChecked = time.Now()
 		}
+
+		continue
 	}
 }
 
