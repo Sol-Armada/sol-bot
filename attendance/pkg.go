@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
-	"github.com/sol-armada/admin/members"
-	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type AttendanceIssue struct {
@@ -22,11 +22,12 @@ type AttendanceIssue struct {
 }
 
 type Attendance struct {
-	Id       string             `json:"id" bson:"_id"`
-	Name     string             `json:"name"`
-	Members  []*members.Member  `json:"members"`
-	Issues   []*AttendanceIssue `json:"issues"`
-	Recorded bool               `json:"recorded"`
+	Id          string             `json:"id" bson:"_id"`
+	Name        string             `json:"name"`
+	SubmittedBy string             `json:"submitted_by" bson:"submitted_by"`
+	Members     []*members.Member  `json:"members"`
+	Issues      []*AttendanceIssue `json:"issues"`
+	Recorded    bool               `json:"recorded"`
 
 	ChannelId string `json:"channel_id" bson:"channel_id"`
 	MessageId string `json:"message_id" bson:"message_id"`
@@ -34,6 +35,10 @@ type Attendance struct {
 	DateCreated time.Time `json:"date_created" bson:"date_created"`
 	DateUpdated time.Time `json:"date_updated" bson:"date_updated"`
 }
+
+var (
+	ErrAttendanceNotFound = errors.New("attendance not found")
+)
 
 var attendanceStore *stores.AttendanceStore
 
@@ -47,24 +52,25 @@ func Setup() error {
 	return nil
 }
 
-func New(name string) (*Attendance, error) {
+func New(name, submittedBy string) *Attendance {
 	attendance := &Attendance{
 		Id:          xid.New().String(),
 		Name:        name,
 		DateCreated: time.Now().UTC(),
 		DateUpdated: time.Now().UTC(),
+		SubmittedBy: submittedBy,
 	}
 
-	if err := attendanceStore.Upsert(attendance.Id, attendance); err != nil {
-		return nil, err
-	}
-
-	return attendance, nil
+	return attendance
 }
 
 func Get(id string) (*Attendance, error) {
 	cur, err := attendanceStore.Get(id)
 	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return nil, ErrAttendanceNotFound
+		}
+
 		return nil, err
 	}
 
@@ -74,6 +80,10 @@ func Get(id string) (*Attendance, error) {
 		if err := cur.Decode(attendance); err != nil {
 			return nil, err
 		}
+	}
+
+	if attendance.Id == "" {
+		return nil, ErrAttendanceNotFound
 	}
 
 	return attendance, nil
@@ -152,7 +162,8 @@ func ListActive(limit int64) ([]*Attendance, error) {
 }
 
 func GetMemberAttendanceCount(id string) int {
-	res, err := attendanceStore.List(bson.M{"members": bson.M{"$elemMatch": bson.M{"_id": id}}}, 0)
+	// filter where recorded is true and members has id
+	res, err := attendanceStore.List(bson.M{"$and": bson.A{bson.M{"members": bson.M{"$elemMatch": bson.M{"_id": id}}}, bson.M{"recorded": bson.M{"$eq": true}}}}, 0)
 	if err != nil {
 		return 0
 	}
@@ -164,7 +175,7 @@ func (a *Attendance) AddMember(member *members.Member) {
 	defer a.removeDuplicates()
 
 	memberIssues := Issues(member)
-	if len(memberIssues) == 0 {
+	if len(memberIssues) > 0 {
 		a.Issues = append(a.Issues, &AttendanceIssue{
 			Member: member,
 			Reason: strings.Join(memberIssues, ", "),
@@ -213,6 +224,10 @@ func (a *Attendance) RecheckIssues() error {
 
 func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 	fields := []*discordgo.MessageEmbedField{
+		{
+			Name:  "Submitted By",
+			Value: "<@" + a.SubmittedBy + ">",
+		},
 		{
 			Name:   "Attendees",
 			Value:  "",
@@ -336,110 +351,43 @@ func (a *Attendance) Save() error {
 	j, _ := json.Marshal(a)
 	_ = json.Unmarshal(j, &attendanceMap)
 
-	memberIds := []string{}
-	for _, member := range a.Members {
-		memberIds = append(memberIds, member.Id)
+	// convert members to just ids for mongo optimization
+	memberIds := make([]string, len(a.Members))
+	for i, member := range a.Members {
+		memberIds[i] = member.Id
 	}
 	attendanceMap["members"] = memberIds
 
-	issues := attendanceMap["issues"].([]interface{})
-	for i, issue := range issues {
-		issue := issue.(map[string]interface{})
+	issues, _ := attendanceMap["issues"].([]interface{})
+	for i := range issues {
+		issue, _ := issues[i].(map[string]interface{})
 		issue["member"] = issue["member"].(map[string]interface{})["id"].(string)
 		issues[i] = issue
 	}
-	attendanceMap["issues"] = issues
 
 	return attendanceStore.Upsert(a.Id, attendanceMap)
 }
 
 func (a *Attendance) removeDuplicates() {
-	list := []*members.Member{}
+	memberSet := map[string]*members.Member{}
 	for _, member := range a.Members {
-		if slices.Contains(list, member) {
-			continue
-		}
-		list = append(list, member)
+		memberSet[member.Id] = member
 	}
-	a.Members = list
+	a.Members = []*members.Member{}
+	for _, member := range memberSet {
+		a.Members = append(a.Members, member)
+	}
 
-	issuesList := []*AttendanceIssue{}
-	for _, memberId := range a.Issues {
-		found := false
-		for _, v := range issuesList {
-			if memberId.Member == v.Member {
-				found = true
-				break
-			}
-		}
-		if found {
-			continue
-		}
-		issuesList = append(issuesList, memberId)
+	issueSet := map[string]*AttendanceIssue{}
+	for _, issue := range a.Issues {
+		issueSet[issue.Member.Id] = issue
 	}
-	a.Issues = issuesList
+	a.Issues = []*AttendanceIssue{}
+	for _, issue := range issueSet {
+		a.Issues = append(a.Issues, issue)
+	}
 }
 
-// func (a *Attendance) GenerateList() string {
-// 	// remove duplicates
-// 	list := make(map[string]*members.Member)
-// 	for _, u := range a.Members {
-// 		list[u.Id] = u
-// 	}
-
-// 	a.Members = []*members.Member{}
-// 	for _, u := range list {
-// 		a.Members = append(a.Members, u)
-// 	}
-
-// 	slices.SortFunc(a.Members, func(a, b *members.Member) int {
-// 		if a.Rank > b.Rank {
-// 			return 1
-// 		}
-// 		if a.Rank < b.Rank {
-// 			return -1
-// 		}
-// 		if a.Name < b.Name {
-// 			return 1
-// 		}
-// 		if a.Name > b.Name {
-// 			return -1
-// 		}
-
-// 		return 0
-// 	})
-
-// 	m := ""
-// 	for i, u := range a.Members {
-// 		m += fmt.Sprintf("<@%s>", u.Id)
-// 		if i < len(a.Members)-1 {
-// 			m += "\n"
-// 		}
-// 	}
-
-// 	if m == "" {
-// 		m = "No members"
-// 	}
-
-// 	return "Attendance List:\n" + m
-// }
-
-// func (a *Attendance) GetIssuesEmbed() *discordgo.MessageEmbed {
-// 	embed := &discordgo.MessageEmbed{
-// 		Title:       "Users with Issues",
-// 		Description: "List of members with attendance credit issues",
-// 		Fields:      []*discordgo.MessageEmbedField{},
-// 	}
-
-// 	fieldValue := ""
-// 	for _, issue := range a.Issues {
-// 		fieldValue += fmt.Sprintf("<@%s>: %s\n", issue.Member.Id, issue.Reason)
-// 	}
-// 	field := &discordgo.MessageEmbedField{
-// 		Name:  "Member - Issues",
-// 		Value: fieldValue,
-// 	}
-// 	embed.Fields = append(embed.Fields, field)
-
-// 	return embed
-// }
+func (a *Attendance) Delete() error {
+	return attendanceStore.Delete(a.Id)
+}

@@ -9,9 +9,9 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	attdnc "github.com/sol-armada/admin/attendance"
-	"github.com/sol-armada/admin/members"
-	"github.com/sol-armada/admin/utils"
+	attdnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/utils"
 )
 
 func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {

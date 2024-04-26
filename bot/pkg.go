@@ -9,9 +9,9 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/members"
-	"github.com/sol-armada/admin/settings"
-	"github.com/sol-armada/admin/utils"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/utils"
 )
 
 type Bot struct {
@@ -34,6 +34,7 @@ var commandHandlers = map[string]Handler{
 	"profile":          profileCommandHandler,
 	"merit":            giveMeritCommandHandler,
 	"demerit":          giveDemeritCommandHandler,
+	"validate":         validateCommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
@@ -41,9 +42,16 @@ var autocompleteHandlers = map[string]Handler{
 	"removeattendance": removeAttendanceAutocompleteHandler,
 }
 
+var onboardingButtonHanlders = map[string]Handler{
+	"validate": validateButtonHandler,
+}
+
 var attendanceButtonHandlers = map[string]Handler{
-	"record":  recordAttendanceButtonHandler,
-	"recheck": recheckIssuesButtonHandler,
+	"record":       recordAttendanceButtonHandler,
+	"recheck":      recheckIssuesButtonHandler,
+	"delete":       deleteAttendanceButtonHandler,
+	"verifydelete": verifyDeleteButtonModalHandler,
+	"canceldelete": cancelDeleteButtonModalHandler,
 }
 
 func New() (*Bot, error) {
@@ -57,7 +65,8 @@ func New() (*Bot, error) {
 		return nil, err
 	}
 
-	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions
+	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions + discordgo.PermissionAdministrator
+	// b.Identify.Intents = discordgo.PermissionAdministrator
 	b.Client.Timeout = 5 * time.Second
 
 	bot = &Bot{
@@ -154,6 +163,10 @@ func (b *Bot) Setup() error {
 				if h, ok := attendanceButtonHandlers[id[1]]; ok {
 					err = h(ctx, s, i)
 				}
+			case "onboarding":
+				if h, ok := onboardingButtonHanlders[id[1]]; ok {
+					err = h(ctx, s, i)
+				}
 			}
 		}
 
@@ -181,27 +194,39 @@ func (b *Bot) Setup() error {
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				}); err != nil {
-					_, _ = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+					logger.WithError(err).Warn("creating interaction response")
+					if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 						Content: msg,
 						Flags:   discordgo.MessageFlagsEphemeral,
-					})
+					}); err != nil {
+						logger.WithError(err).Error("creating followup message")
+					}
 				}
 			case discordgo.InteractionMessageComponent:
-				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseUpdateMessage,
+				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
 						Content: msg,
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
-				})
+				}); err != nil {
+					logger.WithError(err).Warn("creating component interaction response")
+					if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+						Content: msg,
+						Flags:   discordgo.MessageFlagsEphemeral,
+					}); err != nil {
+						logger.WithError(err).Error("creating component followup message")
+					}
+				}
 			default:
-				log.WithField("interaction_type", i.Interaction.Type).Error("unknown interaction type")
+				logger.WithField("interaction_type", i.Interaction.Type).Error("unknown interaction type")
 			}
 		}
 	})
 
-	// watch for on join
+	// watch for on join and leave
 	b.AddHandler(onJoinHandler)
+	b.AddHandler(onLeaveHandler)
 
 	// clear commands
 	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
@@ -227,9 +252,23 @@ func (b *Bot) Setup() error {
 		return errors.Wrap(err, "creating profile command")
 	}
 
+	// validate
+	log.Debug("creating validate command")
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		Name:        "validate",
+		Description: "Validate your RSI profile",
+	}); err != nil {
+		return errors.Wrap(err, "creating validate command")
+	}
+
 	// attendance
 	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
 		log.Debug("using attendance feature")
+
+		if settings.GetBool("FEATURES.ATTENDANCE.MONITOR") { // only enable if attendance is enabled
+			go monitorAttendance()
+		}
+
 		options := []*discordgo.ApplicationCommandOption{
 			{
 				Name:         "event",

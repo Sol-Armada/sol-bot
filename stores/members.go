@@ -63,8 +63,8 @@ func (s *MembersStore) List(filter interface{}, opts ...*options.FindOptions) (*
 }
 
 func (s *MembersStore) Upsert(id string, member any) error {
-	opts := options.FindOneAndReplace().SetUpsert(true)
-	if err := s.FindOneAndReplace(s.ctx, bson.D{{Key: "_id", Value: id}}, member, opts).Err(); err != nil {
+	opts := options.Replace().SetUpsert(true)
+	if _, err := s.ReplaceOne(s.ctx, bson.D{{Key: "_id", Value: id}}, member, opts); err != nil {
 		return err
 	}
 	return nil

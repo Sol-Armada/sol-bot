@@ -1,9 +1,9 @@
 package attendance
 
 import (
-	"github.com/sol-armada/admin/members"
-	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/settings"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/settings"
 )
 
 func Issues(member *members.Member) []string {
@@ -17,8 +17,8 @@ func Issues(member *members.Member) []string {
 		issues = append(issues, "guest")
 	}
 
-	if !member.RSIMember && member.Rank != ranks.None {
-		issues = append(issues, "non-rsi member but has a rank")
+	if !member.RSIMember {
+		issues = append(issues, "not on rsi")
 	}
 
 	if !member.RSIMember && member.IsAlly {

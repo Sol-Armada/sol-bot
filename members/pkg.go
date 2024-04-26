@@ -6,14 +6,15 @@ import (
 	"io/ioutil"
 	"net/http"
 	"regexp"
+	"strings"
 	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/auth"
-	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/sol-bot/auth"
+	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/stores"
 )
 
 type GameplayTypes string
@@ -49,6 +50,7 @@ type Member struct {
 	Validated      bool       `json:"validated" bson:"validated"`
 	ValidationCode string     `json:"validation_code" bson:"validation_code"`
 	Joined         time.Time  `json:"joined" bson:"joined"`
+	Suffix         string     `json:"suffix" bson:"suffix"`
 
 	IsBot       bool `json:"is_bot" bson:"is_bot"`
 	IsAlly      bool `json:"is_ally" bson:"is_ally"`
@@ -59,10 +61,15 @@ type Member struct {
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
 
 	// onboarding info
-	Playtime  int             `json:"playtime" bson:"playtime"`
-	Gameplay  []GameplayTypes `json:"gamplay" bson:"gameplay"`
-	Age       int             `json:"age" bson:"age"`
-	Recruiter *Member         `json:"recruiter" bson:"recruiter"`
+	OnboardedAt *time.Time      `json:"onboarded_at" bson:"onboarded_at"`
+	Age         int             `json:"age" bson:"age"`
+	Pronouns    string          `json:"pronouns" bson:"pronouns"`
+	Playtime    int             `json:"playtime" bson:"playtime"`
+	Gameplay    []GameplayTypes `json:"gamplay" bson:"gameplay"`
+	Recruiter   *Member         `json:"recruiter" bson:"recruiter"`
+	ChannelId   string          `json:"channel_id" bson:"channel_id"`
+	MessageId   string          `json:"message_id" bson:"message_id"`
+	LeftAt      *time.Time      `json:"left_at" bson:"left_at"`
 }
 
 type AttendedEvent struct {
@@ -105,7 +112,7 @@ func New(discordMember *discordgo.Member) *Member {
 	m := &Member{
 		Id:      discordMember.User.ID,
 		Avatar:  discordMember.Avatar,
-		Joined:  discordMember.JoinedAt,
+		Joined:  discordMember.JoinedAt.UTC(),
 		IsGuest: true,
 	}
 
@@ -153,10 +160,14 @@ func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
 	if discordMember.Nick != "" {
 		regRank := regexp.MustCompile(`\[(.*?)\] `)
 		regAlly := regexp.MustCompile(`\{(.*?)\} `)
-		regPronouns := regexp.MustCompile(` \((.*?)\)`)
+		suffix := regexp.MustCompile(` \((.*?)\)`)
+		s := strings.TrimSpace(suffix.FindString(discordMember.Nick))
+		s = strings.ReplaceAll(s, "(", "")
+		s = strings.ReplaceAll(s, ")", "")
+		m.Suffix = s
 		trueNick = regRank.ReplaceAllString(discordMember.Nick, "")
 		trueNick = regAlly.ReplaceAllString(trueNick, "")
-		trueNick = regPronouns.ReplaceAllString(trueNick, "")
+		trueNick = suffix.ReplaceAllString(trueNick, "")
 	}
 
 	return trueNick
@@ -273,4 +284,80 @@ func (m *Member) GiveDemerit(reason string, who *Member) error {
 	})
 
 	return m.Save()
+}
+
+func (m *Member) GetOnboardingMessage() *discordgo.Message {
+	onboarded := "No"
+	if m.OnboardedAt != nil {
+		onboarded = m.OnboardedAt.Format("2006-01-02 15:04:05 -0700 MST")
+	}
+
+	fields := []*discordgo.MessageEmbedField{
+		{
+			Name:  "Onboarded",
+			Value: onboarded,
+		},
+	}
+
+	if m.OnboardedAt != nil {
+		fields = append(fields, []*discordgo.MessageEmbedField{
+			{
+				Name:  "Age",
+				Value: "Not Set",
+			},
+			{
+				Name:  "RSI Profile",
+				Value: "None",
+			},
+			{
+				Name:  "Primary set Org",
+				Value: "None",
+			},
+			{
+				Name:  "Affiliated Orgs",
+				Value: "None",
+			},
+			{
+				Name:  "How they found us",
+				Value: "A way",
+			},
+			{
+				Name:  "Who Recruited",
+				Value: "No one",
+			},
+			{
+				Name:  "Time Playing Star Citizen",
+				Value: "Many Years",
+			},
+			{
+				Name:  "Interested Gamplay",
+				Value: "Salvage, Bounty Hunting, Mining",
+			},
+		}...)
+	}
+
+	description := ""
+	if m.LeftAt != nil {
+		description = "Left " + m.LeftAt.Format("2006-01-02 15:04:05 -0700 MST")
+	}
+
+	message := &discordgo.Message{
+		Content: "<@" + m.Id + ">",
+		Embeds: []*discordgo.MessageEmbed{
+			{
+				Title:       "Info",
+				Description: description,
+				Fields:      fields,
+				Footer: &discordgo.MessageEmbedFooter{
+					Text: "Joined " + m.Joined.Format("2006-01-02 15:04:05 -0700 MST"),
+				},
+			},
+		},
+	}
+
+	return message
+}
+
+func (m *Member) IsRanked() bool {
+	return m.Rank <= ranks.Member
 }

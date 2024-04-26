@@ -7,9 +7,9 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/members"
-	"github.com/sol-armada/admin/settings"
-	"github.com/sol-armada/admin/utils"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/utils"
 )
 
 func giveDemeritCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {

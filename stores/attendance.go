@@ -89,6 +89,7 @@ func (s *AttendanceStore) List(filter interface{}, limit int64) (*mongo.Cursor, 
 				},
 			},
 		},
+		bson.D{{Key: "$match", Value: filter}},
 	}
 
 	if limit > 0 {
@@ -105,5 +106,10 @@ func (s *AttendanceStore) List(filter interface{}, limit int64) (*mongo.Cursor, 
 
 func (s *AttendanceStore) Upsert(id string, attendance any) error {
 	_, err := s.UpdateOne(s.ctx, bson.M{"_id": id}, bson.M{"$set": attendance}, options.Update().SetUpsert(true))
+	return err
+}
+
+func (s *AttendanceStore) Delete(id string) error {
+	_, err := s.DeleteOne(s.ctx, bson.M{"_id": id})
 	return err
 }

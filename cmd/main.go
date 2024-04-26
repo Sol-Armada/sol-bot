@@ -11,12 +11,12 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
 	jsn "github.com/apex/log/handlers/json"
-	"github.com/sol-armada/admin/attendance"
-	"github.com/sol-armada/admin/bot"
-	"github.com/sol-armada/admin/health"
-	"github.com/sol-armada/admin/members"
-	"github.com/sol-armada/admin/settings"
-	"github.com/sol-armada/admin/stores"
+	"github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/bot"
+	"github.com/sol-armada/sol-bot/health"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/stores"
 )
 
 type customFormatter struct {
@@ -29,6 +29,26 @@ func (f *customFormatter) HandleLog(e *log.Entry) error {
 }
 
 func init() {
+	// setup settings
+	settings.SetConfigName("settings")
+	settings.AddConfigPath(".")
+	settings.AddConfigPath("../")
+	if err := settings.ReadInConfig(); err != nil {
+		log.Fatal("could not parse configuration")
+		os.Exit(1)
+	}
+
+	// setup the logger
+	log.SetHandler(jsn.New(os.Stdout))
+	if settings.GetBool("LOG.DEBUG") {
+		log.SetLevel(log.DebugLevel)
+		if settings.GetBool("LOG.CLI") {
+			handler := &customFormatter{hander: cli.New(os.Stdout)}
+			log.SetHandler(handler)
+		}
+		log.Debug("debug mode on")
+	}
+
 	// setup storage
 	host := settings.GetStringWithDefault("mongo.host", "localhost")
 	port := settings.GetIntWithDefault("mongo.port", 27017)
@@ -61,24 +81,6 @@ func main() {
 		log.Info("gracefully shutdown")
 	}()
 
-	settings.SetConfigName("settings")
-	settings.AddConfigPath(".")
-	settings.AddConfigPath("../")
-	if err := settings.ReadInConfig(); err != nil {
-		log.Fatal("could not parse configuration")
-		os.Exit(1)
-	}
-
-	log.SetHandler(jsn.New(os.Stdout))
-	if settings.GetBool("LOG.DEBUG") {
-		log.SetLevel(log.DebugLevel)
-		if settings.GetBool("LOG.CLI") {
-			handler := &customFormatter{hander: cli.New(os.Stdout)}
-			log.SetHandler(handler)
-		}
-		log.Debug("debug mode on")
-	}
-
 	// start up the bot
 	b, err := bot.New()
 	if err != nil {
@@ -95,7 +97,7 @@ func main() {
 	doneMonitoring := make(chan bool, 1)
 	stopMonitoring := make(chan bool, 1)
 	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
-		go b.UserMonitor(stopMonitoring, doneMonitoring)
+		go b.MonitorMembers(stopMonitoring, doneMonitoring)
 	} else {
 		doneMonitoring <- true
 	}

@@ -8,20 +8,20 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/admin/health"
-	"github.com/sol-armada/admin/members"
-	"github.com/sol-armada/admin/ranks"
-	"github.com/sol-armada/admin/rsi"
-	"github.com/sol-armada/admin/settings"
-	"github.com/sol-armada/admin/stores"
-	"github.com/sol-armada/admin/utils"
+	"github.com/sol-armada/sol-bot/health"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/rsi"
+	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/exp/slices"
 )
 
-func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
+func (b *Bot) MonitorMembers(stop <-chan bool, done chan bool) {
 	logger := log.WithField("func", "UserMonitor")
 	logger.Info("monitoring discord for members")
 	ticker := time.NewTicker(time.Second)
@@ -61,14 +61,14 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				}
 
 				// get the discord members
-				m, err := b.GetDiscordMembers()
+				discordMembers, err := b.GetDiscordMembers()
 				if err != nil {
 					logger.WithError(err).Error("bot getting members")
 					continue
 				}
 
 				// actually do the members update
-				if err := updateMembers(m); err != nil {
+				if err := updateMembers(discordMembers); err != nil {
 					if strings.Contains(err.Error(), "Forbidden") {
 						lastChecked = time.Now()
 						continue
@@ -94,10 +94,10 @@ func (b *Bot) UserMonitor(stop <-chan bool, done chan bool) {
 				}
 
 				// do some cleaning
-				for _, member := range storedMembers {
-					if !stillInDiscord(member, m) || member.IsBot {
-						if err := member.Delete(); err != nil {
-							logger.WithField("member", member).WithError(err).Error("deleting member")
+				for _, storedMember := range storedMembers {
+					if !stillInDiscord(storedMember, discordMembers) || storedMember.IsBot {
+						if err := storedMember.Delete(); err != nil {
+							logger.WithField("member", storedMember).WithError(err).Error("deleting member")
 							continue
 						}
 					}
@@ -147,7 +147,7 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 	logger.Debugf("updating %d members", len(discordMembers))
 	for _, discordMember := range discordMembers {
 		time.Sleep(1 * time.Second)
-		mlogger := logger.WithField("member", discordMember)
+		mlogger := logger.WithField("discord_member", discordMember)
 		mlogger.Debug("updating member")
 
 		if discordMember.User.Bot {
@@ -165,11 +165,8 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 
 			member = members.New(discordMember)
 		}
-		if member == nil {
-			member = members.New(discordMember)
-		}
+
 		member.Name = strings.ReplaceAll(member.GetTrueNick(discordMember), ".", "")
-		member.RSIMember = true
 
 		// rsi related stuff
 		member, err = rsi.UpdateRsiInfo(member)
@@ -178,31 +175,13 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 				return err
 			}
 
-			if !errors.Is(err, rsi.UserNotFound) {
+			if !errors.Is(err, rsi.RsiUserNotFound) {
 				return errors.Wrap(err, "getting rsi based rank")
 			}
 
 			mlogger.WithField("member", member).Debug("rsi user not found")
 			member.RSIMember = false
 		}
-
-		// if member.RSIMember {
-		// 	member.BadAffiliation = false
-		// 	member.IsAlly = false
-
-		// 	for _, affiliatedOrg := range member.Affilations {
-		// 		if slices.Contains(settings.GetStringSlice("enemies"), affiliatedOrg) {
-		// 			member.BadAffiliation = true
-		// 			break
-		// 		}
-		// 	}
-		// 	for _, ally := range settings.GetStringSlice("allies") {
-		// 		if strings.EqualFold(member.PrimaryOrg, ally) {
-		// 			member.IsAlly = true
-		// 			break
-		// 		}
-		// 	}
-		// }
 
 		// discord related stuff
 		member.Avatar = discordMember.Avatar
@@ -214,21 +193,51 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 			member.IsBot = true
 		}
 
-		// setup member's roles
-		rankRoles := settings.GetStringMapString("DISCORD.ROLES.RANKS")
-
-		if !utils.StringSliceContains(discordMember.Roles, rankRoles[strings.ToLower(member.Rank.String())]) {
-			for _, id := range rankRoles {
-				_ = bot.GuildMemberRoleRemove(bot.GuildId, member.Id, id)
-			}
-
-			if !member.IsGuest {
-				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles[strings.ToLower(member.Rank.String())])
-			}
-		}
-
 		if err := member.Save(); err != nil {
 			return err
+		}
+
+		// handle rank updates on members
+		rankRoles := settings.GetStringMapString("DISCORD.ROLES.RANKS")
+		membersRoleId := rankRoles[strings.ToLower(member.Rank.String())]
+		if (!utils.StringSliceContains(discordMember.Roles, membersRoleId) && !member.IsGuest) || member.Rank == ranks.Member {
+			if !member.IsGuest && !member.IsAlly && !member.IsAffiliate {
+				if member.Rank != ranks.Member {
+					logger.Debug("is not just a member, adding role: " + membersRoleId)
+					_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, membersRoleId)
+				}
+				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["member"])
+			}
+
+			if member.IsAlly {
+				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["ally"])
+			}
+
+			if member.IsAffiliate {
+				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["affiliate"])
+			}
+
+			for rankName, rankId := range rankRoles {
+				// reasons not to remove a rank
+				// member  - all not guests and not recruits have member
+				// ally    - applied somewhere else
+				if rankName != strings.ToLower(member.Rank.String()) && rankName != "member" && rankName != "ally" {
+					_ = bot.GuildMemberRoleRemove(bot.GuildId, member.Id, rankId)
+				}
+			}
+
+			nick := member.GetTrueNick(discordMember)
+			if !member.IsGuest && !member.IsAlly && !member.IsAffiliate && member.IsRanked() {
+				nick = "[" + member.Rank.ShortString() + "] " + nick
+				if member.Suffix != "" {
+					nick += " (" + member.Suffix + ")"
+				}
+			}
+
+			logger.WithField("nick", nick).Debug("setting nick")
+			if err = bot.GuildMemberNickname(bot.GuildId, member.Id, nick); err != nil {
+				logger.WithError(err).Error("setting nick")
+			}
 		}
 	}
 
