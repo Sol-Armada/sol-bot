@@ -89,6 +89,16 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 				},
 			},
 		},
+		bson.D{
+			{Key: "$lookup",
+				Value: bson.D{
+					{Key: "from", Value: "members"},
+					{Key: "localField", Value: "submitted_by"},
+					{Key: "foreignField", Value: "_id"},
+					{Key: "as", Value: "submitted_by"},
+				},
+			},
+		},
 		bson.D{{Key: "$match", Value: filter}},
 	}
 
