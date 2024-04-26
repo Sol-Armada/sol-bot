@@ -99,6 +99,14 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 				},
 			},
 		},
+		bson.D{
+			{"$unwind",
+				bson.D{
+					{"path", "$submitted_by"},
+					{"includeArrayIndex", "object"},
+				},
+			},
+		},
 		bson.D{{Key: "$match", Value: filter}},
 	}
 
