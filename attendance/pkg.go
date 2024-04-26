@@ -161,8 +161,8 @@ func ListActive(limit int) ([]*Attendance, error) {
 	return attendances, nil
 }
 
-func List(limit int, page int) ([]*Attendance, error) {
-	cur, err := attendanceStore.List(bson.M{"recorded": bson.M{"$eq": false}}, limit, page)
+func List(filter interface{}, limit int, page int) ([]*Attendance, error) {
+	cur, err := attendanceStore.List(filter, limit, page)
 	if err != nil {
 		return nil, err
 	}
