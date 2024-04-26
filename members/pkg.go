@@ -153,7 +153,7 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 	return members, nil
 }
 
-func (m *Member) List() ([]Member, error) {
+func List() ([]Member, error) {
 	cur, err := membersStore.List(bson.M{})
 	if err != nil {
 		return nil, err
