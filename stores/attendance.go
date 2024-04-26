@@ -116,7 +116,7 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 		}
 
 		page = (page - 1) * limit
-		pipeline = append(pipeline, bson.D{{Key: "$limit", Value: limit}}, bson.D{{Key: "$skip", Value: page}})
+		pipeline = append(pipeline, bson.D{{Key: "$skip", Value: page}}, bson.D{{Key: "$limit", Value: limit}})
 	}
 
 	cur, err := s.Aggregate(s.ctx, pipeline)
