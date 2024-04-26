@@ -155,14 +155,14 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 }
 
 func List(page int) ([]Member, error) {
-	opts := options.Find().SetSort(bson.A{
-		bson.A{
-			"rank",
-			1,
+	opts := options.Find().SetSort(bson.D{
+		{
+			Key:   "rank",
+			Value: 1,
 		},
-		bson.A{
-			"name",
-			1,
+		{
+			Key:   "name",
+			Value: 1,
 		},
 	}).SetLimit(100).SetSkip(int64(100 * (page - 1)))
 
