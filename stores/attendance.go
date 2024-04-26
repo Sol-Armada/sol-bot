@@ -67,7 +67,7 @@ func (s *AttendanceStore) Get(id string) (*mongo.Cursor, error) {
 // Returns:
 // - *mongo.Cursor: A cursor to iterate over the retrieved attendance records.
 // - error: An error if the query operation fails.
-func (s *AttendanceStore) List(filter interface{}, limit int64) (*mongo.Cursor, error) {
+func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.Cursor, error) {
 	pipeline := bson.A{
 		bson.D{
 			{Key: "$lookup",
@@ -93,7 +93,12 @@ func (s *AttendanceStore) List(filter interface{}, limit int64) (*mongo.Cursor, 
 	}
 
 	if limit > 0 {
-		pipeline = append(pipeline, bson.D{{Key: "$limit", Value: limit}})
+		if page == 0 {
+			page = 1
+		}
+
+		page = (page - 1) * limit
+		pipeline = append(pipeline, bson.D{{Key: "$limit", Value: limit}}, bson.D{{Key: "$skip", Value: page}})
 	}
 
 	cur, err := s.Aggregate(s.ctx, pipeline)

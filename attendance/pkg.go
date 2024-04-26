@@ -142,8 +142,27 @@ func NewFromThreadMessages(threadMessages []*discordgo.Message) (*Attendance, er
 	return attendance, nil
 }
 
-func ListActive(limit int64) ([]*Attendance, error) {
-	cur, err := attendanceStore.List(bson.M{"recorded": bson.M{"$eq": false}}, limit)
+func ListActive(limit int) ([]*Attendance, error) {
+	cur, err := attendanceStore.List(bson.M{"recorded": bson.M{"$eq": false}}, limit, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	var attendances []*Attendance
+
+	for cur.Next(context.TODO()) {
+		attendance := &Attendance{}
+		if err := cur.Decode(attendance); err != nil {
+			return nil, err
+		}
+		attendances = append(attendances, attendance)
+	}
+
+	return attendances, nil
+}
+
+func List(limit int, page int) ([]*Attendance, error) {
+	cur, err := attendanceStore.List(bson.M{"recorded": bson.M{"$eq": false}}, limit, page)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +182,7 @@ func ListActive(limit int64) ([]*Attendance, error) {
 
 func GetMemberAttendanceCount(id string) int {
 	// filter where recorded is true and members has id
-	res, err := attendanceStore.List(bson.M{"$and": bson.A{bson.M{"members": bson.M{"$elemMatch": bson.M{"_id": id}}}, bson.M{"recorded": bson.M{"$eq": true}}}}, 0)
+	res, err := attendanceStore.List(bson.M{"$and": bson.A{bson.M{"members": bson.M{"$elemMatch": bson.M{"_id": id}}}, bson.M{"recorded": bson.M{"$eq": true}}}}, 0, 0)
 	if err != nil {
 		return 0
 	}
