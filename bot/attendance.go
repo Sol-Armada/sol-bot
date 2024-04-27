@@ -414,12 +414,13 @@ func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
 	attendance, err := attdnc.Get(id)
-	if err != nil {
+	if err != nil && !errors.Is(err, attdnc.ErrAttendanceNotFound) {
 		return errors.Wrap(err, "getting attendance record")
 	}
-
-	if err := attendance.Delete(); err != nil {
-		return errors.Wrap(err, "deleting attendance record")
+	if attendance != nil {
+		if err := attendance.Delete(); err != nil {
+			return errors.Wrap(err, "deleting attendance record")
+		}
 	}
 
 	_ = s.ChannelMessageDelete(attendance.ChannelId, attendance.MessageId)
