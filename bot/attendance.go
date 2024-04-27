@@ -369,6 +369,23 @@ func deleteAttendanceButtonHandler(ctx context.Context, s *discordgo.Session, i 
 
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
+	attendance, err := attdnc.Get(id)
+	if err != nil && !errors.Is(err, attdnc.ErrAttendanceNotFound) {
+		return errors.Wrap(err, "getting attendance record")
+	}
+	if attendance == nil {
+		_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
+
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "Looks like that attendance doesn't exist in the database anyway, removed the message.",
+			},
+		})
+		return nil
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{

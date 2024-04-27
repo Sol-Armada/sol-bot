@@ -48,6 +48,24 @@ func (s *AttendanceStore) Get(id string) (*mongo.Cursor, error) {
 				},
 			},
 		},
+		bson.D{
+			{Key: "$lookup",
+				Value: bson.D{
+					{Key: "from", Value: "members"},
+					{Key: "localField", Value: "submitted_by"},
+					{Key: "foreignField", Value: "_id"},
+					{Key: "as", Value: "submitted_by"},
+				},
+			},
+		},
+		bson.D{
+			{Key: "$unwind",
+				Value: bson.D{
+					{Key: "path", Value: "$submitted_by"},
+					{Key: "includeArrayIndex", Value: "object"},
+				},
+			},
+		},
 	}
 
 	cur, err := s.Aggregate(s.ctx, pipeline)
