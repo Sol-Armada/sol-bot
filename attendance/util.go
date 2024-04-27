@@ -37,8 +37,12 @@ func Issues(member *members.Member) []string {
 		issues = append(issues, "redacted org")
 	}
 
-	if member.RSIMember && member.Rank <= ranks.Member && member.PrimaryOrg != settings.GetString("rsi_org_sid") {
+	if member.RSIMember && member.Rank <= ranks.Technician && member.PrimaryOrg != settings.GetString("rsi_org_sid") {
 		issues = append(issues, "bad primary org")
+	}
+
+	if member.RSIMember && member.IsAffiliate {
+		issues = append(issues, "is affiliate")
 	}
 
 	attendedEvents := GetMemberAttendanceCount(member.Id)

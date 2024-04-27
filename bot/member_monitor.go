@@ -163,8 +163,7 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 		member.Name = strings.ReplaceAll(member.GetTrueNick(discordMember), ".", "")
 
 		// rsi related stuff
-		member, err = rsi.UpdateRsiInfo(member)
-		if err != nil {
+		if err = rsi.UpdateRsiInfo(member); err != nil {
 			if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
 				return err
 			}
@@ -215,7 +214,8 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 				// reasons not to remove a rank
 				// member  - all not guests and not recruits have member
 				// ally    - applied somewhere else
-				if rankName != strings.ToLower(member.Rank.String()) && rankName != "member" && rankName != "ally" {
+				// affiliate - applied somewhere else
+				if rankName != strings.ToLower(member.Rank.String()) && rankName != "member" && rankName != "ally" && rankName != "affiliate" {
 					_ = bot.GuildMemberRoleRemove(bot.GuildId, member.Id, rankId)
 				}
 			}

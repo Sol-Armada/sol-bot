@@ -18,7 +18,7 @@ var (
 	c               *colly.Collector = colly.NewCollector(colly.AllowURLRevisit())
 )
 
-func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
+func UpdateRsiInfo(member *members.Member) error {
 	member.RSIMember = false
 	member.IsAlly = false
 	member.IsGuest = true
@@ -53,6 +53,7 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 			member.IsAffiliate = true
 			member.Rank = ranks.Member
 			member.IsGuest = false
+			member.IsAlly = false
 		}
 	})
 
@@ -64,10 +65,10 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 	url := fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s/organizations", strings.ReplaceAll(member.Name, ".", ""))
 	if err := c.Visit(url); err != nil {
 		if strings.Contains(err.Error(), "Not Found") {
-			return member, RsiUserNotFound
+			return RsiUserNotFound
 		}
 
-		return member, err
+		return err
 	}
 
 	member.RSIMember = true
@@ -80,7 +81,7 @@ func UpdateRsiInfo(member *members.Member) (*members.Member, error) {
 		"member": member,
 	}).Debug("rsi info")
 
-	return member, err
+	return err
 }
 
 func isAllyOrg(org string) bool {

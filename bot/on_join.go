@@ -3,9 +3,7 @@ package bot
 import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
-	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
 )
 
@@ -23,12 +21,6 @@ func onJoinHandler(s *discordgo.Session, i *discordgo.GuildMemberAdd) {
 	}
 
 	member := members.New(i.Member)
-
-	var err error
-	member, err = rsi.UpdateRsiInfo(member)
-	if err != nil && !errors.Is(err, rsi.RsiUserNotFound) {
-		logger.WithError(err).Error("updating rsi info")
-	}
 
 	if err := member.Save(); err != nil {
 		logger.WithError(err).Error("saving member")
