@@ -248,6 +248,14 @@ func (b *Bot) Setup() error {
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "profile",
 		Description: "View your profile",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Name:        "member",
+				Description: "View a member's profile (Officer only)",
+				Required:    false,
+			},
+		},
 	}); err != nil {
 		return errors.Wrap(err, "creating profile command")
 	}

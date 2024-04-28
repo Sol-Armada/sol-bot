@@ -185,6 +185,10 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 	cur.Next(s.ctx)
 
 	if err := cur.Decode(&result); err != nil {
+		if err.Error() == "EOF" {
+			return 0, nil
+		}
+
 		return 0, err
 	}
 

@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -32,6 +33,37 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		}
 
 		return nil
+	}
+
+	data := i.ApplicationCommandData()
+
+	if len(data.Options) > 0 {
+		if member.Rank > ranks.Lieutenant {
+			return InvalidPermissions
+		}
+
+		otherMemberId := data.Options[0].UserValue(s).ID
+
+		if otherMemberId != "" {
+			otherMember, err := members.Get(otherMemberId)
+			if err != nil {
+				if !errors.Is(err, members.MemberNotFound) {
+					return errors.Wrap(err, "getting member for profile command")
+				}
+
+				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "That user was not found in the system!",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				}); err != nil {
+					return errors.Wrap(err, "responding to attendance command interaction: no user found")
+				}
+			}
+
+			member = otherMember
+		}
 	}
 
 	attendedEventCount, err := attdnc.GetMemberAttendanceCount(member.Id)
