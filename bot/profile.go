@@ -3,7 +3,6 @@ package bot
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/apex/log"
@@ -58,6 +57,10 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 	}
 
+	validated := "No"
+	if member.Validated {
+		validated = "Yes"
+	}
 	if member.RSIMember {
 		rsiFields := []*discordgo.MessageEmbedField{
 			{
@@ -67,7 +70,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 			},
 			{
 				Name:   "RSI Validated (/validate)",
-				Value:  strconv.FormatBool(member.Validated),
+				Value:  validated,
 				Inline: false,
 			},
 		}
