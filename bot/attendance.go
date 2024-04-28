@@ -24,7 +24,7 @@ func takeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Session
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
 	switch {
-	case !allowed(i.Member):
+	case !allowed(i.Member, "ATTENDANCE"):
 	case data.Options[0].Focused:
 		attendanceRecords, err := attdnc.ListActive(5)
 		if err != nil {
@@ -67,7 +67,7 @@ func removeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Sessi
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
 	switch {
-	case !allowed(i.Member):
+	case !allowed(i.Member, "ATTENDANCE"):
 	case data.Options[0].Focused:
 		attendanceRecords, err := attdnc.ListActive(5)
 		if err != nil {
@@ -107,7 +107,7 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 
 	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
 
-	if !allowed(i.Member) {
+	if !allowed(i.Member, "ATTENDANCE") {
 		return InvalidPermissions
 	}
 
@@ -219,7 +219,7 @@ func removeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("removing attendance command")
 
-	if !allowed(i.Member) {
+	if !allowed(i.Member, "ATTENDANCE") {
 		return InvalidPermissions
 	}
 
@@ -277,7 +277,7 @@ func recheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("rechecking issues button handler")
 
-	if !allowed(i.Member) {
+	if !allowed(i.Member, "ATTENDANCE") {
 		return InvalidPermissions
 	}
 
@@ -322,7 +322,7 @@ func recordAttendanceButtonHandler(ctx context.Context, s *discordgo.Session, i 
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("recording attendance button handler")
 
-	if !allowed(i.Member) {
+	if !allowed(i.Member, "ATTENDANCE") {
 		return InvalidPermissions
 	}
 
@@ -360,7 +360,7 @@ func deleteAttendanceButtonHandler(ctx context.Context, s *discordgo.Session, i 
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("deleting attendance button handler")
 
-	if !allowed(i.Member) {
+	if !allowed(i.Member, "ATTENDANCE") {
 		return InvalidPermissions
 	}
 
@@ -414,7 +414,7 @@ func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("deleting verify modal handler")
 
-	if !allowed(i.Member) {
+	if !allowed(i.Member, "ATTENDANCE") {
 		return InvalidPermissions
 	}
 
@@ -462,6 +462,6 @@ func cancelDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 	return nil
 }
 
-func allowed(discordMember *discordgo.Member) bool {
-	return utils.StringSliceContainsOneOf(discordMember.Roles, settings.GetStringSlice("FEATURES.ATTENDANCE.ALLOWED_ROLES"))
+func allowed(discordMember *discordgo.Member, feature string) bool {
+	return utils.StringSliceContainsOneOf(discordMember.Roles, settings.GetStringSlice("FEATURES."+feature+".ALLOWED_ROLES"))
 }

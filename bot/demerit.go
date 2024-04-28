@@ -8,7 +8,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -16,20 +15,8 @@ func giveDemeritCommandHandler(ctx context.Context, s *discordgo.Session, i *dis
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("demerit command")
 
-	if !utils.StringSliceContainsOneOf(i.Member.Roles, settings.GetStringSlice("FEATURES.MERIT.ALLOWED_ROLES")) {
-		logger.Debug("invalid permissions")
-
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "You do not have permission to use this command",
-			},
-		}); err != nil {
-			return errors.Wrap(err, "responding to demerit command: invalid permissions")
-		}
-
-		return nil
+	if !allowed(i.Member, "MERIT") {
+		return InvalidPermissions
 	}
 
 	data := i.ApplicationCommandData()

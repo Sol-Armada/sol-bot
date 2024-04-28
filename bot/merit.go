@@ -8,8 +8,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/ranks"
-	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -22,20 +20,8 @@ func giveMeritCommandHandler(ctx context.Context, s *discordgo.Session, i *disco
 		return errors.Wrap(err, "getting user from storage for merit command")
 	}
 
-	if user.Rank > ranks.GetRankByName(settings.GetStringWithDefault("FEATURES.ATTENDANCE.MIN_RANK", "admiral")) {
-		logger.Debug("invalid permissions")
-
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "You do not have permission to use this command",
-			},
-		}); err != nil {
-			return errors.Wrap(err, "responding to merit command: invalid permissions")
-		}
-
-		return nil
+	if !allowed(i.Member, "MERIT") {
+		return InvalidPermissions
 	}
 
 	data := i.ApplicationCommandData()
