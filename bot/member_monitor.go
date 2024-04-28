@@ -14,7 +14,6 @@ import (
 	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
-	"github.com/sol-armada/sol-bot/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -138,11 +137,14 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 		"discord_members": len(discordMembers),
 	}).Debug("checking members")
 
-	logger.Debugf("updating %d members", len(discordMembers))
+	logger.Infof("updating %d members", len(discordMembers))
 	for _, discordMember := range discordMembers {
 		time.Sleep(1 * time.Second)
-		mlogger := logger.WithField("discord_member", discordMember)
-		mlogger.Debug("updating member")
+		mlogger := logger.WithFields(log.Fields{
+			"id":   discordMember.User.ID,
+			"name": discordMember.DisplayName(),
+		})
+		mlogger.Info("updating member")
 
 		if discordMember.User.Bot {
 			mlogger.Debug("skipping bot")
@@ -168,8 +170,13 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 				return err
 			}
 
+			if strings.Contains(err.Error(), "context deadline exceeded") {
+				mlogger.WithError(err).Warn("getting rsi info")
+				continue
+			}
+
 			if !errors.Is(err, rsi.RsiUserNotFound) {
-				return errors.Wrap(err, "getting rsi based rank")
+				return errors.Wrap(err, "getting rsi info")
 			}
 
 			mlogger.WithField("member", member).Debug("rsi user not found")
@@ -191,48 +198,48 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 		}
 
 		// handle rank updates on members
-		rankRoles := settings.GetStringMapString("DISCORD.ROLES.RANKS")
-		membersRoleId := rankRoles[strings.ToLower(member.Rank.String())]
-		if (!utils.StringSliceContains(discordMember.Roles, membersRoleId) && !member.IsGuest) || member.Rank == ranks.Member {
-			if !member.IsGuest && !member.IsAlly && !member.IsAffiliate {
-				if member.Rank != ranks.Member {
-					logger.Debug("is not just a member, adding role: " + membersRoleId)
-					_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, membersRoleId)
-				}
-				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["member"])
-			}
+		// rankRoles := settings.GetStringMapString("DISCORD.ROLES.RANKS")
+		// membersRoleId := rankRoles[strings.ToLower(member.Rank.String())]
+		// if (!utils.StringSliceContains(discordMember.Roles, membersRoleId) && !member.IsGuest) || member.Rank == ranks.Member {
+		// 	if !member.IsGuest && !member.IsAlly && !member.IsAffiliate {
+		// 		if member.Rank != ranks.Member {
+		// 			logger.Debug("is not just a member, adding role: " + membersRoleId)
+		// 			_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, membersRoleId)
+		// 		}
+		// 		_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["member"])
+		// 	}
 
-			if member.IsAlly {
-				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["ally"])
-			}
+		// 	if member.IsAlly {
+		// 		_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["ally"])
+		// 	}
 
-			if member.IsAffiliate {
-				_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["affiliate"])
-			}
+		// 	if member.IsAffiliate {
+		// 		_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["affiliate"])
+		// 	}
 
-			for rankName, rankId := range rankRoles {
-				// reasons not to remove a rank
-				// member  - all not guests and not recruits have member
-				// ally    - applied somewhere else
-				// affiliate - applied somewhere else
-				if rankName != strings.ToLower(member.Rank.String()) && rankName != "member" && rankName != "ally" && rankName != "affiliate" {
-					_ = bot.GuildMemberRoleRemove(bot.GuildId, member.Id, rankId)
-				}
-			}
+		// 	for rankName, rankId := range rankRoles {
+		// 		// reasons not to remove a rank
+		// 		// member  - all not guests and not recruits have member
+		// 		// ally    - applied somewhere else
+		// 		// affiliate - applied somewhere else
+		// 		if rankName != strings.ToLower(member.Rank.String()) && rankName != "member" && rankName != "ally" && rankName != "affiliate" {
+		// 			_ = bot.GuildMemberRoleRemove(bot.GuildId, member.Id, rankId)
+		// 		}
+		// 	}
 
-			nick := member.GetTrueNick(discordMember)
-			if !member.IsGuest && !member.IsAlly && !member.IsAffiliate && member.IsRanked() {
-				nick = "[" + member.Rank.ShortString() + "] " + nick
-				if member.Suffix != "" {
-					nick += " (" + member.Suffix + ")"
-				}
-			}
+		// 	nick := member.GetTrueNick(discordMember)
+		// 	if !member.IsGuest && !member.IsAlly && !member.IsAffiliate && member.IsRanked() {
+		// 		nick = "[" + member.Rank.ShortString() + "] " + nick
+		// 		if member.Suffix != "" {
+		// 			nick += " (" + member.Suffix + ")"
+		// 		}
+		// 	}
 
-			logger.WithField("nick", nick).Debug("setting nick")
-			if err = bot.GuildMemberNickname(bot.GuildId, member.Id, nick); err != nil {
-				logger.WithError(err).Error("setting nick")
-			}
-		}
+		// 	logger.WithField("nick", nick).Debug("setting nick")
+		// 	if err = bot.GuildMemberNickname(bot.GuildId, member.Id, nick); err != nil {
+		// 		logger.WithError(err).Error("setting nick")
+		// 	}
+		// }
 	}
 
 	return nil

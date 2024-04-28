@@ -25,10 +25,6 @@ func Issues(member *members.Member) []string {
 		issues = append(issues, "marked as ally, but not a rsi member")
 	}
 
-	if member.RSIMember && member.IsAlly {
-		issues = append(issues, "ally")
-	}
-
 	if member.RSIMember && member.BadAffiliation {
 		issues = append(issues, "bad affiliation")
 	}
@@ -43,6 +39,10 @@ func Issues(member *members.Member) []string {
 
 	if member.RSIMember && member.IsAffiliate {
 		issues = append(issues, "is affiliate")
+	}
+
+	if member.RSIMember && member.IsAlly {
+		issues = []string{}
 	}
 
 	attendedEvents := GetMemberAttendanceCount(member.Id)

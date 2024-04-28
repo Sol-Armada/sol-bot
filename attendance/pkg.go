@@ -5,29 +5,26 @@ import (
 	"encoding/json"
 	"errors"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
-type AttendanceIssue struct {
-	Member *members.Member `json:"member"`
-	Reason string          `json:"reason"`
-}
-
 type Attendance struct {
-	Id          string             `json:"id" bson:"_id"`
-	Name        string             `json:"name"`
-	SubmittedBy *members.Member    `json:"submitted_by" bson:"submitted_by"`
-	Members     []*members.Member  `json:"members"`
-	Issues      []*AttendanceIssue `json:"issues"`
-	Recorded    bool               `json:"recorded"`
+	Id          string            `json:"id" bson:"_id"`
+	Name        string            `json:"name"`
+	SubmittedBy *members.Member   `json:"submitted_by" bson:"submitted_by"`
+	Members     []*members.Member `json:"members"`
+	WithIssues  []*members.Member `json:"with_issues" bson:"with_issues"`
+	Recorded    bool              `json:"recorded"`
 
 	ChannelId string `json:"channel_id" bson:"channel_id"`
 	MessageId string `json:"message_id" bson:"message_id"`
@@ -195,10 +192,7 @@ func (a *Attendance) AddMember(member *members.Member) {
 
 	memberIssues := Issues(member)
 	if len(memberIssues) > 0 {
-		a.Issues = append(a.Issues, &AttendanceIssue{
-			Member: member,
-			Reason: strings.Join(memberIssues, ", "),
-		})
+		a.WithIssues = append(a.WithIssues, member)
 		return
 	}
 
@@ -213,9 +207,9 @@ func (a *Attendance) RemoveMember(member *members.Member) {
 		}
 	}
 
-	for i, m := range a.Issues {
-		if m.Member == member {
-			a.Issues = append(a.Issues[:i], a.Issues[i+1:]...)
+	for i, m := range a.WithIssues {
+		if m == member {
+			a.WithIssues = append(a.WithIssues[:i], a.WithIssues[i+1:]...)
 			break
 		}
 	}
@@ -224,17 +218,28 @@ func (a *Attendance) RemoveMember(member *members.Member) {
 }
 
 func (a *Attendance) RecheckIssues() error {
-	newIssues := []*AttendanceIssue{}
-	for _, issue := range a.Issues {
-		memberIssues := Issues(issue.Member)
-		if len(memberIssues) != 0 {
-			newIssues = append(newIssues, &AttendanceIssue{
-				Member: issue.Member,
-				Reason: strings.Join(memberIssues, ", "),
-			})
+	attendees := []*members.Member{}
+	for _, member := range a.Members {
+		issues := Issues(member)
+
+		if len(issues) == 0 {
+			attendees = append(attendees, member)
+		} else {
+			a.WithIssues = append(a.WithIssues, member)
 		}
 	}
-	a.Issues = newIssues
+	a.Members = attendees
+
+	newIssues := []*members.Member{}
+	for _, member := range a.WithIssues {
+		memberIssues := Issues(member)
+		if len(memberIssues) != 0 {
+			newIssues = append(newIssues, member)
+		} else {
+			a.Members = append(a.Members, member)
+		}
+	}
+	a.WithIssues = newIssues
 
 	a.removeDuplicates()
 
@@ -253,6 +258,42 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			Inline: true,
 		},
 	}
+
+	sort.Slice(a.Members, func(i, j int) bool {
+
+		if a.Members[i].IsGuest {
+			return false
+		}
+		if a.Members[i].IsAffiliate {
+			return false
+		}
+
+		if a.Members[i].IsAlly {
+			return false
+		}
+
+		if a.Members[j].IsGuest {
+			return true
+		}
+
+		if a.Members[j].IsAffiliate {
+			return true
+		}
+
+		if a.Members[j].IsAlly {
+			return true
+		}
+
+		if a.Members[i].Rank < a.Members[j].Rank {
+			return true
+		}
+
+		if a.Members[i].Rank != ranks.None && a.Members[i].Rank == a.Members[j].Rank {
+			return a.Members[i].Name < a.Members[j].Name
+		}
+
+		return false
+	})
 
 	i := 0
 	for _, member := range a.Members {
@@ -275,7 +316,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		i++
 	}
 
-	if len(a.Issues) > 0 {
+	if len(a.WithIssues) > 0 {
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name:   "Attendees with Issues",
 			Value:  "",
@@ -283,10 +324,10 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		})
 
 		i = 0
-		for _, issue := range a.Issues {
+		for _, member := range a.WithIssues {
 			field := fields[len(fields)-1]
 
-			field.Value += "<@" + issue.Member.Id + "> - " + issue.Reason
+			field.Value += "<@" + member.Id + "> - " + strings.Join(Issues(member), ", ")
 
 			// if not the 10th, add a new line
 			if i%10 != 9 {
@@ -378,12 +419,12 @@ func (a *Attendance) Save() error {
 	attendanceMap["members"] = memberIds
 
 	// convert issues to just ids for mongo optimization
-	issues, _ := attendanceMap["issues"].([]interface{})
+	issues, _ := attendanceMap["with_issues"].([]interface{})
 	for i := range issues {
 		issue, _ := issues[i].(map[string]interface{})
-		issue["member"] = issue["member"].(map[string]interface{})["id"].(string)
-		issues[i] = issue
+		issues[i] = issue["id"]
 	}
+	attendanceMap["with_issues"] = issues
 
 	// convert submitted by to just id for mongo optimization
 	attendanceMap["submitted_by"] = a.SubmittedBy.Id
@@ -401,13 +442,13 @@ func (a *Attendance) removeDuplicates() {
 		a.Members = append(a.Members, member)
 	}
 
-	issueSet := map[string]*AttendanceIssue{}
-	for _, issue := range a.Issues {
-		issueSet[issue.Member.Id] = issue
+	withIssuesSet := map[string]*members.Member{}
+	for _, member := range a.WithIssues {
+		withIssuesSet[member.Id] = member
 	}
-	a.Issues = []*AttendanceIssue{}
-	for _, issue := range issueSet {
-		a.Issues = append(a.Issues, issue)
+	a.WithIssues = []*members.Member{}
+	for _, member := range withIssuesSet {
+		a.WithIssues = append(a.WithIssues, member)
 	}
 }
 

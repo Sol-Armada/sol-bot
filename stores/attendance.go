@@ -32,9 +32,9 @@ func (s *AttendanceStore) Get(id string) (*mongo.Cursor, error) {
 			{Key: "$lookup",
 				Value: bson.D{
 					{Key: "from", Value: "members"},
-					{Key: "localField", Value: "issues"},
+					{Key: "localField", Value: "with_issues"},
 					{Key: "foreignField", Value: "_id"},
-					{Key: "as", Value: "issues"},
+					{Key: "as", Value: "with_issues"},
 				},
 			},
 		},
@@ -62,7 +62,6 @@ func (s *AttendanceStore) Get(id string) (*mongo.Cursor, error) {
 			{Key: "$unwind",
 				Value: bson.D{
 					{Key: "path", Value: "$submitted_by"},
-					{Key: "includeArrayIndex", Value: "object"},
 				},
 			},
 		},

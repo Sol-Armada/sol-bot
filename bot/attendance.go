@@ -148,10 +148,7 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 				return errors.Wrap(err, "getting member for new attendance")
 			}
 
-			attendance.Issues = append(attendance.Issues, &attdnc.AttendanceIssue{
-				Member: &members.Member{Id: discordMember.UserValue(s).ID},
-				Reason: "Member not found in system",
-			})
+			attendance.WithIssues = append(attendance.WithIssues, member)
 
 			continue
 		}

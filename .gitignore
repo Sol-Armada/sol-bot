@@ -6,3 +6,4 @@ settings.*
 *.exe
 web/public/emojis/
 Jenkinsfile
+deploy.sh

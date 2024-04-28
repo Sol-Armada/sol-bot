@@ -93,7 +93,7 @@ func GetBot() (*Bot, error) {
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	s.State.TrackVoice = true
-	log.Debug("bot is ready")
+	log.Info("bot is ready")
 }
 
 func (b *Bot) Setup() error {

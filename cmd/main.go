@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/apex/log"
@@ -33,6 +34,7 @@ func init() {
 	settings.SetConfigName("settings")
 	settings.AddConfigPath(".")
 	settings.AddConfigPath("../")
+	settings.AddConfigPath("/etc/solbot/")
 	if err := settings.ReadInConfig(); err != nil {
 		log.Fatal("could not parse configuration")
 		os.Exit(1)
@@ -107,6 +109,9 @@ func main() {
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
+	// capture signal from supervisord
+	signal.Notify(c, syscall.SIGTERM)
 	<-c
+	log.Info("shutting down")
 	stopMonitoring <- true
 }
