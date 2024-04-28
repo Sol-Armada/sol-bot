@@ -48,6 +48,7 @@ func MemberMonitor(stop <-chan bool) {
 		}
 
 		if time.Now().UTC().After(lastChecked.Add(30 * time.Minute)) {
+			start := time.Now().UTC()
 			logger.Info("scanning members")
 			// TODO: Check if system is healthy
 
@@ -103,6 +104,8 @@ func MemberMonitor(stop <-chan bool) {
 			}
 
 			lastChecked = time.Now()
+
+			logger.WithField("duration", time.Since(start)).Info("members updated")
 		}
 
 		continue
