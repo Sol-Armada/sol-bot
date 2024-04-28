@@ -45,23 +45,25 @@ func Issues(member *members.Member) []string {
 		issues = []string{}
 	}
 
-	attendedEvents := GetMemberAttendanceCount(member.Id)
-	total := member.LegacyEvents + attendedEvents
+	// attendedEvents, err := GetMemberAttendanceCount(member.Id)
+	// if err != nil {
+	// 	return issues
+	// }
 
-	switch member.Rank {
-	case ranks.Recruit:
-		if total >= 3 {
-			issues = append(issues, "max event credits for this rank (3)")
-		}
-	case ranks.Member:
-		if total >= 10 {
-			issues = append(issues, "max event credits for this rank (10)")
-		}
-	case ranks.Technician:
-		if total >= 20 {
-			issues = append(issues, "max event credits for this rank (20)")
-		}
-	}
+	// switch member.Rank {
+	// case ranks.Recruit:
+	// 	if attendedEvents >= 3 {
+	// 		issues = append(issues, "max event credits for this rank (3)")
+	// 	}
+	// case ranks.Member:
+	// 	if attendedEvents >= 10 {
+	// 		issues = append(issues, "max event credits for this rank (10)")
+	// 	}
+	// case ranks.Technician:
+	// 	if attendedEvents >= 20 {
+	// 		issues = append(issues, "max event credits for this rank (20)")
+	// 	}
+	// }
 
 	return issues
 }

@@ -35,6 +35,11 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		return nil
 	}
 
+	attendedEventCount, err := attdnc.GetMemberAttendanceCount(member.Id)
+	if err != nil {
+		return errors.Wrap(err, "getting member attendance count")
+	}
+
 	emFields := []*discordgo.MessageEmbedField{
 		{
 			Name:   "RSI Handle",
@@ -48,7 +53,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 		{
 			Name:   "Event Attendance Count",
-			Value:  fmt.Sprintf("%d", member.LegacyEvents),
+			Value:  fmt.Sprintf("%d", attendedEventCount),
 			Inline: true,
 		},
 	}

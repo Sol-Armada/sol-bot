@@ -144,6 +144,53 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 	return cur, nil
 }
 
+func (s *AttendanceStore) GetCount(memberId string) (int, error) {
+	pipeline := bson.A{
+		bson.D{
+			{
+				Key: "$match", Value: bson.D{
+					{
+						Key: "$and", Value: bson.A{
+							bson.D{
+								{
+									Key: "recorded", Value: true,
+								},
+							},
+							bson.D{
+								{
+									Key: "members", Value: bson.D{
+										{
+											Key: "$in", Value: bson.A{
+												memberId,
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		bson.D{{Key: "$count", Value: "count"}},
+	}
+
+	cur, err := s.Aggregate(s.ctx, pipeline)
+	if err != nil {
+		return 0, err
+	}
+
+	// get the count
+	var result bson.M
+	cur.Next(s.ctx)
+
+	if err := cur.Decode(&result); err != nil {
+		return 0, err
+	}
+
+	return int(result["count"].(int32)), nil
+}
+
 func (s *AttendanceStore) Upsert(id string, attendance any) error {
 	_, err := s.UpdateOne(s.ctx, bson.M{"_id": id}, bson.M{"$set": attendance}, options.Update().SetUpsert(true))
 	return err

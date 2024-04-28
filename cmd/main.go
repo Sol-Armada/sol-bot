@@ -94,7 +94,6 @@ func main() {
 		log.WithError(err).Error("failed to start the bot")
 		return
 	}
-	defer b.Close()
 
 	stopMonitoring := make(chan bool, 1)
 	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
@@ -113,5 +112,8 @@ func main() {
 	signal.Notify(c, syscall.SIGTERM)
 	<-c
 	log.Info("shutting down")
+	if err := b.Close(); err != nil {
+		log.WithError(err).Error("failed to close the bot")
+	}
 	stopMonitoring <- true
 }

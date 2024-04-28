@@ -177,14 +177,8 @@ func List(filter interface{}, limit int, page int) ([]*Attendance, error) {
 	return attendances, nil
 }
 
-func GetMemberAttendanceCount(id string) int {
-	// filter where recorded is true and members has id
-	res, err := attendanceStore.List(bson.M{"$and": bson.A{bson.M{"members": bson.M{"$elemMatch": bson.M{"_id": id}}}, bson.M{"recorded": bson.M{"$eq": true}}}}, 0, 0)
-	if err != nil {
-		return 0
-	}
-
-	return int(res.RemainingBatchLength())
+func GetMemberAttendanceCount(memberId string) (int, error) {
+	return attendanceStore.GetCount(memberId)
 }
 
 func (a *Attendance) AddMember(member *members.Member) {
