@@ -24,7 +24,7 @@ func setupOnboarding(ctx context.Context) error {
 
 	content := `Welcome to Sol Armada!
 
-Select a reason you joined below. We will ask a few questions and someone will be available in the #airlock to verbally onboard you!`
+Select a reason you joined below. We will ask a few questions and someone will be available in the <#223290459726807040> to verbally onboard you!`
 
 	components := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -346,7 +346,7 @@ func onboardingTryAgainModalHandler(ctx context.Context, s *discordgo.Session, i
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Thank you for answering our questions! Your nickname has been set to your RSI handle. You can contact someone in the #airlock to get verbally onboarded!",
+			Content: "Thank you for answering our questions! Your nickname has been set to your RSI handle. You can contact someone in the <#223290459726807040> to get verbally onboarded!",
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
@@ -372,7 +372,7 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Thank you for answering our questions! Your nickname has been set to your RSI handle. You can contact someone in the #airlock to get verbally onboarded!",
+			Content: "Thank you for answering our questions! Your nickname has been set to your RSI handle. You can contact someone in the <#223290459726807040> to get verbally onboarded!",
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
