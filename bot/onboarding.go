@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
@@ -148,7 +149,7 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 				discordgo.TextInput{
 					CustomID: "age",
 					Label:    "How old are you?",
-					Style:    discordgo.TextInputParagraph,
+					Style:    discordgo.TextInputShort,
 					Required: true,
 				},
 			},
@@ -374,6 +375,35 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 		Data: &discordgo.InteractionResponseData{
 			Content: "Thank you for answering our questions! Your nickname has been set to your RSI handle. You can contact someone in the <#223290459726807040> to get verbally onboarded!",
 			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	}); err != nil {
+		return err
+	}
+
+	fields := []*discordgo.MessageEmbedField{
+		{Name: "RSI Profile", Value: "https://robertsspaceindustries.com/citizens/" + member.Name},
+		{Name: "Primary Org", Value: "https://robertsspaceindustries.com/orgs/" + member.PrimaryOrg},
+		{Name: "Affiliate Orgs", Value: strings.Join(member.Affilations, ", ")},
+		{Name: "Playtime", Value: member.LegacyPlaytime},
+		{Name: "Gameplay", Value: member.LegacyGamplay},
+		{Name: "Age", Value: member.LegacyAge},
+	}
+
+	if member.LegacyRecruiter != "" {
+		fields = append(fields, &discordgo.MessageEmbedField{Name: "Recruiter", Value: member.LegacyRecruiter})
+	}
+
+	if member.LegacyOther != "" {
+		fields = append(fields, &discordgo.MessageEmbedField{Name: "How they found us", Value: member.LegacyOther})
+	}
+
+	if _, err := s.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.OUTPUT_CHANNEL_ID"), &discordgo.MessageSend{
+		Content: "Onboarding information for " + i.Member.Mention(),
+		Embeds: []*discordgo.MessageEmbed{
+			{
+				Fields:    fields,
+				Timestamp: member.Joined.Format(time.RFC3339),
+			},
 		},
 	}); err != nil {
 		return err
