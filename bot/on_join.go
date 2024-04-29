@@ -27,7 +27,7 @@ func onJoinHandler(s *discordgo.Session, i *discordgo.GuildMemberAdd) {
 		return
 	}
 
-	if settings.GetString("FEATURES.ONBOARDING.CHANNEL_ID") != "" {
+	if settings.GetString("FEATURES.ONBOARDING.OUTPUT_CHANNEL_ID") != "" {
 		onBoardingMessage := member.GetOnboardingMessage()
 
 		message, err := s.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.CHANNEL_ID"), &discordgo.MessageSend{

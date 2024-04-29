@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"log"
 )
 
 type ContextKey string
@@ -24,5 +25,9 @@ func SetLoggerToContext(ctx context.Context, logger any) context.Context {
 }
 
 func GetLoggerFromContext(ctx context.Context) any {
+	if ctx.Value(LOGGER) == nil {
+		return log.Default()
+	}
+
 	return ctx.Value(LOGGER)
 }

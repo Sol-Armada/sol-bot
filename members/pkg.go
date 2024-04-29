@@ -73,6 +73,12 @@ type Member struct {
 	ChannelId   string          `json:"channel_id" bson:"channel_id"`
 	MessageId   string          `json:"message_id" bson:"message_id"`
 	LeftAt      *time.Time      `json:"left_at" bson:"left_at"`
+
+	LegacyAge       string `json:"legacy_age" bson:"legacy_age"`
+	LegacyPlaytime  string `json:"legacy_playtime" bson:"legacy_playtime"`
+	LegacyGamplay   string `json:"legacy_gamplay" bson:"legacy_gamplay"`
+	LegacyRecruiter string `json:"legacy_recruiter" bson:"legacy_recruiter"`
+	LegacyOther     string `json:"legacy_other" bson:"legacy_other"`
 }
 
 type AttendedEvent struct {

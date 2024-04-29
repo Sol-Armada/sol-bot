@@ -44,6 +44,13 @@ var autocompleteHandlers = map[string]Handler{
 
 var onboardingButtonHanlders = map[string]Handler{
 	"validate": validateButtonHandler,
+	"choice":   onboardingButtonHandler,
+	"tryagain": onboardingTryAgainHandler,
+}
+
+var onboardingModalHandlers = map[string]Handler{
+	"onboard":   onboardingModalHandler,
+	"rsihandle": onboardingTryAgainModalHandler,
 }
 
 var attendanceButtonHandlers = map[string]Handler{
@@ -168,6 +175,18 @@ func (b *Bot) Setup() error {
 					err = h(ctx, s, i)
 				}
 			}
+		case discordgo.InteractionModalSubmit:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "modal submit",
+			})
+			ctx = utils.SetLoggerToContext(ctx, logger)
+			id := strings.Split(i.ModalSubmitData().CustomID, ":")
+			switch id[0] {
+			case "onboarding":
+				if h, ok := onboardingModalHandlers[id[1]]; ok {
+					err = h(ctx, s, i)
+				}
+			}
 		}
 
 		if err != nil { // handle any errors returned
@@ -224,9 +243,16 @@ func (b *Bot) Setup() error {
 		}
 	})
 
-	// watch for on join and leave
-	b.AddHandler(onJoinHandler)
-	b.AddHandler(onLeaveHandler)
+	// onboarding
+	if settings.GetBool("FEATURES.ONBOARDING.ENABLE") {
+		// watch for on join and leave
+		b.AddHandler(onJoinHandler)
+		b.AddHandler(onLeaveHandler)
+
+		if err := setupOnboarding(b.ctx); err != nil {
+			return errors.Wrap(err, "setting up onboarding")
+		}
+	}
 
 	// clear commands
 	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
