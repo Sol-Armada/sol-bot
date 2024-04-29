@@ -5,7 +5,7 @@ import "strings"
 type Rank int
 
 const (
-	_ Rank = iota
+	None Rank = iota
 	Admiral
 	Commander
 	Lieutenant
@@ -13,8 +13,6 @@ const (
 	Technician
 	Member
 	Recruit
-	Guest
-	Ally Rank = 99
 )
 
 var Prefix map[Rank]string = map[Rank]string{
@@ -41,10 +39,8 @@ func GetRankByName(name string) Rank {
 		return Member
 	case "RECRUIT":
 		return Recruit
-	case "GUEST":
-		return Guest
 	default:
-		return Guest
+		return None
 	}
 }
 
@@ -63,7 +59,7 @@ func GetRankByRSIRankName(name string) Rank {
 	case "MEMBER":
 		return Member
 	default:
-		return Guest
+		return None
 	}
 }
 
@@ -84,10 +80,8 @@ func (r Rank) String() string {
 		return "Member"
 	case Recruit:
 		return "Recruit"
-	case Ally:
-		return "Anyone"
 	}
-	return "Unknown"
+	return ""
 }
 
 func (r Rank) ShortString() string {
@@ -103,5 +97,5 @@ func (r Rank) ShortString() string {
 	case Technician:
 		return "TEC"
 	}
-	return "UNK"
+	return ""
 }

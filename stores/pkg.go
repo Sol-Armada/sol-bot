@@ -5,17 +5,35 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/apex/log"
 	"github.com/pkg/errors"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var client *mongo.Client
-var ctx context.Context
+type Collection string
 
-func Setup(cctx context.Context, host string, port int, username string, password string, database string) error {
-	log.Debug("creating store")
+const (
+	MEMBERS    Collection = "members"
+	CONFIGS    Collection = "configs"
+	ATTENDANCE Collection = "attendance"
+)
+
+type store struct {
+	*mongo.Collection
+	ctx context.Context
+}
+
+type Client struct {
+	*mongo.Client
+
+	databases map[Collection]interface{}
+
+	ctx context.Context
+}
+
+var client *Client
+
+func New(ctx context.Context, host string, port int, username string, password string, database string) (*Client, error) {
 	usernamePassword := username + ":" + password + "@"
 	if usernamePassword == ":@" {
 		usernamePassword = ""
@@ -27,44 +45,60 @@ func Setup(cctx context.Context, host string, port int, username string, passwor
 		port)
 
 	clientOptions := options.Client().ApplyURI(uri).SetConnectTimeout(5 * time.Second)
-	c, err := mongo.Connect(cctx, clientOptions)
+	mongoClient, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		return errors.Wrap(err, "creating new store")
-	}
-	client = c
-	ctx = cctx
-
-	Users = &usersStore{
-		Collection: client.Database(database).Collection("users"),
-		ctx:        ctx,
+		return nil, errors.Wrap(err, "creating new store")
 	}
 
-	Events = &eventsStore{
-		Collection: client.Database(database).Collection("events"),
-		ctx:        ctx,
+	client = &Client{
+		Client:    mongoClient,
+		databases: map[Collection]interface{}{},
+		ctx:       ctx,
 	}
 
-	Templates = &templateStore{
-		Collection: client.Database(database).Collection("event-templates"),
-		ctx:        ctx,
+	if ok := client.Connected(); !ok {
+		return nil, errors.New("unable to connect to store")
 	}
 
-	Transactions = &transactionsStore{
-		Collection: client.Database(database).Collection("transactions"),
-		ctx:        ctx,
-	}
+	client.databases[MEMBERS] = newMembersStore(ctx, client.Client, database)
+	client.databases[CONFIGS] = newConfigsStore(ctx, client.Client, database)
+	client.databases[ATTENDANCE] = newAttendanceStore(ctx, client.Client, database)
 
-	return nil
+	return client, nil
 }
 
-func Disconnect() {
-	if err := client.Disconnect(ctx); err != nil {
-		log.WithError(err).Error("disconnect from store")
-	}
+func Get() *Client {
+	return client
 }
 
-func Connected() bool {
-	if err := client.Ping(ctx, nil); err != nil {
+func (c *Client) GetMembersStore() (*MembersStore, bool) {
+	storeInterface, ok := c.GetCollection(MEMBERS)
+	return storeInterface.(*MembersStore), ok
+}
+
+func (c *Client) GetConfigsStore() (*ConfigsStore, bool) {
+	storeInterface, ok := c.GetCollection(CONFIGS)
+	return storeInterface.(*ConfigsStore), ok
+}
+
+func (c *Client) GetAttendanceStore() (*AttendanceStore, bool) {
+	storeInterface, ok := c.GetCollection(ATTENDANCE)
+	return storeInterface.(*AttendanceStore), ok
+}
+
+func (c *Client) GetCollection(collection Collection) (interface{}, bool) {
+	if c.databases[collection] == nil {
+		return nil, false
+	}
+	return c.databases[collection], true
+}
+
+func (c *Client) Disconnect() {
+	_ = c.Client.Disconnect(c.ctx)
+}
+
+func (c *Client) Connected() bool {
+	if err := c.Ping(c.ctx, nil); err != nil {
 		return false
 	}
 	return true

@@ -1,4 +1,3 @@
-.vscode/
 bin/
 web/dist
 settings.*
@@ -7,3 +6,4 @@ settings.*
 *.exe
 web/public/emojis/
 Jenkinsfile
+deploy.sh

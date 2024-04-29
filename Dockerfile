@@ -14,7 +14,7 @@ RUN mkdir -p ./dist
 
 COPY . .
 
-RUN git clone https://github.com/Sol-Armada/admin-web.git ./build/web
+RUN git clone https://github.com/sol-armada/sol-bot-web.git ./build/web
 RUN echo "${VITE_API_BASE_URL}\n" >> ./build/web/.env.production
 RUN echo "${VITE_DISCORD_AUTH_URL}" >> ./build/web/.env.production
 RUN cd ./build/web/ && yarn install

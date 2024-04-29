@@ -1,62 +1,85 @@
 package bot
 
 import (
+	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/sol-bot/bot/handlers"
-	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/utils"
 )
 
 type Bot struct {
 	GuildId  string
 	ClientId string
 
+	ctx context.Context
+
 	*discordgo.Session
 }
+
+type Handler func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error
 
 var bot *Bot
 
 // command handlers
-var commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"bank":             handlers.BankCommandHandler,
-	"attendance":       handlers.AttendanceCommandHandler,
-	"takeattendance":   handlers.TakeAttendanceCommandHandler,
-	"removeattendance": handlers.RemoveAttendanceCommandHandler,
-	"profile":          handlers.ProfileCommandHandler,
-	"merit":            handlers.GiveMeritCommandHandler,
-	"demerit":          handlers.GiveDemeritCommandHandler,
+var commandHandlers = map[string]Handler{
+	"takeattendance":   takeAttendanceCommandHandler,
+	"removeattendance": removeAttendanceCommandHandler,
+	"profile":          profileCommandHandler,
+	"merit":            giveMeritCommandHandler,
+	"demerit":          giveDemeritCommandHandler,
+	"validate":         validateCommandHandler,
 }
 
-var autocompleteHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"takeattendance":   handlers.TakeAttendanceAutocompleteHandler,
-	"removeattendance": handlers.RemoveAttendanceAutocompleteHandler,
+var autocompleteHandlers = map[string]Handler{
+	"takeattendance":   takeAttendanceAutocompleteHandler,
+	"removeattendance": removeAttendanceAutocompleteHandler,
 }
 
-var attendanceButtonHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate){
-	"record":  handlers.RecordAttendanceButtonHandler,
-	"recheck": handlers.RecheckIssuesButtonHandler,
+var onboardingButtonHanlders = map[string]Handler{
+	"validate": validateButtonHandler,
+	"choice":   onboardingButtonHandler,
+	"tryagain": onboardingTryAgainHandler,
+}
+
+var onboardingModalHandlers = map[string]Handler{
+	"onboard":   onboardingModalHandler,
+	"rsihandle": onboardingTryAgainModalHandler,
+}
+
+var attendanceButtonHandlers = map[string]Handler{
+	"record":       recordAttendanceButtonHandler,
+	"recheck":      recheckIssuesButtonHandler,
+	"delete":       deleteAttendanceButtonHandler,
+	"verifydelete": verifyDeleteButtonModalHandler,
+	"canceldelete": cancelDeleteButtonModalHandler,
 }
 
 func New() (*Bot, error) {
 	log.Info("creating discord bot")
-	b, err := discordgo.New(fmt.Sprintf("Bot %s", config.GetString("DISCORD.BOT_TOKEN")))
+	b, err := discordgo.New(fmt.Sprintf("Bot %s", settings.GetString("DISCORD.BOT_TOKEN")))
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := b.Guild(config.GetString("DISCORD.GUILD_ID")); err != nil {
+	if _, err := b.Guild(settings.GetString("DISCORD.GUILD_ID")); err != nil {
 		return nil, err
 	}
 
-	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions
+	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions + discordgo.PermissionAdministrator
+	// b.Identify.Intents = discordgo.PermissionAdministrator
+	b.Client.Timeout = 5 * time.Second
 
 	bot = &Bot{
-		config.GetString("DISCORD.GUILD_ID"),
-		config.GetString("DISCORD.CLIENT_ID"),
+		settings.GetString("DISCORD.GUILD_ID"),
+		settings.GetString("DISCORD.CLIENT_ID"),
+		context.Background(),
 		b,
 	}
 
@@ -77,7 +100,7 @@ func GetBot() (*Bot, error) {
 
 func ready(s *discordgo.Session, event *discordgo.Ready) {
 	s.State.TrackVoice = true
-	log.Debug("bot is ready")
+	log.Info("bot is ready")
 }
 
 func (b *Bot) Setup() error {
@@ -85,25 +108,151 @@ func (b *Bot) Setup() error {
 	b.AddHandler(ready)
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		member, err := members.Get(i.Member.User.ID)
+		if err != nil {
+			if errors.Is(err, members.MemberNotFound) {
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "Looks like you are not onboarded yet! Ask an @Officer to help onboard you",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
+			log.WithError(err).Error("getting member for incomming interaction")
+			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "Ran into an error, please try again in a few minutes",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+			return
+		}
+
+		ctx := utils.SetMemberToContext(b.ctx, member)
+
+		logger := log.WithFields(log.Fields{
+			"guild": b.GuildId,
+			"user":  i.Member.User.ID,
+		})
+
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "application command",
+				"name":             i.ApplicationCommandData().Name,
+			})
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
+				ctx = utils.SetLoggerToContext(ctx, logger.WithField("interaction_type", "application command"))
+				err = h(ctx, s, i)
 			}
 		case discordgo.InteractionApplicationCommandAutocomplete:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "application command",
+				"name":             i.ApplicationCommandData().Name,
+			})
 			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
-				h(s, i)
+				ctx = utils.SetLoggerToContext(ctx, logger.WithField("interaction_type", "application command autocomplete"))
+				err = h(ctx, s, i)
 			}
 		case discordgo.InteractionMessageComponent:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "message command",
+				"custom_id":        i.MessageComponentData().CustomID,
+			})
 			id := strings.Split(i.MessageComponentData().CustomID, ":")
+			ctx = utils.SetLoggerToContext(ctx, logger)
 			switch id[0] {
 			case "attendance":
 				if h, ok := attendanceButtonHandlers[id[1]]; ok {
-					h(s, i)
+					err = h(ctx, s, i)
+				}
+			case "onboarding":
+				if h, ok := onboardingButtonHanlders[id[1]]; ok {
+					err = h(ctx, s, i)
+				}
+			}
+		case discordgo.InteractionModalSubmit:
+			logger = logger.WithFields(log.Fields{
+				"interaction_type": "modal submit",
+			})
+			ctx = utils.SetLoggerToContext(ctx, logger)
+			id := strings.Split(i.ModalSubmitData().CustomID, ":")
+			switch id[0] {
+			case "onboarding":
+				if h, ok := onboardingModalHandlers[id[1]]; ok {
+					err = h(ctx, s, i)
 				}
 			}
 		}
+
+		if err != nil { // handle any errors returned
+			if err == InvalidPermissions {
+				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: "You don't have permission to do that",
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				})
+				return
+			}
+
+			logger.WithError(err).Error("running command")
+
+			msg := "It looks like I ran into an error. I have logged it and someone will look into it. Ask an @Officer if you need help"
+			switch i.Interaction.Type {
+			case discordgo.InteractionApplicationCommand:
+				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: msg,
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				}); err != nil {
+					logger.WithError(err).Warn("creating interaction response")
+					if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+						Content: msg,
+						Flags:   discordgo.MessageFlagsEphemeral,
+					}); err != nil {
+						logger.WithError(err).Error("creating followup message")
+					}
+				}
+			case discordgo.InteractionMessageComponent:
+				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+					Type: discordgo.InteractionResponseChannelMessageWithSource,
+					Data: &discordgo.InteractionResponseData{
+						Content: msg,
+						Flags:   discordgo.MessageFlagsEphemeral,
+					},
+				}); err != nil {
+					logger.WithError(err).Warn("creating component interaction response")
+					if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+						Content: msg,
+						Flags:   discordgo.MessageFlagsEphemeral,
+					}); err != nil {
+						logger.WithError(err).Error("creating component followup message")
+					}
+				}
+			default:
+				logger.WithField("interaction_type", i.Interaction.Type).Error("unknown interaction type")
+			}
+		}
 	})
+
+	// onboarding
+	if settings.GetBool("FEATURES.ONBOARDING.ENABLE") {
+		// watch for on join and leave
+		b.AddHandler(onJoinHandler)
+		b.AddHandler(onLeaveHandler)
+
+		if err := setupOnboarding(b.ctx); err != nil {
+			return errors.Wrap(err, "setting up onboarding")
+		}
+	}
 
 	// clear commands
 	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
@@ -112,7 +261,7 @@ func (b *Bot) Setup() error {
 	}
 
 	for _, cmd := range cmds {
-		log.WithField("command", cmd.Name).Info("deleting command")
+		log.WithField("command", cmd.Name).Debug("deleting command")
 		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
 			return err
 		}
@@ -121,203 +270,99 @@ func (b *Bot) Setup() error {
 	// register commands
 
 	// misc commands
-	if err := b.DeleteCommand("attendance"); err != nil {
-		log.WithError(err).Error("unable to delete attendance command")
-	}
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "attendance",
-		Description: "[DEPRICATED] use /profile instead",
-	}); err != nil {
-		return errors.Wrap(err, "creating attendance command")
-	}
-	if err := b.DeleteCommand("profile"); err != nil {
-		log.WithError(err).Error("unable to delete profile command")
-	}
+	log.Debug("creating profile command")
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "profile",
 		Description: "View your profile",
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Name:        "member",
+				Description: "View a member's profile (Officer only)",
+				Required:    false,
+			},
+		},
 	}); err != nil {
 		return errors.Wrap(err, "creating profile command")
 	}
 
-	options := []*discordgo.ApplicationCommandOption{
-		{
-			Name:         "event",
-			Description:  "the event to take attendance for",
-			Type:         discordgo.ApplicationCommandOptionString,
-			Required:     true,
-			Autocomplete: true,
-		},
-	}
-	for i := 0; i < 10; i++ {
-		o := &discordgo.ApplicationCommandOption{
-			Name:         fmt.Sprintf("user-%d", i+1),
-			Description:  "the user to take attendance for",
-			Type:         discordgo.ApplicationCommandOptionUser,
-			Autocomplete: true,
-		}
-		if i == 0 {
-			o.Required = true
-		}
-		options = append(options, o)
-	}
+	// validate
+	log.Debug("creating validate command")
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "takeattendance",
-		Description: "take or add to attendance",
-		Type:        discordgo.ChatApplicationCommand,
-		Options:     options,
+		Name:        "validate",
+		Description: "Validate your RSI profile",
 	}); err != nil {
-		return errors.Wrap(err, "creating takeattendance command")
+		return errors.Wrap(err, "creating validate command")
 	}
 
-	options = []*discordgo.ApplicationCommandOption{
-		{
-			Name:         "event",
-			Description:  "the event to remove attendance from",
-			Type:         discordgo.ApplicationCommandOptionString,
-			Required:     true,
-			Autocomplete: true,
-		},
-		// {
-		// 	Name:        "recheck-issues",
-		// 	Description: "Recheck the list of users with attendance credit issues",
-		// 	Type:        discordgo.ApplicationCommandOptionSubCommand,
-		// 	Options: []*discordgo.ApplicationCommandOption{
-		// 		{
-		// 			Name:         "event",
-		// 			Description:  "the event to recheck issues for",
-		// 			Type:         discordgo.ApplicationCommandOptionString,
-		// 			Required:     true,
-		// 			Autocomplete: true,
-		// 		},
-		// 	},
-		// },
-	}
-	for i := 0; i < 10; i++ {
-		o := &discordgo.ApplicationCommandOption{
-			Name:         fmt.Sprintf("user-%d", i+1),
-			Description:  "the user to remove from attedance",
-			Type:         discordgo.ApplicationCommandOptionUser,
-			Autocomplete: true,
-		}
-		if i == 0 {
-			o.Required = true
-		}
-		options = append(options, o)
-	}
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "removeattendance",
-		Description: "remove from attendance",
-		Type:        discordgo.ChatApplicationCommand,
-		Options:     options,
-	}); err != nil {
-		return errors.Wrap(err, "creating removeattendance command")
-	}
+	// attendance
+	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
+		log.Debug("using attendance feature")
 
-	// bank
-	if err := b.DeleteCommand("bank"); err != nil {
-		log.WithError(err).Error("unable to delete bank command")
-	}
-	if config.GetBoolWithDefault("FEATURES.BANK", false) {
-		log.Info("using bank feature")
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-			Name:        "bank",
-			Description: "Manage the bank",
-			Type:        discordgo.ChatApplicationCommand,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:        "balance",
-					Description: "How much is in the bank",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-				},
-				{
-					Name:        "add",
-					Description: "Add aUEC to the bank",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Name:         "from",
-							Description:  "who the money came from",
-							Type:         discordgo.ApplicationCommandOptionMentionable,
-							Required:     true,
-							Autocomplete: true,
-						},
-						{
-							Name:        "amount",
-							Description: "how much",
-							Type:        discordgo.ApplicationCommandOptionInteger,
-							Required:    true,
-						},
-						{
-							Name:        "notes",
-							Description: "extra information",
-							Type:        discordgo.ApplicationCommandOptionString,
-						},
-					},
-				},
-				{
-					Name:        "remove",
-					Description: "Remove aURC from the bank",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Name:         "to",
-							Description:  "who the money is going to",
-							Type:         discordgo.ApplicationCommandOptionMentionable,
-							Required:     true,
-							Autocomplete: true,
-						},
-						{
-							Name:        "amount",
-							Description: "how much",
-							Type:        discordgo.ApplicationCommandOptionInteger,
-							Required:    true,
-						},
-						{
-							Name:        "notes",
-							Description: "extra information",
-							Type:        discordgo.ApplicationCommandOptionString,
-						},
-					},
-				},
-				{
-					Name:        "spend",
-					Description: "Spend aUEC",
-					Type:        discordgo.ApplicationCommandOptionSubCommand,
-					Options: []*discordgo.ApplicationCommandOption{
-						{
-							Name:        "for",
-							Description: "what you spending aUEC on",
-							Type:        discordgo.ApplicationCommandOptionString,
-							Required:    true,
-						},
-						{
-							Name:        "amount",
-							Description: "how much",
-							Type:        discordgo.ApplicationCommandOptionInteger,
-							Required:    true,
-						},
-						{
-							Name:        "notes",
-							Description: "extra information",
-							Type:        discordgo.ApplicationCommandOptionString,
-						},
-					},
-				},
+		options := []*discordgo.ApplicationCommandOption{
+			{
+				Name:         "event",
+				Description:  "the event to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionString,
+				Required:     true,
+				Autocomplete: true,
 			},
+		}
+		for i := 0; i < 10; i++ {
+			o := &discordgo.ApplicationCommandOption{
+				Name:         fmt.Sprintf("user-%d", i+1),
+				Description:  "the user to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			}
+			if i == 0 {
+				o.Required = true
+			}
+			options = append(options, o)
+		}
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+			Name:        "takeattendance",
+			Description: "take or add to attendance",
+			Type:        discordgo.ChatApplicationCommand,
+			Options:     options,
 		}); err != nil {
-			return errors.Wrap(err, "failed creating bank command")
+			return errors.Wrap(err, "creating takeattendance command")
+		}
+
+		options = []*discordgo.ApplicationCommandOption{
+			{
+				Name:         "event",
+				Description:  "the event to remove attendance from",
+				Type:         discordgo.ApplicationCommandOptionString,
+				Required:     true,
+				Autocomplete: true,
+			},
+		}
+		for i := 0; i < 10; i++ {
+			o := &discordgo.ApplicationCommandOption{
+				Name:         fmt.Sprintf("user-%d", i+1),
+				Description:  "the user to remove from attedance",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			}
+			if i == 0 {
+				o.Required = true
+			}
+			options = append(options, o)
+		}
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+			Name:        "removeattendance",
+			Description: "remove from attendance",
+			Type:        discordgo.ChatApplicationCommand,
+			Options:     options,
+		}); err != nil {
+			return errors.Wrap(err, "creating removeattendance command")
 		}
 	}
 
-	if err := b.DeleteCommand("merit"); err != nil {
-		log.WithError(err).Error("unable to delete merit command")
-	}
-	if err := b.DeleteCommand("demerit"); err != nil {
-		log.WithError(err).Error("unable to delete demerit command")
-	}
-	if config.GetBoolWithDefault("FEATURES.MERIT.ENABLED", false) {
-		log.Info("using merit feature")
+	// merit
+	if settings.GetBool("FEATURES.MERIT.ENABLE") {
+		log.Debug("using merit feature")
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "merit",
 			Description: "give a merit to a member",
@@ -373,35 +418,4 @@ func (b *Bot) Close() error {
 		return errors.Wrap(err, "failed deleting oboarding command")
 	}
 	return b.Close()
-}
-
-func (b *Bot) SendMessage(channelId string, message string) (*discordgo.Message, error) {
-	return b.ChannelMessageSend(channelId, message)
-}
-
-func (b *Bot) SendComplexMessage(channelId string, message *discordgo.MessageSend) (*discordgo.Message, error) {
-	return b.ChannelMessageSendComplex(channelId, message)
-}
-
-func (b *Bot) GetEmojis() ([]*discordgo.Emoji, error) {
-	return b.GuildEmojis(b.GuildId)
-}
-
-func (b *Bot) DeleteEventMessage(id string) error {
-	return b.ChannelMessageDelete(config.GetString("DISCORD.CHANNELS.EVENTS"), id)
-}
-
-func (b *Bot) DeleteCommand(name string) error {
-	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
-	if err != nil {
-		return err
-	}
-	for _, cmd := range cmds {
-		if cmd.Name == name {
-			if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }

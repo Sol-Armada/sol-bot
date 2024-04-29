@@ -5,21 +5,10 @@
 # ------------------------------------------------------------ #
 # rsi_org_sid | string | the org's handle running this bot     #
 ################################################################
-allies=[]
-enimies=[]
-rsi_org_sid="MYORG"
-
-################################################################
-# server                                                       #
-# ------------------------------------------------------------ #
-# port          | int    | api server port. 8080 by default    #
-# ecryption_key | string | a key to encrypt cookies. if empty, #
-#                        | a random string will be used on     #
-#                        | every start up                      #
-################################################################
-[server]
-port=8080
-secret="supersecretkey"
+allies = []
+ally_role = "ally"
+enimies = []
+rsi_org_sid = "MYORG"
 
 ################################################################
 # log                                                          #
@@ -28,8 +17,8 @@ secret="supersecretkey"
 # cli   | bool | log to the cli. false by default              #
 ################################################################
 [LOG]
-debug=false
-cli=false
+debug = false
+cli = false
 
 ################################################################
 # mongo                                                        #
@@ -39,96 +28,49 @@ cli=false
 # database | string | name of the database. defaults to "org"  #
 ################################################################
 [mongo]
-host="localhost"
-port="27017"
-database="MyOrg"
-
-################################################################
-# features                                                     #
-# ------------------------------------------------------------ #
-# onboarding | bool | enable onboarding                        #
-# monitor    | bool | enable member monitoring                 #
-# event      | bool | enable events                            #
-# bank       | bool | enable banking                           #
-################################################################
-[features]
-onboarding=false
-monitor=false
+host = "localhost"
+port = "27017"
+database = "MyOrg"
 
 ################################################################
 # features.events                                              #
 # ------------------------------------------------------------ #
 # enabled    | bool         | false | enable events            #
-# ping_roles | string array | empty | the list of roles to     #
-#                                   | to ping when an event    #
-#                                   | is created.              #
 ################################################################
-[features.events]
-enabled=false
-ping_roles=[]
+[features.monitor]
+enabled = false
 
 ################################################################
-# features.bank                                                #
+# features.merit                                               #
 # ------------------------------------------------------------ #
-# holders | string array | The bank holders                    #
+# enabled    | bool         | false | enable events            #
+# holders    | string array |       | The bank holders         #
 ################################################################
-[features.bank]
-enabled=false
-holders=["92030047161970688"]
+[features.merit]
+enabled = false
 
 ################################################################
 # features.attendance                                          #
 # ------------------------------------------------------------ #
-# min_rank | string | The minimum rank that can                #
-#                   | take attendance.                         #
+# enabled       | bool         | false | enable attendance     #
+# allowed_roles | string array |       | Role names that can   #
+#               |              |       | take attendance       #
+# channel_id    | string       |       | Channel id to post    #
+#               |              |       | attendance records to #
 ################################################################
 [features.attendance]
-enabled=false
-min_rank="lieutenant"
+enabled = false
+allowed_roles = []
+channel_id = "000000000000000004"
 
 ################################################################
 # discord                                                      #
 # ------------------------------------------------------------ #
 # client_id     | string | discord application client id       #
 # client_secret | string | discrod application client secret   #
-# redirect_uri  | string | valid uri set on the discord        #
-#                        | application client                  #
 # guild_id      | string | guild id to use for this tool       #
 ################################################################
 [discord]
-client_id="givenclientid"
-client_secret="supersecretapplicationcode"
-redirect_uri="https://redirect.website.here/"
-guild_id="guildid"
-
-################################################################
-# discord.channels                                             #
-# ------------------------------------------------------------ #
-# attendance | string | the channel id to use for attendance   #
-# onboarding | string | the channel id to use for onboarding   #
-#                     | notifications                          #
-################################################################
-[discord.channels]
-attendance="000000000000000004"
-onboarding="000000000000000005"
-
-################################################################
-# discord.categories                                           #
-# ------------------------------------------------------------ #
-# onboarding | string | the category id to use for onboarding  #
-#                     | channels                               #
-################################################################
-[discord.categories]
-onboarding="000000000000000003"
-
-################################################################
-# discord.role_ids                                             #
-# ------------------------------------------------------------ #
-# guest   | string | The guest role id                         #
-# recruit | string | The recruit role id                       #
-# ally    | string | The ally role id                          #
-################################################################
-[discord.role_ids]
-guest="000000000000000000"
-recruit="000000000000000001"
-ally="000000000000000002"
+client_id = "givenclientid"
+client_secret = "supersecretapplicationcode"
+guild_id = "guildid"
