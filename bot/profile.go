@@ -124,7 +124,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		Color:       0x00FFFF,
 		Fields:      emFields,
 		Footer: &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Last updated <t:%d:R>", member.Updated.Unix()),
+			Text: fmt.Sprintf("Last updated %s", member.Updated.UTC().Format("2006-01-02 15:04:05 MST")),
 		},
 	}
 
