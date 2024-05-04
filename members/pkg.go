@@ -54,6 +54,7 @@ type Member struct {
 	ValidationCode string     `json:"validation_code" bson:"validation_code"`
 	Joined         time.Time  `json:"joined" bson:"joined"`
 	Suffix         string     `json:"suffix" bson:"suffix"`
+	Onboarded      bool       `json:"onboarded" bson:"onboarded"`
 
 	IsBot       bool `json:"is_bot" bson:"is_bot"`
 	IsAlly      bool `json:"is_ally" bson:"is_ally"`
