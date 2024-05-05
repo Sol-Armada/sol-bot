@@ -423,6 +423,12 @@ func (a *Attendance) Save() error {
 	// convert submitted by to just id for mongo optimization
 	attendanceMap["submitted_by"] = a.SubmittedBy.Id
 
+	// convert date_created to mongo datetime
+	attendanceMap["date_created"] = a.DateCreated.UTC().Format(time.RFC3339)
+
+	// convert date_updated to mongo datetime
+	attendanceMap["date_updated"] = a.DateUpdated.UTC().Format(time.RFC3339)
+
 	return attendanceStore.Upsert(a.Id, attendanceMap)
 }
 
