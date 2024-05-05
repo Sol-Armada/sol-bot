@@ -191,6 +191,9 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 		if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
 			mlogger.Debug("is recruit")
 			member.Rank = ranks.Recruit
+			member.IsAffiliate = false
+			member.IsAlly = false
+			member.IsGuest = false
 		}
 		if discordMember.User.Bot {
 			member.IsBot = true
