@@ -90,9 +90,9 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 			{Key: "$lookup",
 				Value: bson.D{
 					{Key: "from", Value: "members"},
-					{Key: "localField", Value: "issues"},
+					{Key: "localField", Value: "with_issues"},
 					{Key: "foreignField", Value: "_id"},
-					{Key: "as", Value: "issues"},
+					{Key: "as", Value: "with_issues"},
 				},
 			},
 		},
@@ -125,6 +125,7 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 			},
 		},
 		bson.D{{Key: "$match", Value: filter}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "date_created", Value: -1}}}},
 	}
 
 	if limit > 0 {
