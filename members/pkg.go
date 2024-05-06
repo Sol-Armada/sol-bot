@@ -20,30 +20,11 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type GameplayTypes string
-
-const (
-	BountyHunting  GameplayTypes = "bounty hunting"
-	Engineering    GameplayTypes = "engineering"
-	Exporation     GameplayTypes = "exporation"
-	FpsCombat      GameplayTypes = "fps combat"
-	Hauling        GameplayTypes = "hauling"
-	Medical        GameplayTypes = "medical"
-	Mining         GameplayTypes = "mining"
-	Reconnaissance GameplayTypes = "reconnaissance"
-	Racing         GameplayTypes = "racing"
-	Scrapping      GameplayTypes = "scrapping"
-	ShipCrew       GameplayTypes = "ship crew"
-	ShipCombat     GameplayTypes = "ship combat"
-	Trading        GameplayTypes = "trading"
-)
-
 type Member struct {
 	Id             string     `json:"id" bson:"_id"`
 	Name           string     `json:"name" bson:"name"`
 	Rank           ranks.Rank `json:"rank" bson:"rank"`
 	Notes          string     `json:"notes" bson:"notes"`
-	LegacyEvents   int        `json:"legacy_events" bson:"legacy_events"`
 	PrimaryOrg     string     `json:"primary_org" bson:"primary_org"`
 	RSIMember      bool       `json:"rsi_member" bson:"rsi_member"`
 	BadAffiliation bool       `json:"bad_affiliation" bson:"bad_affiliation"`
@@ -217,21 +198,6 @@ func (m *Member) Save() error {
 	m.Updated = time.Now().UTC()
 
 	return membersStore.Upsert(m.Id, m)
-}
-
-func (m *Member) UpdateEventCount(count int) {
-	m.LegacyEvents = count
-	_ = m.Save()
-}
-
-func (m *Member) IncrementEventCount() {
-	m.LegacyEvents--
-	_ = m.Save()
-}
-
-func (m *Member) DecrementEventCount() {
-	m.LegacyEvents--
-	_ = m.Save()
 }
 
 func (m *Member) IsAdmin() bool {
