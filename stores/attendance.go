@@ -173,6 +173,32 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "date_created", Value: -1}}}},
+		bson.D{
+			{Key: "$project",
+				Value: bson.D{
+					{Key: "yearMonthDay",
+						Value: bson.D{
+							{Key: "$dateToString",
+								Value: bson.D{
+									{Key: "format", Value: "%Y-%m-%d"},
+									{Key: "date", Value: "$date_created"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		bson.D{
+			{Key: "$group",
+				Value: bson.D{
+					{Key: "_id", Value: "$yearMonthDay"},
+					{Key: "name", Value: bson.D{{Key: "$push", Value: "$name"}}},
+					{Key: "count", Value: bson.D{{Key: "$sum", Value: 1}}},
+				},
+			},
+		},
 		bson.D{{Key: "$count", Value: "count"}},
 	}
 
