@@ -35,6 +35,7 @@ type Member struct {
 	ValidationCode string     `json:"validation_code" bson:"validation_code"`
 	Joined         time.Time  `json:"joined" bson:"joined"`
 	Suffix         string     `json:"suffix" bson:"suffix"`
+	TimeZone       string     `json:"time_zone" bson:"time_zone"`
 
 	IsBot       bool `json:"is_bot" bson:"is_bot"`
 	IsAlly      bool `json:"is_ally" bson:"is_ally"`
@@ -151,7 +152,11 @@ func List(page int) ([]Member, error) {
 			Key:   "name",
 			Value: 1,
 		},
-	}).SetLimit(100).SetSkip(int64(100 * (page - 1)))
+	})
+
+	if page > 0 {
+		opts.SetLimit(100).SetSkip(int64(100 * (page - 1)))
+	}
 
 	cur, err := membersStore.List(bson.D{{Key: "is_bot", Value: bson.D{{Key: "$eq", Value: false}}}}, opts)
 	if err != nil {
