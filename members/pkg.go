@@ -55,6 +55,8 @@ type Member struct {
 	ChannelId   string          `json:"channel_id" bson:"channel_id"`
 	MessageId   string          `json:"message_id" bson:"message_id"`
 	LeftAt      *time.Time      `json:"left_at" bson:"left_at"`
+	FoundBy     string          `json:"found_by" bson:"found_by"`
+	Other       string          `json:"other" bson:"other"`
 
 	LegacyAge       string `json:"legacy_age" bson:"legacy_age"`
 	LegacyPlaytime  string `json:"legacy_playtime" bson:"legacy_playtime"`
