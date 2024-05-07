@@ -21,9 +21,17 @@ func newMembersStore(ctx context.Context, client *mongo.Client, database string)
 	return &MembersStore{s}
 }
 
-func (s *MembersStore) Get(id string) *mongo.SingleResult {
-	filter := bson.D{{Key: "_id", Value: id}}
-	return s.FindOne(s.ctx, filter)
+func (s *MembersStore) Get(id string) (*mongo.Cursor, error) {
+	return s.Aggregate(s.ctx, bson.A{
+		bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: id}}}},
+		bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "members"},
+			{Key: "localField", Value: "recruiter"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "recruiter"},
+		}}},
+		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}}}},
+	})
 }
 
 func (s *MembersStore) GetRandom(max int, maxRank int) ([]map[string]interface{}, error) {

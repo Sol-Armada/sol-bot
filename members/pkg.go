@@ -118,9 +118,17 @@ func Get(id string) (*Member, error) {
 	member := &Member{}
 
 	// check the store
-	if err := membersStore.Get(id).Decode(member); err != nil {
+	cur, err := membersStore.Get(id)
+	if err != nil {
 		return nil, err
 	}
+
+	if cur.Next(context.Background()) {
+		if err := cur.Decode(member); err != nil {
+			return nil, err
+		}
+	}
+
 	return member, nil
 }
 
@@ -204,6 +212,15 @@ func (m *Member) Save() error {
 	log.WithField("member", m).Debug("saving member")
 	m.Updated = time.Now().UTC()
 
+	memberMap := m.ToMap()
+
+	memberMap["_id"] = memberMap["id"]
+	delete(memberMap, "id")
+
+	if recruiter, ok := memberMap["recruiter"].(map[string]interface{}); ok {
+		memberMap["recruiter"] = recruiter["_id"]
+	}
+
 	return membersStore.Upsert(m.Id, m)
 }
 
@@ -255,8 +272,13 @@ func (m *Member) Login(code string) error {
 		return err
 	}
 
-	if err := membersStore.Get(discordUser.User.ID).Decode(&m); err != nil {
+	cur, err := membersStore.Get(discordUser.User.ID)
+	if err != nil {
 		return errors.Wrap(err, "getting stored member")
+	}
+
+	if err := cur.Decode(m); err != nil {
+		return err
 	}
 
 	m.Avatar = discordUser.Avatar
