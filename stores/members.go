@@ -80,8 +80,8 @@ func (s *MembersStore) List(filter interface{}, page, max int) (*mongo.Cursor, e
 
 	if page > 0 {
 		pipeline = append(pipeline,
+			bson.D{{Key: "$skip", Value: (page - 1) * max}},
 			bson.D{{Key: "$limit", Value: max}},
-			bson.D{{Key: "$skip", Value: page * max}},
 		)
 	}
 
