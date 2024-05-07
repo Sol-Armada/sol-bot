@@ -16,7 +16,6 @@ import (
 	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
 	"golang.org/x/exp/slices"
 )
 
@@ -80,9 +79,7 @@ func MemberMonitor(stop <-chan bool) {
 
 			// get the stored members
 			storedMembers := []*members.Member{}
-			cur, err := membersStore.List(bson.M{}, &options.FindOptions{
-				Sort: bson.M{"rank": 1},
-			})
+			cur, err := membersStore.List(bson.M{}, 0, 0)
 			if err != nil {
 				logger.WithError(err).Error("getting stored members")
 				continue

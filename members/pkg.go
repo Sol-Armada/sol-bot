@@ -17,7 +17,6 @@ import (
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 type Member struct {
@@ -153,22 +152,7 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 }
 
 func List(page int) ([]Member, error) {
-	opts := options.Find().SetSort(bson.D{
-		{
-			Key:   "rank",
-			Value: 1,
-		},
-		{
-			Key:   "name",
-			Value: 1,
-		},
-	})
-
-	if page > 0 {
-		opts.SetLimit(100).SetSkip(int64(100 * (page - 1)))
-	}
-
-	cur, err := membersStore.List(bson.D{{Key: "is_bot", Value: bson.D{{Key: "$eq", Value: false}}}}, opts)
+	cur, err := membersStore.List(bson.D{{Key: "is_bot", Value: bson.D{{Key: "$eq", Value: false}}}}, page, 100)
 	if err != nil {
 		return nil, err
 	}
@@ -218,10 +202,10 @@ func (m *Member) Save() error {
 	delete(memberMap, "id")
 
 	if recruiter, ok := memberMap["recruiter"].(map[string]interface{}); ok {
-		memberMap["recruiter"] = recruiter["_id"]
+		memberMap["recruiter"] = recruiter["id"]
 	}
 
-	return membersStore.Upsert(m.Id, m)
+	return membersStore.Upsert(m.Id, memberMap)
 }
 
 func (m *Member) IsAdmin() bool {

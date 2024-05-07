@@ -30,7 +30,7 @@ func (s *MembersStore) Get(id string) (*mongo.Cursor, error) {
 			{Key: "foreignField", Value: "_id"},
 			{Key: "as", Value: "recruiter"},
 		}}},
-		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}}}},
+		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
 	})
 }
 
@@ -66,8 +66,26 @@ func (s *MembersStore) GetRandom(max int, maxRank int) ([]map[string]interface{}
 	return members, nil
 }
 
-func (s *MembersStore) List(filter interface{}, opts ...*options.FindOptions) (*mongo.Cursor, error) {
-	return s.Find(s.ctx, filter, opts...)
+func (s *MembersStore) List(filter interface{}, page, max int) (*mongo.Cursor, error) {
+	pipeline := bson.A{
+		bson.D{{Key: "$match", Value: filter}},
+		bson.D{{Key: "$lookup", Value: bson.D{
+			{Key: "from", Value: "members"},
+			{Key: "localField", Value: "recruiter"},
+			{Key: "foreignField", Value: "_id"},
+			{Key: "as", Value: "recruiter"},
+		}}},
+		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
+	}
+
+	if page > 0 {
+		pipeline = append(pipeline,
+			bson.D{{Key: "$limit", Value: max}},
+			bson.D{{Key: "$skip", Value: page * max}},
+		)
+	}
+
+	return s.Aggregate(s.ctx, pipeline)
 }
 
 func (s *MembersStore) Upsert(id string, member any) error {
