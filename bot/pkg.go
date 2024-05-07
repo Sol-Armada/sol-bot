@@ -249,7 +249,7 @@ func (b *Bot) Setup() error {
 		b.AddHandler(onJoinHandler)
 		b.AddHandler(onLeaveHandler)
 
-		if err := setupOnboarding(b.ctx); err != nil {
+		if err := setupOnboarding(); err != nil {
 			return errors.Wrap(err, "setting up onboarding")
 		}
 	}

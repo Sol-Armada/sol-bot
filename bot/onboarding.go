@@ -13,7 +13,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func setupOnboarding(ctx context.Context) error {
+func setupOnboarding() error {
 	logger := log.WithField("func", "setupOnboarding")
 
 	logger.Debug("setting up onboarding")

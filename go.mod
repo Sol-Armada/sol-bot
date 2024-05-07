@@ -8,6 +8,7 @@ require (
 	github.com/bwmarrin/discordgo v0.28.1
 	go.mongodb.org/mongo-driver v1.15.0
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
+	golang.org/x/text v0.14.0
 )
 
 require (
@@ -48,7 +49,6 @@ require (
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/net v0.24.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.28.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect

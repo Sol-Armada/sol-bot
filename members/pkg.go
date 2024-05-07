@@ -35,7 +35,6 @@ type Member struct {
 	ValidationCode string     `json:"validation_code" bson:"validation_code"`
 	Joined         time.Time  `json:"joined" bson:"joined"`
 	Suffix         string     `json:"suffix" bson:"suffix"`
-	TimeZone       string     `json:"time_zone" bson:"time_zone"`
 
 	IsBot       bool `json:"is_bot" bson:"is_bot"`
 	IsAlly      bool `json:"is_ally" bson:"is_ally"`
@@ -46,17 +45,18 @@ type Member struct {
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
 
 	// onboarding info
-	OnboardedAt *time.Time      `json:"onboarded_at" bson:"onboarded_at"`
-	Age         int             `json:"age" bson:"age"`
-	Pronouns    string          `json:"pronouns" bson:"pronouns"`
-	Playtime    int             `json:"playtime" bson:"playtime"`
-	Gameplay    []GameplayTypes `json:"gamplay" bson:"gameplay"`
-	Recruiter   *Member         `json:"recruiter" bson:"recruiter"`
-	ChannelId   string          `json:"channel_id" bson:"channel_id"`
-	MessageId   string          `json:"message_id" bson:"message_id"`
-	LeftAt      *time.Time      `json:"left_at" bson:"left_at"`
-	FoundBy     string          `json:"found_by" bson:"found_by"`
-	Other       string          `json:"other" bson:"other"`
+	OnboardedAt *time.Time     `json:"onboarded_at" bson:"onboarded_at"`
+	Age         int            `json:"age" bson:"age"`
+	Pronouns    string         `json:"pronouns" bson:"pronouns"`
+	Playtime    int            `json:"playtime" bson:"playtime"`
+	Gameplay    []GameplayType `json:"gamplay" bson:"gameplay"`
+	Recruiter   *Member        `json:"recruiter" bson:"recruiter"`
+	ChannelId   string         `json:"channel_id" bson:"channel_id"`
+	MessageId   string         `json:"message_id" bson:"message_id"`
+	LeftAt      *time.Time     `json:"left_at" bson:"left_at"`
+	FoundBy     string         `json:"found_by" bson:"found_by"`
+	TimeZone    string         `json:"time_zone" bson:"time_zone"`
+	Other       string         `json:"other" bson:"other"`
 
 	LegacyAge       string `json:"legacy_age" bson:"legacy_age"`
 	LegacyPlaytime  string `json:"legacy_playtime" bson:"legacy_playtime"`
