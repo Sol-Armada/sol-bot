@@ -409,6 +409,11 @@ func (b *Bot) Setup() error {
 		}
 	}
 
+	// activity tracking
+	if settings.GetBool("FEATURES.ACTIVITY_TRACKING.ENABLE") {
+		b.AddHandler(onVoiceUpdate)
+	}
+
 	return b.Open()
 }
 

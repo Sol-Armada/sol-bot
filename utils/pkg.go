@@ -91,3 +91,12 @@ func GenerateRandomAlphaNumeric(size int) string {
 	}
 	return string(b)
 }
+
+// StringPointer returns a pointer to the input string.
+//
+// Parameters:
+// - s: the input string
+// Return type: *string
+func StringPointer(s string) *string {
+	return &s
+}

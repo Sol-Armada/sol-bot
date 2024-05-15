@@ -12,6 +12,7 @@ import (
 	"github.com/apex/log"
 	"github.com/apex/log/handlers/cli"
 	jsn "github.com/apex/log/handlers/json"
+	"github.com/sol-armada/sol-bot/activity"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
 	"github.com/sol-armada/sol-bot/health"
@@ -71,6 +72,11 @@ func init() {
 
 	if err := attendance.Setup(); err != nil {
 		log.WithError(err).Error("failed to setup attendance")
+		os.Exit(1)
+	}
+
+	if err := activity.Setup(); err != nil {
+		log.WithError(err).Error("failed to setup activity")
 		os.Exit(1)
 	}
 

@@ -13,11 +13,15 @@ type MembersStore struct {
 }
 
 func newMembersStore(ctx context.Context, client *mongo.Client, database string) *MembersStore {
-	s := &store{
-		Collection: client.Database(database).Collection("members"),
-		ctx:        ctx,
+	var col *mongo.Collection
+	if err := client.Database(database).CreateCollection(ctx, string(MEMBERS)); err != nil {
+		col = client.Database(database).Collection(string(MEMBERS))
 	}
 
+	s := &store{
+		Collection: col,
+		ctx:        ctx,
+	}
 	return &MembersStore{s}
 }
 

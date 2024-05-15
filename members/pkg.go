@@ -128,6 +128,10 @@ func Get(id string) (*Member, error) {
 		}
 	}
 
+	if member.Id == "" {
+		return nil, MemberNotFound
+	}
+
 	return member, nil
 }
 
