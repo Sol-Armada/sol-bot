@@ -244,27 +244,27 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 	}
 
 	// validate rsi handle
-	if !rsi.ValidHandle(rsiHandle) {
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "I couldn't find that RSI handle!\n\nPlease make sure it is correct and try again.\nYour RSI handle can be found on your public RSI profile page or in your settings here: https://robertsspaceindustries.com/account/settings",
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{
-					discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								Label:    "Try Again",
-								CustomID: "onboarding:tryagain:" + i.Interaction.Member.User.ID,
-							},
-						},
-					},
-				},
-			},
-		}); err != nil {
-			return err
-		}
-	}
+	// if !rsi.ValidHandle(rsiHandle) {
+	// 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	// 		Data: &discordgo.InteractionResponseData{
+	// 			Content: "I couldn't find that RSI handle!\n\nPlease make sure it is correct and try again.\nYour RSI handle can be found on your public RSI profile page or in your settings here: https://robertsspaceindustries.com/account/settings",
+	// 			Flags:   discordgo.MessageFlagsEphemeral,
+	// 			Components: []discordgo.MessageComponent{
+	// 				discordgo.ActionsRow{
+	// 					Components: []discordgo.MessageComponent{
+	// 						discordgo.Button{
+	// 							Label:    "Try Again",
+	// 							CustomID: "onboarding:tryagain:" + i.Interaction.Member.User.ID,
+	// 						},
+	// 					},
+	// 				},
+	// 			},
+	// 		},
+	// 	}); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	member.Name = rsiHandle
 
