@@ -13,18 +13,14 @@ type ActivityStore struct {
 }
 
 func newActivityStore(ctx context.Context, client *mongo.Client, database string) *ActivityStore {
-	var col *mongo.Collection
-	if err := client.Database(database).CreateCollection(ctx, string(ACTIVITY), &options.CreateCollectionOptions{
+	_ = client.Database(database).CreateCollection(ctx, string(ACTIVITY), &options.CreateCollectionOptions{
 		TimeSeriesOptions: &options.TimeSeriesOptions{
 			TimeField: "when",
 			MetaField: utils.StringPointer("meta"),
 		},
-	}); err != nil {
-		col = client.Database(database).Collection(string(ACTIVITY))
-	}
-
+	})
 	s := &store{
-		Collection: col,
+		Collection: client.Database(database).Collection(string(ACTIVITY)),
 		ctx:        ctx,
 	}
 	return &ActivityStore{s}

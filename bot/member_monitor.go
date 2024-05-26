@@ -15,7 +15,6 @@ import (
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/exp/slices"
 )
 
@@ -153,8 +152,8 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 
 		// get the stord user, if we have one
 		member, err := members.Get(discordMember.User.ID)
-		if err != nil && !errors.Is(err, members.MemberNotFound) {
-			if !errors.Is(err, mongo.ErrNoDocuments) {
+		if err != nil {
+			if !errors.Is(err, members.MemberNotFound) {
 				mlogger.WithError(err).Error("getting member for update")
 				continue
 			}

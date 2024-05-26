@@ -13,13 +13,9 @@ type AttendanceStore struct {
 }
 
 func newAttendanceStore(ctx context.Context, client *mongo.Client, database string) *AttendanceStore {
-	var col *mongo.Collection
-	if err := client.Database(database).CreateCollection(ctx, string(ATTENDANCE)); err != nil {
-		col = client.Database(database).Collection(string(ATTENDANCE))
-	}
-
+	_ = client.Database(database).CreateCollection(ctx, string(ATTENDANCE))
 	s := &store{
-		Collection: col,
+		Collection: client.Database(database).Collection(string(ATTENDANCE)),
 		ctx:        ctx,
 	}
 	return &AttendanceStore{s}
