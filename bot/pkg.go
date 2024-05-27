@@ -35,6 +35,7 @@ var commandHandlers = map[string]Handler{
 	"merit":            giveMeritCommandHandler,
 	"demerit":          giveDemeritCommandHandler,
 	"validate":         validateCommandHandler,
+	"rankups":          rankUpsCommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
@@ -254,19 +255,6 @@ func (b *Bot) Setup() error {
 		}
 	}
 
-	// clear commands
-	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
-	if err != nil {
-		return err
-	}
-
-	for _, cmd := range cmds {
-		log.WithField("command", cmd.Name).Debug("deleting command")
-		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
-			return err
-		}
-	}
-
 	// register commands
 
 	// misc commands
@@ -281,6 +269,12 @@ func (b *Bot) Setup() error {
 				Description: "View a member's profile (Officer only)",
 				Required:    false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "force_update",
+				Description: "Force update profile",
+				Required:    false,
+			},
 		},
 	}); err != nil {
 		return errors.Wrap(err, "creating profile command")
@@ -293,6 +287,15 @@ func (b *Bot) Setup() error {
 		Description: "Validate your RSI profile",
 	}); err != nil {
 		return errors.Wrap(err, "creating validate command")
+	}
+
+	// rank up
+	log.Debug("creating rankup command")
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		Name:        "rankups",
+		Description: "Rank up your RSI profile",
+	}); err != nil {
+		return errors.Wrap(err, "creating rankup command")
 	}
 
 	// attendance
@@ -419,8 +422,19 @@ func (b *Bot) Setup() error {
 
 func (b *Bot) Close() error {
 	log.Info("stopping bot")
-	if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, "onboarding"); err != nil {
-		return errors.Wrap(err, "failed deleting oboarding command")
+
+	// clear commands
+	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
+	if err != nil {
+		return err
 	}
+
+	for _, cmd := range cmds {
+		log.WithField("command", cmd.Name).Debug("deleting command")
+		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
+			return err
+		}
+	}
+
 	return b.Close()
 }
