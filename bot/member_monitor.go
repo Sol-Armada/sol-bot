@@ -66,7 +66,7 @@ func MemberMonitor(stop <-chan bool) {
 			}
 
 			// actually do the members update
-			if err := updateMembers(discordMembers); err != nil {
+			if err := updateMembers(discordMembers, stop); err != nil {
 				if strings.Contains(err.Error(), "Forbidden") {
 					lastChecked = time.Now()
 					continue
@@ -91,6 +91,13 @@ func MemberMonitor(stop <-chan bool) {
 
 			// do some cleaning
 			for _, storedMember := range storedMembers {
+				select {
+				case <-stop:
+					logger.Warn("stopping monitor")
+					return
+				default:
+				}
+
 				if !stillInDiscord(storedMember, discordMembers) || storedMember.IsBot {
 					if err := storedMember.Delete(); err != nil {
 						logger.WithField("member", storedMember).WithError(err).Error("deleting member")
@@ -130,7 +137,7 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 	return member, nil
 }
 
-func updateMembers(discordMembers []*discordgo.Member) error {
+func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 	logger := log.WithField("func", "updateMembers")
 	logger.WithFields(log.Fields{
 		"discord_members": len(discordMembers),
@@ -138,6 +145,13 @@ func updateMembers(discordMembers []*discordgo.Member) error {
 
 	logger.Infof("updating %d members", len(discordMembers))
 	for _, discordMember := range discordMembers {
+		select {
+		case <-stop:
+			logger.Warn("stopping monitor")
+			return nil
+		default:
+		}
+
 		time.Sleep(1 * time.Second)
 		mlogger := logger.WithFields(log.Fields{
 			"id":   discordMember.User.ID,

@@ -42,7 +42,12 @@ func init() {
 	}
 
 	// setup the logger
-	log.SetHandler(jsn.New(os.Stdout))
+	f, err := os.OpenFile(settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatal(err.Error())
+		os.Exit(1)
+	}
+	log.SetHandler(jsn.New(f))
 	if settings.GetBool("LOG.DEBUG") {
 		log.SetLevel(log.DebugLevel)
 		if settings.GetBool("LOG.CLI") {
@@ -101,15 +106,23 @@ func main() {
 		return
 	}
 
-	stopMonitoring := make(chan bool, 1)
+	stopMemberMonitor := make(chan bool, 1)
 	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
-		go bot.MemberMonitor(stopMonitoring)
+		go bot.MemberMonitor(stopMemberMonitor)
 	}
+	stopAttendanceMonitor := make(chan bool, 1)
 	if settings.GetBool("FEATURES.ATTENDANCE.MONITOR") { // only enable if attendance is enabled
-		go bot.MonitorAttendance(stopMonitoring)
+		go bot.MonitorAttendance(stopAttendanceMonitor)
 	}
 	defer func() {
-		stopMonitoring <- true
+		log.Info("shutting down")
+		if err := b.Close(); err != nil {
+			log.WithError(err).Error("failed to close the bot")
+		}
+		stopMemberMonitor <- true
+		stopAttendanceMonitor <- true
+		time.Sleep(20 * time.Second)
+		log.Info("shutdown complete")
 	}()
 
 	c := make(chan os.Signal, 1)
@@ -117,9 +130,4 @@ func main() {
 	// capture signal from supervisord
 	signal.Notify(c, syscall.SIGTERM)
 	<-c
-	log.Info("shutting down")
-	if err := b.Close(); err != nil {
-		log.WithError(err).Error("failed to close the bot")
-	}
-	stopMonitoring <- true
 }

@@ -436,5 +436,5 @@ func (b *Bot) Close() error {
 		}
 	}
 
-	return b.Close()
+	return b.Session.Close()
 }

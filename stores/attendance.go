@@ -270,7 +270,7 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 									Value: bson.D{
 										{Key: "$in",
 											Value: bson.A{
-												"877450578379284511",
+												memberId,
 											},
 										},
 									},
