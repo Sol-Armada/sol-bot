@@ -206,7 +206,19 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 			member.IsAlly = false
 			member.IsGuest = false
 		}
+		if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.ALLY")) {
+			mlogger.Debug("is ally")
+			member.Rank = ranks.None
+			member.IsAffiliate = false
+			member.IsAlly = true
+			member.IsGuest = false
+		}
 		if discordMember.User.Bot {
+			logger.Debug("is bot")
+			member.Rank = ranks.None
+			member.IsAffiliate = false
+			member.IsAlly = false
+			member.IsGuest = false
 			member.IsBot = true
 		}
 

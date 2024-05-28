@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
@@ -40,13 +41,13 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 	needsRankUp := []t{}
 	for _, member := range membersList {
+		if !member.IsRanked() || member.IsGuest || member.IsAlly || member.IsAffiliate || member.Rank == ranks.Recruit {
+			continue
+		}
+
 		count, err := attendance.GetMemberAttendanceCount(member.Id)
 		if err != nil {
 			return err
-		}
-
-		if !member.IsRanked() || member.Rank == ranks.Recruit {
-			continue
 		}
 
 		tt := t{Member: member, Count: count}
@@ -63,8 +64,16 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 			tt.NextRank = ranks.Specialist
 		}
 
+		if tt.NextRank == 0 {
+			continue
+		}
+
+		logger.WithField("member", member).WithField("count", count).WithField("nextRank", tt.NextRank).Debug("checking if member needs rank up")
+
 		needsRankUp = append(needsRankUp, tt)
 	}
+
+	logger.WithField("count", len(needsRankUp)).Debug("need to rank up")
 
 	if len(needsRankUp) == 0 {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -83,7 +92,7 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	for _, member := range needsRankUp {
 		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
 			Name:  "",
-			Value: "<@" + member.Member.Id + "> to " + member.NextRank.String(),
+			Value: fmt.Sprintf("<@%s> to %s (%d Events)", member.Member.Id, member.NextRank.String(), member.Count),
 		})
 	}
 

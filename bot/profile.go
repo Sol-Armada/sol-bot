@@ -30,7 +30,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
 	if member.Name == "" {
-		logger.Debug("no user found")
+		logger.Debug("no member found")
 
 		// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -39,13 +39,13 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		// 		Flags:   discordgo.MessageFlagsEphemeral,
 		// 	},
 		// }); err != nil {
-		// 	return errors.Wrap(err, "responding to attendance command interaction: no user found")
+		// 	return errors.Wrap(err, "responding to attendance command interaction: no member found")
 		// }
 
 		if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "You have not been onboarded yet! Contact an @Officer for some help!",
 		}); err != nil {
-			return errors.Wrap(err, "responding to attendance command interaction: no user found")
+			return errors.Wrap(err, "responding to attendance command interaction: no member found")
 		}
 
 		return nil
@@ -54,6 +54,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	data := i.ApplicationCommandData()
 
 	if len(data.Options) > 0 {
+		logger.Debug("getting profile of other member")
 		if member.Rank > ranks.Lieutenant {
 			return InvalidPermissions
 		}
@@ -70,21 +71,24 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 				// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
 				// 	Data: &discordgo.InteractionResponseData{
-				// 		Content: "That user was not found in the system!",
+				// 		Content: "That member was not found in the system!",
 				// 		Flags:   discordgo.MessageFlagsEphemeral,
 				// 	},
 				// }); err != nil {
-				// 	return errors.Wrap(err, "responding to attendance command interaction: no user found")
+				// 	return errors.Wrap(err, "responding to attendance command interaction: no member found")
 				// }
 
 				if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Content: "That user was not found in the system!",
+					Content: "That member was not found in the system!",
 				}); err != nil {
-					return errors.Wrap(err, "responding to attendance command interaction: no user found")
+					return errors.Wrap(err, "responding to attendance command interaction: no member found")
 				}
 			}
 
+			logger.Debug(fmt.Sprintf("data length is %d", len(data.Options)))
+
 			if len(data.Options) > 1 && data.Options[1].BoolValue() { // update the member before getting their profile
+				logger.Debug("force updating member")
 				if err := rsi.UpdateRsiInfo(otherMember); err != nil {
 					if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
 						return err
@@ -109,13 +113,25 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 				if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
 					logger.Debug("is recruit")
-					member.Rank = ranks.Recruit
-					member.IsAffiliate = false
-					member.IsAlly = false
-					member.IsGuest = false
+					otherMember.Rank = ranks.Recruit
+					otherMember.IsAffiliate = false
+					otherMember.IsAlly = false
+					otherMember.IsGuest = false
+				}
+				if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.ALLY")) {
+					logger.Debug("is ally")
+					otherMember.Rank = ranks.None
+					otherMember.IsAffiliate = false
+					otherMember.IsAlly = true
+					otherMember.IsGuest = false
 				}
 				if discordMember.User.Bot {
-					member.IsBot = true
+					logger.Debug("is bot")
+					otherMember.Rank = ranks.None
+					otherMember.IsAffiliate = false
+					otherMember.IsAlly = false
+					otherMember.IsGuest = false
+					otherMember.IsBot = true
 				}
 
 				if err := otherMember.Save(); err != nil {
@@ -132,6 +148,11 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		return errors.Wrap(err, "getting member attendance count")
 	}
 
+	rank := member.Rank.String()
+	if rank == "" {
+		rank = "None"
+	}
+
 	emFields := []*discordgo.MessageEmbedField{
 		{
 			Name:   "RSI Handle",
@@ -140,7 +161,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 		{
 			Name:   "Rank",
-			Value:  member.Rank.String(),
+			Value:  rank,
 			Inline: true,
 		},
 		{
@@ -150,15 +171,36 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 	}
 
+	if member.IsAffiliate {
+		emFields[1].Value = "Affiliate"
+	}
+
+	if member.IsAlly {
+		emFields[1].Value = "Ally/Friend"
+	}
+
+	if member.IsGuest {
+		emFields[1].Value = "Guest"
+	}
+
 	validated := "No"
 	if member.Validated {
 		validated = "Yes"
 	}
 	if member.RSIMember {
+		po := member.PrimaryOrg
+		if po == "" {
+			po = "None set"
+		}
 		rsiFields := []*discordgo.MessageEmbedField{
 			{
 				Name:   "RSI Profile URL",
 				Value:  fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", member.Name),
+				Inline: false,
+			},
+			{
+				Name:   "Primary Org",
+				Value:  po,
 				Inline: false,
 			},
 			{
