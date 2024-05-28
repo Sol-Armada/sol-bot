@@ -149,7 +149,24 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 
 func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 	pipeline := bson.A{
-		bson.D{{Key: "$match", Value: bson.D{{Key: "recorded", Value: true}}}},
+		bson.D{{Key: "$match", Value: bson.D{
+			{Key: "$and",
+				Value: bson.A{
+					bson.D{{Key: "recorded", Value: true}},
+					bson.D{
+						{Key: "members",
+							Value: bson.D{
+								{Key: "$in",
+									Value: bson.A{
+										memberId,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		}}},
 		bson.D{{Key: "$sort", Value: bson.D{{Key: "date_created", Value: 1}}}},
 		bson.D{
 			{Key: "$group",
@@ -259,39 +276,28 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 			},
 		},
 		bson.D{{Key: "$addFields", Value: bson.D{{Key: "date_created", Value: "$recordsWithPrev.current.date_created"}}}},
-		bson.D{
-			{Key: "$match",
-				Value: bson.D{
-					{Key: "$and",
-						Value: bson.A{
-							bson.D{{Key: "recordsWithPrev.current.recorded", Value: true}},
-							bson.D{
-								{Key: "recordsWithPrev.current.members",
-									Value: bson.D{
-										{Key: "$in",
-											Value: bson.A{
-												memberId,
-											},
-										},
-									},
-								},
-							},
-							bson.D{
-								{Key: "recordsWithPrev.prev.members",
-									Value: bson.D{
-										{Key: "$in",
-											Value: bson.A{
-												memberId,
-											},
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+		// bson.D{
+		// 	{Key: "$match",
+		// 		Value: bson.D{
+		// 			{Key: "$and",
+		// 				Value: bson.A{
+		// 					bson.D{{Key: "recordsWithPrev.current.recorded", Value: true}},
+		// 					bson.D{
+		// 						{Key: "recordsWithPrev.current.members",
+		// 							Value: bson.D{
+		// 								{Key: "$in",
+		// 									Value: bson.A{
+		// 										memberId,
+		// 									},
+		// 								},
+		// 							},
+		// 						},
+		// 					},
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// },
 		bson.D{
 			{Key: "$group",
 				Value: bson.D{
@@ -353,7 +359,7 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
-		bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$regex", Value: "delta"}}}}}}}},
+		// bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$regex", Value: "delta"}}}}}}}},
 		bson.D{{Key: "$count", Value: "count"}},
 	}
 
