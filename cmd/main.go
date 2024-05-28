@@ -42,18 +42,20 @@ func init() {
 	}
 
 	// setup the logger
-	f, err := os.OpenFile(settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		log.Fatal(err.Error())
-		os.Exit(1)
+	if settings.GetBool("LOG.CLI") {
+		handler := &customFormatter{hander: cli.New(os.Stdout)}
+		log.SetHandler(handler)
+	} else {
+		f, err := os.OpenFile(settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err.Error())
+			os.Exit(1)
+		}
+		log.SetHandler(jsn.New(f))
 	}
-	log.SetHandler(jsn.New(f))
+
 	if settings.GetBool("LOG.DEBUG") {
 		log.SetLevel(log.DebugLevel)
-		if settings.GetBool("LOG.CLI") {
-			handler := &customFormatter{hander: cli.New(os.Stdout)}
-			log.SetHandler(handler)
-		}
 		log.Debug("debug mode on")
 	}
 
