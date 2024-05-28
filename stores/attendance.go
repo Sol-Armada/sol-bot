@@ -276,6 +276,17 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 									},
 								},
 							},
+							bson.D{
+								{Key: "recordsWithPrev.prev.members",
+									Value: bson.D{
+										{Key: "$in",
+											Value: bson.A{
+												memberId,
+											},
+										},
+									},
+								},
+							},
 						},
 					},
 				},
@@ -342,6 +353,7 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
+		bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$regex", Value: "delta"}}}}}}}},
 		bson.D{{Key: "$count", Value: "count"}},
 	}
 
