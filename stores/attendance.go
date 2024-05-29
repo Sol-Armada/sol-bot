@@ -359,7 +359,8 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
-		// bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$regex", Value: "delta"}}}}}}}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$regex", Value: "overlap"}}}}}}}},
 		bson.D{{Key: "$count", Value: "count"}},
 	}
 
