@@ -181,6 +181,31 @@ func GetMemberAttendanceCount(memberId string) (int, error) {
 	return attendanceStore.GetCount(memberId)
 }
 
+func GetMemberAttendanceRecords(memberId string) ([]*Attendance, error) {
+	records := []*Attendance{}
+
+	cur, err := attendanceStore.List(bson.D{}, 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	for cur.Next(context.TODO()) {
+		attendance := &Attendance{}
+		if err := cur.Decode(attendance); err != nil {
+			return nil, err
+		}
+
+		for _, member := range attendance.Members {
+			if member.Id == memberId {
+				records = append(records, attendance)
+				break
+			}
+		}
+	}
+
+	return records, nil
+}
+
 func (a *Attendance) AddMember(member *members.Member) {
 	defer a.removeDuplicates()
 
@@ -195,14 +220,14 @@ func (a *Attendance) AddMember(member *members.Member) {
 
 func (a *Attendance) RemoveMember(member *members.Member) {
 	for i, m := range a.Members {
-		if m == member {
+		if m.Id == member.Id {
 			a.Members = append(a.Members[:i], a.Members[i+1:]...)
 			break
 		}
 	}
 
 	for i, m := range a.WithIssues {
-		if m == member {
+		if m.Id == member.Id {
 			a.WithIssues = append(a.WithIssues[:i], a.WithIssues[i+1:]...)
 			break
 		}
@@ -291,21 +316,21 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 
 	i := 0
 	for _, member := range a.Members {
+		// for every 10 members, make a new field
+		if i%10 == 0 && i != 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "Attendees (continued)",
+				Value:  "",
+				Inline: true,
+			})
+		}
+
 		field := fields[len(fields)-1]
 		field.Value += "<@" + member.Id + ">"
 
 		// if not the 10th, add a new line
 		if i%10 != 9 {
 			field.Value += "\n"
-		}
-
-		// for every 10 members, make a new field
-		if i%10 == 0 && i != 0 {
-			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "",
-				Value:  "",
-				Inline: true,
-			})
 		}
 		i++
 	}
