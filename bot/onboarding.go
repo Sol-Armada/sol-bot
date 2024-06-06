@@ -7,6 +7,7 @@ import (
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
+	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
@@ -91,6 +92,14 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
 	if member.OnboardedAt != nil {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "You have already been onboarded!",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+
 		return nil
 	}
 
@@ -116,7 +125,7 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 			Components: []discordgo.MessageComponent{
 				discordgo.TextInput{
 					CustomID: "rsi_handle",
-					Label:    "RSI Handle",
+					Label:    "Your RSI Handle",
 					Style:    discordgo.TextInputShort,
 					Required: true,
 				},
@@ -182,14 +191,16 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 		})
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
 			CustomID:   "onboarding:onboard",
 			Title:      "Onboarding",
 			Components: questions,
 		},
-	})
+	}); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -240,11 +251,12 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 	}
 
 	if err := member.Save(); err != nil {
-		return err
+		return errors.Wrap(err, "onboarding modal handler: failed to save member first")
 	}
 
 	// validate rsi handle
 	if !rsi.ValidHandle(rsiHandle) {
+		logger.Debug("invalid RSI handle")
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -262,15 +274,17 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 				},
 			},
 		}); err != nil {
-			return err
+			return errors.Wrap(err, "onboarding modal handler: responding to invalid rsi handle")
 		}
 	}
 
 	member.Name = rsiHandle
 
 	if err := member.Save(); err != nil {
-		return err
+		return errors.Wrap(err, "onboarding modal handler: saving member second")
 	}
+
+	ctx = utils.SetMemberToContext(ctx, member)
 
 	return finishOnboarding(ctx, s, i)
 }
@@ -300,7 +314,7 @@ func onboardingTryAgainHandler(ctx context.Context, s *discordgo.Session, i *dis
 			},
 		},
 	}); err != nil {
-		logger.WithError(err).Error("responding to choice")
+		return errors.Wrap(err, "onboarding try again handler")
 	}
 
 	return nil
@@ -334,27 +348,19 @@ func onboardingTryAgainModalHandler(ctx context.Context, s *discordgo.Session, i
 				},
 			},
 		}); err != nil {
-			return err
+			return errors.Wrap(err, "onboarding try again modal handler: responding to invalid rsi handle")
 		}
 	}
 
 	member.Name = rsiHandle
 
 	if err := member.Save(); err != nil {
-		return err
+		return errors.Wrap(err, "onboarding try again modal handler: saving member")
 	}
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Thank you for answering our questions! Your nickname has been set to your RSI handle. You can contact someone in the <#223290459726807040> to get verbally onboarded!",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		return err
-	}
+	ctx = utils.SetMemberToContext(ctx, member)
 
-	return nil
+	return finishOnboarding(ctx, s, i)
 }
 
 func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -377,7 +383,7 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
-		return err
+		return errors.Wrap(err, "finishing onboarding: responding")
 	}
 
 	fields := []*discordgo.MessageEmbedField{
@@ -406,7 +412,7 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 			},
 		},
 	}); err != nil {
-		return err
+		return errors.Wrap(err, "finishing onboarding: sending onboarded message")
 	}
 
 	return nil

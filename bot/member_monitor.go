@@ -2,6 +2,9 @@ package bot
 
 import (
 	"context"
+	"fmt"
+	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -18,8 +21,29 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+var logger *slog.Logger
+
 func MemberMonitor(stop <-chan bool) {
-	logger := log.WithField("func", "UserMonitor")
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+	}
+
+	if settings.GetBool("LOG.DEBUG") {
+		opts.Level = slog.LevelDebug
+		slog.Debug("debug mode on")
+	}
+
+	logger = slog.New(slog.NewTextHandler(os.Stdout, opts))
+
+	if !settings.GetBool("LOG.CLI") {
+		f, err := os.OpenFile(settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			log.Fatal(err.Error())
+			os.Exit(1)
+		}
+		logger = slog.New(slog.NewJSONHandler(f, opts))
+	}
+
 	logger.Info("monitoring discord for members")
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
@@ -61,7 +85,7 @@ func MemberMonitor(stop <-chan bool) {
 			// get the discord members
 			discordMembers, err := bot.GetDiscordMembers()
 			if err != nil {
-				logger.WithError(err).Error("bot getting members")
+				logger.Error("bot getting members", "error", err)
 				continue
 			}
 
@@ -72,7 +96,7 @@ func MemberMonitor(stop <-chan bool) {
 					continue
 				}
 
-				logger.WithError(err).Error("updating members")
+				logger.Error("updating members", "error", err)
 				continue
 			}
 
@@ -80,12 +104,12 @@ func MemberMonitor(stop <-chan bool) {
 			storedMembers := []*members.Member{}
 			cur, err := membersStore.List(bson.M{}, 0, 0)
 			if err != nil {
-				logger.WithError(err).Error("getting stored members")
+				logger.Error("getting stored members", "error", err)
 				continue
 			}
 
 			if err := cur.All(context.Background(), &storedMembers); err != nil {
-				logger.WithError(err).Error("reading in stored members")
+				logger.Error("reading in stored members", "error", err)
 				continue
 			}
 
@@ -100,7 +124,7 @@ func MemberMonitor(stop <-chan bool) {
 
 				if !stillInDiscord(storedMember, discordMembers) || storedMember.IsBot {
 					if err := storedMember.Delete(); err != nil {
-						logger.WithField("member", storedMember).WithError(err).Error("deleting member")
+						logger.Error("deleting member", "error", err, "member", storedMember)
 						continue
 					}
 				}
@@ -108,7 +132,7 @@ func MemberMonitor(stop <-chan bool) {
 
 			lastChecked = time.Now()
 
-			logger.WithField("duration", time.Since(start)).Info("members updated")
+			logger.Info("members updated", "count", len(discordMembers), "duration", time.Since(start))
 		}
 
 		continue
@@ -138,12 +162,9 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 }
 
 func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
-	logger := log.WithField("func", "updateMembers")
-	logger.WithFields(log.Fields{
-		"discord_members": len(discordMembers),
-	}).Debug("checking members")
+	logger.Debug("checking members", "discord_members", len(discordMembers))
 
-	logger.Infof("updating %d members", len(discordMembers))
+	logger.Info(fmt.Sprintf("updating %d members", len(discordMembers)))
 	for _, discordMember := range discordMembers {
 		select {
 		case <-stop:
@@ -153,10 +174,10 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 		}
 
 		time.Sleep(1 * time.Second)
-		mlogger := logger.WithFields(log.Fields{
-			"id":   discordMember.User.ID,
-			"name": discordMember.DisplayName(),
-		})
+		mlogger := logger.With(
+			"id", discordMember.User.ID,
+			"name", discordMember.DisplayName())
+
 		mlogger.Info("updating member")
 
 		if discordMember.User.Bot {
@@ -168,7 +189,7 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 		member, err := members.Get(discordMember.User.ID)
 		if err != nil {
 			if !errors.Is(err, members.MemberNotFound) {
-				mlogger.WithError(err).Error("getting member for update")
+				mlogger.Error("getting member for update", "error", err)
 				continue
 			}
 
@@ -185,7 +206,7 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 			}
 
 			if strings.Contains(err.Error(), "context deadline exceeded") {
-				mlogger.WithError(err).Warn("getting rsi info")
+				mlogger.Warn("getting rsi info", "error", err)
 				continue
 			}
 
@@ -193,7 +214,7 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 				return errors.Wrap(err, "getting rsi info")
 			}
 
-			mlogger.WithField("member", member).Debug("rsi user not found")
+			mlogger.Debug("rsi user not found", "error", err)
 			member.RSIMember = false
 		}
 
@@ -222,6 +243,7 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 			member.IsBot = true
 		}
 
+		logger.Debug("updating member", "member", member)
 		if err := member.Save(); err != nil {
 			return err
 		}

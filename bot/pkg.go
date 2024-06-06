@@ -202,7 +202,28 @@ func (b *Bot) Setup() error {
 				return
 			}
 
-			logger.WithError(err).Error("running command")
+			logger.WithFields(log.Fields{
+				"command_data":   i.ApplicationCommandData(),
+				"component_data": i.MessageComponentData(),
+				"modal_data":     i.ModalSubmitData(),
+			}).WithError(err).Error("running command")
+
+			if settings.GetString("DISCORD.ERROR_CHANNEL_ID") != "" {
+				_, _ = b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
+					Content: "Ran into an error",
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title:       "Error",
+							Description: err.Error(),
+							Fields: []*discordgo.MessageEmbedField{
+								{Name: "Who ran the command", Value: i.Member.User.Mention()},
+								{Name: "When", Value: time.Now().Format("2006-01-02 15:04:05 -0700 MST")},
+								{Name: "Error", Value: err.Error()},
+							},
+						},
+					},
+				})
+			}
 
 			msg := "It looks like I ran into an error. I have logged it and someone will look into it. Ask an @Officer if you need help"
 			switch i.Interaction.Type {

@@ -197,7 +197,6 @@ func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
 }
 
 func (m *Member) Save() error {
-	log.WithField("member", m).Debug("saving member")
 	m.Updated = time.Now().UTC()
 
 	memberMap := m.ToMap()
