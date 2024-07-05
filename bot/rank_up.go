@@ -41,7 +41,7 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 	needsRankUp := []t{}
 	for _, member := range membersList {
-		if !member.IsRanked() || member.IsGuest || member.IsAlly || member.IsAffiliate || member.Rank == ranks.Recruit {
+		if !member.IsRanked() || member.IsGuest || member.IsAlly || member.IsAffiliate {
 			continue
 		}
 
