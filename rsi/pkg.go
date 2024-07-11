@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/gocolly/colly/v2"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
@@ -16,19 +15,25 @@ import (
 var (
 	RsiUserNotFound error            = errors.New("rsi user was not found")
 	c               *colly.Collector = colly.NewCollector(colly.AllowURLRevisit())
+	token                            = fmt.Sprintf("Rsi-Token=%s; _rsi_device=%s;", settings.GetString("RSI.TOKEN"), settings.GetString("RSI.DEVICE"))
 )
 
 func UpdateRsiInfo(member *members.Member) error {
 	member.RSIMember = false
 	member.IsAlly = false
+	member.IsAffiliate = false
 	member.IsGuest = true
 	member.Rank = ranks.None
 	member.PrimaryOrg = ""
 	member.Affilations = []string{}
 
 	var err error
+	c.OnRequest(func(r *colly.Request) {
+		r.Headers.Set("cookie", token)
+	})
+
 	c.OnResponse(func(r *colly.Response) {
-		if r.StatusCode == 404 {
+		if r.StatusCode != 200 {
 			err = RsiUserNotFound
 		}
 	})
@@ -77,10 +82,6 @@ func UpdateRsiInfo(member *members.Member) error {
 		member.IsAlly = true
 	}
 
-	log.WithFields(log.Fields{
-		"member": member,
-	}).Debug("rsi info")
-
 	return err
 }
 
@@ -90,7 +91,9 @@ func isAllyOrg(org string) bool {
 }
 
 func ValidHandle(handle string) bool {
-	c := colly.NewCollector()
+	c.OnRequest(func(r *colly.Request) {
+		r.Headers.Set("cookie", token)
+	})
 
 	exists := true
 	c.OnResponse(func(r *colly.Response) {
@@ -110,6 +113,10 @@ func ValidHandle(handle string) bool {
 
 func IsMemberOfOrg(handle string, org string) (bool, error) {
 	c := colly.NewCollector()
+
+	c.OnRequest(func(r *colly.Request) {
+		r.Headers.Set("cookie", token)
+	})
 
 	var orgs []string
 	var err error
@@ -131,11 +138,6 @@ func IsMemberOfOrg(handle string, org string) (bool, error) {
 		return false, err
 	}
 
-	log.WithFields(log.Fields{
-		"handle": handle,
-		"orgs":   orgs,
-	}).Debug("rsi info")
-
 	for _, o := range orgs {
 		if strings.EqualFold(o, org) {
 			return true, nil
@@ -146,6 +148,10 @@ func IsMemberOfOrg(handle string, org string) (bool, error) {
 }
 
 func GetBio(handle string) (string, error) {
+	c.OnRequest(func(r *colly.Request) {
+		r.Headers.Set("cookie", token)
+	})
+
 	var err error
 	c.OnResponse(func(r *colly.Response) {
 		if r.StatusCode == 404 {

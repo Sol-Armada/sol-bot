@@ -8,3 +8,6 @@ clean:
 
 build: clean
 	@go build -ldflags "-X main.version=${version} -X main.hash=${hash}" -o ./bin/solbot ./cmd/
+
+build-arm: clean
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=${version} -X main.hash=${hash}" -o ./bin/solbot-arm ./cmd/
