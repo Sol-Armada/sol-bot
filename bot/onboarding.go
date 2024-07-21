@@ -49,12 +49,6 @@ Select a reason you joined below. We will ask a few questions and someone will b
 					Style:    discordgo.PrimaryButton,
 					Emoji:    &discordgo.ComponentEmoji{Name: "❔"},
 				},
-				// discordgo.Button{
-				// 	Label:    "Just visiting",
-				// 	CustomID: "onboarding:choice:visiting",
-				// 	Style:    discordgo.PrimaryButton,
-				// 	Emoji:    &discordgo.ComponentEmoji{Name: "👋"},
-				// },
 			},
 		},
 	}
@@ -105,20 +99,6 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 
 	data := i.MessageComponentData()
 	choice := strings.Split(data.CustomID, ":")[2]
-
-	if choice == "visiting" {
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "Okay! If you change your mind and would like to join Sol Armada, please contact an @Officer in the airlock!",
-			},
-		}); err != nil {
-			return err
-		}
-
-		return nil
-	}
 
 	questions := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -208,13 +188,11 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 
-	logger.Debug("onboarding modal handler")
-
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
-	if member.OnboardedAt != nil {
-		return nil
-	}
+	logger = logger.WithField("member", member.Id)
+
+	logger.Info("onboarding modal handler")
 
 	data := i.ModalSubmitData()
 
@@ -276,6 +254,8 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 		}); err != nil {
 			return errors.Wrap(err, "onboarding modal handler: responding to invalid rsi handle")
 		}
+
+		return nil
 	}
 
 	member.Name = rsiHandle
@@ -298,7 +278,7 @@ func onboardingTryAgainHandler(ctx context.Context, s *discordgo.Session, i *dis
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
 			CustomID: "onboarding:rsihandle:" + i.Interaction.Member.User.ID,
-			Title:    "Some questions about you",
+			Title:    "What is your RSI Handle?",
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
@@ -323,9 +303,11 @@ func onboardingTryAgainHandler(ctx context.Context, s *discordgo.Session, i *dis
 func onboardingTryAgainModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 
-	logger.Debug("onboarding try again modal handler")
-
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
+
+	logger.WithField("member", member.Id)
+
+	logger.Info("onboarding try again modal handler")
 
 	data := i.ModalSubmitData()
 	rsiHandle := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
@@ -366,9 +348,11 @@ func onboardingTryAgainModalHandler(ctx context.Context, s *discordgo.Session, i
 func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 
-	logger.Debug("finishing onboarding")
-
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
+
+	logger.WithField("member", member.Id)
+
+	logger.Info("finishing onboarding")
 
 	if _, err := s.GuildMemberEdit(bot.GuildId, member.Id, &discordgo.GuildMemberParams{
 		Nick: member.Name,
@@ -379,7 +363,7 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: "Thank you for answering our questions! Your nickname has been set to your RSI handle. You can contact someone in the <#223290459726807040> to get verbally onboarded!",
+			Content: "Thank you for answering our questions! Your Discord nickname has been set to your RSI handle. You can contact someone in the <#223290459726807040> to get verbally onboarded!",
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	}); err != nil {
