@@ -7,3 +7,4 @@ settings.*
 web/public/emojis/
 Jenkinsfile
 deploy.sh
+solbot.service

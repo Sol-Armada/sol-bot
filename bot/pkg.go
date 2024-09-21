@@ -29,13 +29,14 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]Handler{
-	"takeattendance":   takeAttendanceCommandHandler,
-	"removeattendance": removeAttendanceCommandHandler,
-	"profile":          profileCommandHandler,
-	"merit":            giveMeritCommandHandler,
-	"demerit":          giveDemeritCommandHandler,
-	"validate":         validateCommandHandler,
-	"rankups":          rankUpsCommandHandler,
+	"takeattendance":    takeAttendanceCommandHandler,
+	"removeattendance":  removeAttendanceCommandHandler,
+	"refreshattendance": refreshAttendanceCommandHandler,
+	"profile":           profileCommandHandler,
+	"merit":             giveMeritCommandHandler,
+	"demerit":           giveDemeritCommandHandler,
+	"validate":          validateCommandHandler,
+	"rankups":           rankUpsCommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
@@ -202,12 +203,6 @@ func (b *Bot) Setup() error {
 				return
 			}
 
-			logger.WithFields(log.Fields{
-				"command_data":   i.ApplicationCommandData(),
-				"component_data": i.MessageComponentData(),
-				"modal_data":     i.ModalSubmitData(),
-			}).WithError(err).Error("running command")
-
 			if settings.GetString("DISCORD.ERROR_CHANNEL_ID") != "" {
 				_, _ = b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
 					Content: "Ran into an error",
@@ -228,6 +223,9 @@ func (b *Bot) Setup() error {
 			msg := "It looks like I ran into an error. I have logged it and someone will look into it. Ask an @Officer if you need help"
 			switch i.Interaction.Type {
 			case discordgo.InteractionApplicationCommand:
+				logger.WithFields(log.Fields{
+					"command_data": i.ApplicationCommandData(),
+				}).WithError(err).Error("running command")
 				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -244,6 +242,9 @@ func (b *Bot) Setup() error {
 					}
 				}
 			case discordgo.InteractionMessageComponent:
+				logger.WithFields(log.Fields{
+					"component_data": i.MessageComponentData(),
+				}).WithError(err).Error("running command")
 				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -258,6 +259,16 @@ func (b *Bot) Setup() error {
 					}); err != nil {
 						logger.WithError(err).Error("creating component followup message")
 					}
+				}
+			case discordgo.InteractionModalSubmit:
+				logger.WithFields(log.Fields{
+					"modal_data": i.ModalSubmitData(),
+				}).WithError(err).Error("running command")
+				if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+					Content: msg,
+					Flags:   discordgo.MessageFlagsEphemeral,
+				}); err != nil {
+					logger.WithError(err).Error("creating component followup message")
 				}
 			default:
 				logger.WithField("interaction_type", i.Interaction.Type).Error("unknown interaction type")
@@ -381,6 +392,14 @@ func (b *Bot) Setup() error {
 			Options:     options,
 		}); err != nil {
 			return errors.Wrap(err, "creating removeattendance command")
+		}
+
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+			Name:        "refreshattendance",
+			Description: "refresh the last 10 attendance records",
+			Type:        discordgo.ChatApplicationCommand,
+		}); err != nil {
+			return errors.Wrap(err, "creating refreshattendance command")
 		}
 	}
 

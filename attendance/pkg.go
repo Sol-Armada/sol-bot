@@ -279,7 +279,6 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 	}
 
 	sort.Slice(a.Members, func(i, j int) bool {
-
 		if a.Members[i].IsGuest {
 			return false
 		}
@@ -377,41 +376,42 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		},
 	}
 
-	return &discordgo.MessageSend{
-		Embeds: embeds,
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						Label:    "Record",
-						Style:    discordgo.SuccessButton,
-						Disabled: a.Recorded,
-						Emoji: &discordgo.ComponentEmoji{
-							Name: "✅",
-						},
-						CustomID: "attendance:record:" + a.Id,
-					},
-					discordgo.Button{
-						Label:    "Delete",
-						Style:    discordgo.DangerButton,
-						Disabled: a.Recorded,
-						Emoji: &discordgo.ComponentEmoji{
-							Name: "🗑️",
-						},
-						CustomID: "attendance:delete:" + a.Id,
-					},
-					discordgo.Button{
-						Label:    "Recheck Issues",
-						Style:    discordgo.PrimaryButton,
-						Disabled: a.Recorded,
-						Emoji: &discordgo.ComponentEmoji{
-							Name: "🔁",
-						},
-						CustomID: "attendance:recheck:" + a.Id,
-					},
+	components := []discordgo.MessageComponent{}
+	if !a.Recorded {
+		components = []discordgo.MessageComponent{
+			discordgo.Button{
+				Label:    "Record",
+				Style:    discordgo.SuccessButton,
+				Disabled: a.Recorded,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "✅",
 				},
+				CustomID: "attendance:record:" + a.Id,
 			},
-		},
+			discordgo.Button{
+				Label:    "Delete",
+				Style:    discordgo.DangerButton,
+				Disabled: a.Recorded,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🗑️",
+				},
+				CustomID: "attendance:delete:" + a.Id,
+			},
+			discordgo.Button{
+				Label:    "Recheck Issues",
+				Style:    discordgo.PrimaryButton,
+				Disabled: a.Recorded,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🔁",
+				},
+				CustomID: "attendance:recheck:" + a.Id,
+			},
+		}
+	}
+
+	return &discordgo.MessageSend{
+		Embeds:     embeds,
+		Components: components,
 	}
 }
 
