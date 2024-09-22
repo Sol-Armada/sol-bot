@@ -161,6 +161,25 @@ func ListActive(limit int) ([]*Attendance, error) {
 	return attendances, nil
 }
 
+func ListRecorded(limit int) ([]*Attendance, error) {
+	cur, err := attendanceStore.List(bson.M{"recorded": bson.M{"$eq": true}}, limit, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	var attendances []*Attendance
+
+	for cur.Next(context.TODO()) {
+		attendance := &Attendance{}
+		if err := cur.Decode(attendance); err != nil {
+			return nil, err
+		}
+		attendances = append(attendances, attendance)
+	}
+
+	return attendances, nil
+}
+
 func List(filter interface{}, limit int, page int) ([]*Attendance, error) {
 	cur, err := attendanceStore.List(filter, limit, page)
 	if err != nil {
@@ -428,6 +447,11 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 
 func (a *Attendance) Record() error {
 	a.Recorded = true
+	return a.Save()
+}
+
+func (a *Attendance) Revert() error {
+	a.Recorded = false
 	return a.Save()
 }
 
