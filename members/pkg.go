@@ -382,3 +382,7 @@ func (m *Member) GetOnboardingMessage() *discordgo.Message {
 func (m *Member) IsRanked() bool {
 	return m.Rank <= ranks.Member
 }
+
+func (m *Member) IsOfficer() bool {
+	return m.Rank <= ranks.Lieutenant
+}

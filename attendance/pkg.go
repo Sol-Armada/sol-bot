@@ -13,6 +13,7 @@ import (
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -56,6 +57,8 @@ func New(name string, submittedBy *members.Member) *Attendance {
 		DateCreated: time.Now().UTC(),
 		DateUpdated: time.Now().UTC(),
 		SubmittedBy: submittedBy,
+
+		ChannelId: settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"),
 	}
 
 	return attendance
@@ -273,65 +276,69 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		},
 		{
 			Name:   "Attendees",
-			Value:  "",
+			Value:  "No Attendees",
 			Inline: true,
 		},
 	}
 
-	sort.Slice(a.Members, func(i, j int) bool {
-		if a.Members[i].IsGuest {
+	if len(a.Members) > 0 {
+		sort.Slice(a.Members, func(i, j int) bool {
+			if a.Members[i].IsGuest {
+				return false
+			}
+			if a.Members[i].IsAffiliate {
+				return false
+			}
+
+			if a.Members[i].IsAlly {
+				return false
+			}
+
+			if a.Members[j].IsGuest {
+				return true
+			}
+
+			if a.Members[j].IsAffiliate {
+				return true
+			}
+
+			if a.Members[j].IsAlly {
+				return true
+			}
+
+			if a.Members[i].Rank < a.Members[j].Rank {
+				return true
+			}
+
+			if a.Members[i].Rank != ranks.None && a.Members[i].Rank == a.Members[j].Rank {
+				return a.Members[i].Name < a.Members[j].Name
+			}
+
 			return false
-		}
-		if a.Members[i].IsAffiliate {
-			return false
-		}
+		})
 
-		if a.Members[i].IsAlly {
-			return false
+		fields[1].Value = ""
+
+		i := 0
+		for _, member := range a.Members {
+			// for every 10 members, make a new field
+			if i%10 == 0 && i != 0 {
+				fields = append(fields, &discordgo.MessageEmbedField{
+					Name:   "Attendees (continued)",
+					Value:  "",
+					Inline: true,
+				})
+			}
+
+			field := fields[len(fields)-1]
+			field.Value += "<@" + member.Id + ">"
+
+			// if not the 10th, add a new line
+			if i%10 != 9 {
+				field.Value += "\n"
+			}
+			i++
 		}
-
-		if a.Members[j].IsGuest {
-			return true
-		}
-
-		if a.Members[j].IsAffiliate {
-			return true
-		}
-
-		if a.Members[j].IsAlly {
-			return true
-		}
-
-		if a.Members[i].Rank < a.Members[j].Rank {
-			return true
-		}
-
-		if a.Members[i].Rank != ranks.None && a.Members[i].Rank == a.Members[j].Rank {
-			return a.Members[i].Name < a.Members[j].Name
-		}
-
-		return false
-	})
-
-	i := 0
-	for _, member := range a.Members {
-		// for every 10 members, make a new field
-		if i%10 == 0 && i != 0 {
-			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "Attendees (continued)",
-				Value:  "",
-				Inline: true,
-			})
-		}
-
-		field := fields[len(fields)-1]
-		field.Value += "<@" + member.Id + ">"
-
-		// if not the 10th, add a new line
-		if i%10 != 9 {
-			field.Value += "\n"
-		}
-		i++
 	}
 
 	if len(a.WithIssues) > 0 {
@@ -341,7 +348,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			Inline: true,
 		})
 
-		i = 0
+		i := 0
 		for _, member := range a.WithIssues {
 			field := fields[len(fields)-1]
 
@@ -379,32 +386,36 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 	components := []discordgo.MessageComponent{}
 	if !a.Recorded {
 		components = []discordgo.MessageComponent{
-			discordgo.Button{
-				Label:    "Record",
-				Style:    discordgo.SuccessButton,
-				Disabled: a.Recorded,
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "✅",
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "Record",
+						Style:    discordgo.SuccessButton,
+						Disabled: a.Recorded,
+						Emoji: &discordgo.ComponentEmoji{
+							Name: "✅",
+						},
+						CustomID: "attendance:record:" + a.Id,
+					},
+					discordgo.Button{
+						Label:    "Delete",
+						Style:    discordgo.DangerButton,
+						Disabled: a.Recorded,
+						Emoji: &discordgo.ComponentEmoji{
+							Name: "🗑️",
+						},
+						CustomID: "attendance:delete:" + a.Id,
+					},
+					discordgo.Button{
+						Label:    "Recheck Issues",
+						Style:    discordgo.PrimaryButton,
+						Disabled: a.Recorded,
+						Emoji: &discordgo.ComponentEmoji{
+							Name: "🔁",
+						},
+						CustomID: "attendance:recheck:" + a.Id,
+					},
 				},
-				CustomID: "attendance:record:" + a.Id,
-			},
-			discordgo.Button{
-				Label:    "Delete",
-				Style:    discordgo.DangerButton,
-				Disabled: a.Recorded,
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🗑️",
-				},
-				CustomID: "attendance:delete:" + a.Id,
-			},
-			discordgo.Button{
-				Label:    "Recheck Issues",
-				Style:    discordgo.PrimaryButton,
-				Disabled: a.Recorded,
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🔁",
-				},
-				CustomID: "attendance:recheck:" + a.Id,
 			},
 		}
 	}

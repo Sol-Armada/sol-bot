@@ -29,8 +29,8 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]Handler{
-	"takeattendance":    takeAttendanceCommandHandler,
-	"removeattendance":  removeAttendanceCommandHandler,
+	"help":              helpCommandHandler,
+	"attendance":        attendanceCommandHandler,
 	"refreshattendance": refreshAttendanceCommandHandler,
 	"profile":           profileCommandHandler,
 	"merit":             giveMeritCommandHandler,
@@ -39,9 +39,13 @@ var commandHandlers = map[string]Handler{
 	"rankups":           rankUpsCommandHandler,
 }
 
-var autocompleteHandlers = map[string]Handler{
-	"takeattendance":   takeAttendanceAutocompleteHandler,
-	"removeattendance": removeAttendanceAutocompleteHandler,
+var autocompleteHandlers = map[string]map[string]Handler{
+	// "takeattendance": takeAttendanceAutocompleteHandler,
+	"attendance": {
+		"add":    addRemoveMembersAttendanceAutocompleteHandler,
+		"remove": addRemoveMembersAttendanceAutocompleteHandler,
+	},
+	// "removeattendance": removeAttendanceAutocompleteHandler,
 }
 
 var onboardingButtonHanlders = map[string]Handler{
@@ -153,12 +157,18 @@ func (b *Bot) Setup() error {
 			}
 		case discordgo.InteractionApplicationCommandAutocomplete:
 			logger = logger.WithFields(log.Fields{
-				"interaction_type": "application command",
-				"name":             i.ApplicationCommandData().Name,
+				"interaction_type": "application command autocomplete",
+				"command":          i.ApplicationCommandData().Name,
 			})
-			if h, ok := autocompleteHandlers[i.ApplicationCommandData().Name]; ok {
-				ctx = utils.SetLoggerToContext(ctx, logger.WithField("interaction_type", "application command autocomplete"))
-				err = h(ctx, s, i)
+
+			parentCommandData := i.ApplicationCommandData()
+			if handlers, ok := autocompleteHandlers[parentCommandData.Name]; ok {
+				if h, ok := handlers[parentCommandData.Options[0].Name]; ok {
+					ctx = utils.SetLoggerToContext(ctx, logger.WithFields(log.Fields{
+						"subcommand": parentCommandData.Options[0].Name,
+					}))
+					err = h(ctx, s, i)
+				}
 			}
 		case discordgo.InteractionMessageComponent:
 			logger = logger.WithFields(log.Fields{
@@ -192,35 +202,58 @@ func (b *Bot) Setup() error {
 		}
 
 		if err != nil { // handle any errors returned
-			if err == InvalidPermissions {
-				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-					Type: discordgo.InteractionResponseChannelMessageWithSource,
-					Data: &discordgo.InteractionResponseData{
-						Content: "You don't have permission to do that",
-						Flags:   discordgo.MessageFlagsEphemeral,
-					},
-				})
-				return
-			}
+			msg := "It looks like I ran into an error. I have logged it and someone will look into it. Ask an @Officer if you need help"
 
-			if settings.GetString("DISCORD.ERROR_CHANNEL_ID") != "" {
-				_, _ = b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
-					Content: "Ran into an error",
-					Embeds: []*discordgo.MessageEmbed{
-						{
-							Title:       "Error",
-							Description: err.Error(),
-							Fields: []*discordgo.MessageEmbedField{
-								{Name: "Who ran the command", Value: i.Member.User.Mention()},
-								{Name: "When", Value: time.Now().Format("2006-01-02 15:04:05 -0700 MST")},
-								{Name: "Error", Value: err.Error()},
+			switch err {
+			case InvalidSubcommand:
+				// _ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
+				// 	Data: &discordgo.InteractionResponseData{
+				// 		Content: "That is not a valid subcommand",
+				// 		Flags:   discordgo.MessageFlagsEphemeral,
+				// 	},
+				// })
+				// return
+				msg = "Invalid subcommand"
+			case InvalidPermissions:
+				// _ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
+				// 	Data: &discordgo.InteractionResponseData{
+				// 		Content: "You don't have permission to do that",
+				// 		Flags:   discordgo.MessageFlagsEphemeral,
+				// 	},
+				// })
+				// return
+				msg = "You don't have permission to do that"
+			case InvalidAttendanceRecord:
+				// _ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
+				// 	Data: &discordgo.InteractionResponseData{
+				// 		Content: "That is not a valid attendance record",
+				// 		Flags:   discordgo.MessageFlagsEphemeral,
+				// 	},
+				// })
+				// return
+				msg = "That is not a valid attendance record"
+			default:
+				if settings.GetString("DISCORD.ERROR_CHANNEL_ID") != "" {
+					_, _ = b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
+						Content: "Ran into an error",
+						Embeds: []*discordgo.MessageEmbed{
+							{
+								Title:       "Error",
+								Description: err.Error(),
+								Fields: []*discordgo.MessageEmbedField{
+									{Name: "Who ran the command", Value: i.Member.User.Mention()},
+									{Name: "When", Value: time.Now().Format("2006-01-02 15:04:05 -0700 MST")},
+									{Name: "Error", Value: err.Error()},
+								},
 							},
 						},
-					},
-				})
+					})
+				}
 			}
 
-			msg := "It looks like I ran into an error. I have logged it and someone will look into it. Ask an @Officer if you need help"
 			switch i.Interaction.Type {
 			case discordgo.InteractionApplicationCommand:
 				logger.WithFields(log.Fields{
@@ -312,6 +345,14 @@ func (b *Bot) Setup() error {
 		return errors.Wrap(err, "creating profile command")
 	}
 
+	log.Debug("creating help command")
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		Name:        "help",
+		Description: "View help",
+	}); err != nil {
+		return errors.Wrap(err, "creating help command")
+	}
+
 	// validate
 	log.Debug("creating validate command")
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
@@ -334,10 +375,40 @@ func (b *Bot) Setup() error {
 	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
 		log.Debug("using attendance feature")
 
-		options := []*discordgo.ApplicationCommandOption{
+		subCommands := []*discordgo.ApplicationCommandOption{}
+
+		// new attedance record
+		newAttendanceOptions := []*discordgo.ApplicationCommandOption{
+			{
+				Name:        "name",
+				Description: "Name of the event",
+				Type:        discordgo.ApplicationCommandOptionString,
+				Required:    true,
+			},
+		}
+		for i := 0; i < 10; i++ {
+			o := &discordgo.ApplicationCommandOption{
+				Name:         fmt.Sprintf("member-%d", i+1),
+				Description:  "The member to take attendance for",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Autocomplete: true,
+			}
+			newAttendanceOptions = append(newAttendanceOptions, o)
+		}
+
+		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionSubCommand,
+			Name:        "new",
+			Description: "Create a new attendance record",
+			Options:     newAttendanceOptions,
+		})
+		// end new attendance record
+
+		// add member to attendance record
+		addToAttendanceOptions := []*discordgo.ApplicationCommandOption{
 			{
 				Name:         "event",
-				Description:  "the event to take attendance for",
+				Description:  "The event to add the member to",
 				Type:         discordgo.ApplicationCommandOptionString,
 				Required:     true,
 				Autocomplete: true,
@@ -345,29 +416,26 @@ func (b *Bot) Setup() error {
 		}
 		for i := 0; i < 10; i++ {
 			o := &discordgo.ApplicationCommandOption{
-				Name:         fmt.Sprintf("user-%d", i+1),
-				Description:  "the user to take attendance for",
+				Name:         fmt.Sprintf("member-%d", i+1),
+				Description:  "The member to take attendance for",
 				Type:         discordgo.ApplicationCommandOptionUser,
 				Autocomplete: true,
 			}
-			if i == 0 {
-				o.Required = true
-			}
-			options = append(options, o)
+			addToAttendanceOptions = append(addToAttendanceOptions, o)
 		}
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-			Name:        "takeattendance",
-			Description: "take or add to attendance",
-			Type:        discordgo.ChatApplicationCommand,
-			Options:     options,
-		}); err != nil {
-			return errors.Wrap(err, "creating takeattendance command")
-		}
+		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionSubCommand,
+			Name:        "add",
+			Description: "Add a member to an attendance record",
+			Options:     addToAttendanceOptions,
+		})
+		// end add member to attendance record
 
-		options = []*discordgo.ApplicationCommandOption{
+		// remove member from attendance record
+		removeFromAttendanceOptions := []*discordgo.ApplicationCommandOption{
 			{
 				Name:         "event",
-				Description:  "the event to remove attendance from",
+				Description:  "The event to remove the member from",
 				Type:         discordgo.ApplicationCommandOptionString,
 				Required:     true,
 				Autocomplete: true,
@@ -375,32 +443,107 @@ func (b *Bot) Setup() error {
 		}
 		for i := 0; i < 10; i++ {
 			o := &discordgo.ApplicationCommandOption{
-				Name:         fmt.Sprintf("user-%d", i+1),
-				Description:  "the user to remove from attedance",
+				Name:         fmt.Sprintf("member-%d", i+1),
+				Description:  "The member to remove from attendance",
 				Type:         discordgo.ApplicationCommandOptionUser,
 				Autocomplete: true,
 			}
-			if i == 0 {
-				o.Required = true
-			}
-			options = append(options, o)
+			removeFromAttendanceOptions = append(removeFromAttendanceOptions, o)
 		}
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-			Name:        "removeattendance",
-			Description: "remove from attendance",
-			Type:        discordgo.ChatApplicationCommand,
-			Options:     options,
-		}); err != nil {
-			return errors.Wrap(err, "creating removeattendance command")
-		}
+		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionSubCommand,
+			Name:        "remove",
+			Description: "remove a member from an attendance record",
+			Options:     removeFromAttendanceOptions,
+		})
+		// end remove member from attendance record
 
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-			Name:        "refreshattendance",
+		// refresh attendance records
+		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
+			Type:        discordgo.ApplicationCommandOptionSubCommand,
+			Name:        "refresh",
 			Description: "refresh the last 10 attendance records",
+		})
+		// end refresh attendance records
+
+		cmd := &discordgo.ApplicationCommand{
+			Name:        "attendance",
+			Description: "Manage attendance records",
 			Type:        discordgo.ChatApplicationCommand,
-		}); err != nil {
-			return errors.Wrap(err, "creating refreshattendance command")
+			Options:     subCommands,
 		}
+
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
+			return errors.Wrap(err, "creating attendance command")
+		}
+
+		// options := []*discordgo.ApplicationCommandOption{
+		// 	{
+		// 		Name:         "event",
+		// 		Description:  "the event to take attendance for",
+		// 		Type:         discordgo.ApplicationCommandOptionString,
+		// 		Required:     true,
+		// 		Autocomplete: true,
+		// 	},
+		// }
+		// for i := 0; i < 10; i++ {
+		// 	o := &discordgo.ApplicationCommandOption{
+		// 		Name:         fmt.Sprintf("user-%d", i+1),
+		// 		Description:  "the user to take attendance for",
+		// 		Type:         discordgo.ApplicationCommandOptionUser,
+		// 		Autocomplete: true,
+		// 	}
+		// 	if i == 0 {
+		// 		o.Required = true
+		// 	}
+		// 	options = append(options, o)
+		// }
+		// if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		// 	Name:        "takeattendance",
+		// 	Description: "take or add to attendance",
+		// 	Type:        discordgo.ChatApplicationCommand,
+		// 	Options:     options,
+		// }); err != nil {
+		// 	return errors.Wrap(err, "creating takeattendance command")
+		// }
+
+		// options := []*discordgo.ApplicationCommandOption{
+		// 	{
+		// 		Name:         "event",
+		// 		Description:  "the event to remove attendance from",
+		// 		Type:         discordgo.ApplicationCommandOptionString,
+		// 		Required:     true,
+		// 		Autocomplete: true,
+		// 	},
+		// }
+		// for i := 0; i < 10; i++ {
+		// 	o := &discordgo.ApplicationCommandOption{
+		// 		Name:         fmt.Sprintf("user-%d", i+1),
+		// 		Description:  "the user to remove from attedance",
+		// 		Type:         discordgo.ApplicationCommandOptionUser,
+		// 		Autocomplete: true,
+		// 	}
+		// 	if i == 0 {
+		// 		o.Required = true
+		// 	}
+		// 	options = append(options, o)
+		// }
+		// if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		// 	Name:        "removeattendance",
+		// 	Description: "remove from attendance",
+		// 	Type:        discordgo.ChatApplicationCommand,
+		// 	Options:     options,
+		// }); err != nil {
+		// 	return errors.Wrap(err, "creating removeattendance command")
+		// }
+
+		// if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+		// 	Name:        "refreshattendance",
+		// 	Description: "refresh the last 10 attendance records",
+		// 	Type:        discordgo.ChatApplicationCommand,
+		// }); err != nil {
+		// 	return errors.Wrap(err, "creating refreshattendance command")
+		// }
 	}
 
 	// merit

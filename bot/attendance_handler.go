@@ -17,103 +17,37 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
+var attendanceSubCommands = map[string]Handler{
+	"new":     newAttendanceCommandHandler,
+	"add":     addMembersAttendanceCommandHandler,
+	"remove":  removeMembersAttendanceCommandHandler,
+	"refresh": refreshAttendanceCommandHandler,
+}
+
 var lastRefreshTime time.Time
 
-func takeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func attendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("taking attendance autocomplete")
-
-	data := i.ApplicationCommandData()
-
-	choices := []*discordgo.ApplicationCommandOptionChoice{}
-
-	switch {
-	case !allowed(i.Member, "ATTENDANCE"):
-	case data.Options[0].Focused:
-		attendanceRecords, err := attdnc.ListActive(5)
-		if err != nil {
-			return errors.Wrap(err, "getting active attendance records")
-		}
-
-		if data.Options[0].StringValue() != "" {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  data.Options[0].StringValue(),
-				Value: data.Options[0].StringValue(),
-			})
-		}
-
-		for _, record := range attendanceRecords {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  record.Name,
-				Value: record.Id,
-			})
-		}
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: choices,
-		},
-	}); err != nil {
-		return errors.Wrap(err, "responding to take attendance auto complete")
-	}
-
-	return nil
-}
-
-func removeAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("removing attendance autocomplete")
-
-	data := i.ApplicationCommandData()
-
-	choices := []*discordgo.ApplicationCommandOptionChoice{}
-
-	switch {
-	case !allowed(i.Member, "ATTENDANCE"):
-	case data.Options[0].Focused:
-		attendanceRecords, err := attdnc.ListActive(5)
-		if err != nil {
-			return errors.Wrap(err, "getting active attendance records")
-		}
-
-		if data.Options[0].StringValue() != "" {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  data.Options[0].StringValue(),
-				Value: data.Options[0].StringValue(),
-			})
-		}
-
-		for _, record := range attendanceRecords {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  record.Name,
-				Value: record.Id,
-			})
-		}
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: choices,
-		},
-	}); err != nil {
-		return errors.Wrap(err, "responding to remove attendance auto complete")
-	}
-
-	return nil
-}
-
-func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("taking attendance command")
-
-	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
+	logger.Debug("attendance command handler")
 
 	if !allowed(i.Member, "ATTENDANCE") {
 		return InvalidPermissions
 	}
+
+	data := i.Interaction.ApplicationCommandData()
+	handler, ok := attendanceSubCommands[data.Options[0].Name]
+	if !ok {
+		return InvalidSubcommand
+	}
+
+	return handler(ctx, s, i)
+}
+
+func newAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("new attendance command")
+
+	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -122,26 +56,16 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 		},
 	})
 
-	data := i.ApplicationCommandData()
+	data := i.Interaction.ApplicationCommandData().Options[0]
 
 	eventName := data.Options[0].StringValue()
-
-	var attendance *attdnc.Attendance
 
 	exists := false
 	if _, err := xid.FromString(eventName); err == nil {
 		exists = true
 	}
 
-	var err error
-	if exists { // get an existing attendance record
-		attendance, err = attdnc.Get(eventName)
-	} else { // create a new attendance record
-		attendance = attdnc.New(eventName, commandMember)
-	}
-	if err != nil {
-		return errors.Wrap(err, "getting or creating attendance record")
-	}
+	attendance := attdnc.New(eventName, commandMember)
 
 	discordMembersList := data.Options[1:]
 
@@ -165,46 +89,15 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	// check if the attendance record channel exists
-	var channel *discordgo.Channel
-	var message *discordgo.Message
-
-	if attendance.ChannelId != "" {
-		channel, _ = s.Channel(attendance.ChannelId)
+	attandanceMessage := attendance.ToDiscordMessage()
+	message, err := s.ChannelMessageSendComplex(attendance.ChannelId, attandanceMessage)
+	if err != nil {
+		return errors.Wrap(err, "sending attendance message")
 	}
-
-	if channel == nil { // if the channel doesn't exist, use the configured one instead
-		channel, err = s.Channel(settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"))
-		if err != nil {
-			return ChannelNotExist
-		}
-	}
-
-	if attendance.MessageId != "" {
-		message, _ = s.ChannelMessage(channel.ID, attendance.MessageId)
-	}
-
-	if message == nil {
-		message, err = s.ChannelMessageSendComplex(channel.ID, attendance.ToDiscordMessage())
-		if err != nil {
-			return errors.Wrap(err, "sending attendance message")
-		}
-	}
-
-	attendance.ChannelId = channel.ID
 	attendance.MessageId = message.ID
 
 	if err := attendance.Save(); err != nil {
 		return errors.Wrap(err, "saving attendance record")
-	}
-
-	attendanceMessage := attendance.ToDiscordMessage()
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel: channel.ID,
-		ID:      message.ID,
-		Embeds:  &attendanceMessage.Embeds,
-	}); err != nil {
-		return err
 	}
 
 	content := "Attendance record created!"
@@ -219,13 +112,9 @@ func takeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *
 	return nil
 }
 
-func removeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func addMembersAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("removing attendance command")
-
-	if !allowed(i.Member, "ATTENDANCE") {
-		return InvalidPermissions
-	}
+	logger.Debug("add member attendance command")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -234,39 +123,145 @@ func removeAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i
 		},
 	})
 
-	data := i.ApplicationCommandData()
+	data := i.Interaction.ApplicationCommandData().Options[0]
 
-	attendance, err := attdnc.Get(data.Options[0].StringValue())
+	eventId := data.Options[0].StringValue()
+	attendance, err := attdnc.Get(eventId)
 	if err != nil {
+		if errors.Is(err, attdnc.ErrAttendanceNotFound) {
+			return InvalidAttendanceRecord
+		}
+
 		return errors.Wrap(err, "getting attendance record")
 	}
 
-	discordMembers := data.Options[1:]
+	discordMembersList := data.Options[1:]
 
-	for _, discordMember := range discordMembers {
+	for _, discordMember := range discordMembersList {
+		if discordMember.UserValue(s).Bot {
+			continue
+		}
+
 		member, err := members.Get(discordMember.UserValue(s).ID)
 		if err != nil {
 			if !errors.Is(err, members.MemberNotFound) {
 				return errors.Wrap(err, "getting member for new attendance")
 			}
+
+			attendance.WithIssues = append(attendance.WithIssues, member)
+
 			continue
 		}
-		attendance.RemoveMember(member)
+
+		attendance.AddMember(member)
 	}
 
+	// save now incase there is an error with creating the message
 	if err := attendance.Save(); err != nil {
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	message := attendance.ToDiscordMessage()
+	attandanceMessage := attendance.ToDiscordMessage()
+	if _, err := s.ChannelMessageEditEmbeds(attendance.ChannelId, attendance.MessageId, attandanceMessage.Embeds); err != nil {
+		return errors.Wrap(err, "sending attendance message")
+	}
 
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel: attendance.ChannelId,
-		ID:      attendance.MessageId,
-		Content: &message.Content,
-		Embeds:  &message.Embeds,
+	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+		Content: "Attendance record updated!",
+		Flags:   discordgo.MessageFlagsEphemeral,
+	})
+
+	return nil
+}
+
+func addRemoveMembersAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("taking attendance autocomplete")
+
+	data := i.ApplicationCommandData()
+
+	choices := []*discordgo.ApplicationCommandOptionChoice{}
+
+	switch {
+	case !allowed(i.Member, "ATTENDANCE"):
+	case data.Options[0].Options[0].Focused:
+		attendanceRecords, err := attdnc.ListActive(5)
+		if err != nil {
+			return errors.Wrap(err, "getting active attendance records")
+		}
+
+		for _, record := range attendanceRecords {
+			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+				Name:  record.Name,
+				Value: record.Id,
+			})
+		}
+	}
+
+	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
+		Data: &discordgo.InteractionResponseData{
+			Choices: choices,
+		},
 	}); err != nil {
-		return errors.Wrap(err, "editing attendance message for member removal")
+		return errors.Wrap(err, "responding to take attendance auto complete")
+	}
+
+	return nil
+}
+
+func removeMembersAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("remove member attendance command")
+
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+
+	data := i.Interaction.ApplicationCommandData().Options[0]
+
+	eventId := data.Options[0].StringValue()
+	attendance, err := attdnc.Get(eventId)
+	if err != nil {
+		if errors.Is(err, attdnc.ErrAttendanceNotFound) {
+			return InvalidAttendanceRecord
+		}
+
+		return errors.Wrap(err, "getting attendance record")
+	}
+
+	discordMembersList := data.Options[1:]
+
+	for _, discordMember := range discordMembersList {
+		if discordMember.UserValue(s).Bot {
+			continue
+		}
+
+		member, err := members.Get(discordMember.UserValue(s).ID)
+		if err != nil {
+			if !errors.Is(err, members.MemberNotFound) {
+				return errors.Wrap(err, "getting member for removing attendance")
+			}
+
+			attendance.WithIssues = append(attendance.WithIssues, member)
+
+			continue
+		}
+
+		attendance.RemoveMember(member)
+	}
+
+	// save now incase there is an error with creating the message
+	if err := attendance.Save(); err != nil {
+		return errors.Wrap(err, "saving attendance record")
+	}
+
+	attandanceMessage := attendance.ToDiscordMessage()
+	if _, err := s.ChannelMessageEditEmbeds(attendance.ChannelId, attendance.MessageId, attandanceMessage.Embeds); err != nil {
+		return errors.Wrap(err, "sending attendance message")
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
