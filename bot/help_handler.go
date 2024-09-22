@@ -33,6 +33,9 @@ Adds the given member or list of members to the given event attendance.
 ` + "```/attendance remove {event name} {member} {optional: members[]}```" + `
 Removes the given member or list of members from the given event attendance.
 ───────────────────────────────────────────
+` + "```/attendance revert {event name}```" + `
+Reverts the given event attendance to "not recorded".
+───────────────────────────────────────────
 ` + "```/attendance refresh```" + `
 Refreshes the last ten event attendances' messages in the channel. This is incase anything gets manually updated or you think that they might not be correct. This does _not_ effect members with issues. Use the ` + "`Recheck issues`" + ` button on the attendance before submitting for that action.
 ───────────────────────────────────────────
