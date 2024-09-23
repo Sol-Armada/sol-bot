@@ -389,7 +389,25 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 		fields = append(fields, &discordgo.MessageEmbedField{Name: "How they found us", Value: member.LegacyOther})
 	}
 
-	if _, err := s.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.OUTPUT_CHANNEL_ID"), &discordgo.MessageSend{
+	if member.MessageId != "" {
+		if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+			Channel: member.ChannelId,
+			ID:      member.MessageId,
+			Embeds: &[]*discordgo.MessageEmbed{
+				{
+					Fields:    fields,
+					Timestamp: member.Joined.Format(time.RFC3339),
+				},
+			},
+		}); err != nil {
+			goto CREATE
+		}
+
+		return nil
+	}
+
+CREATE:
+	msg, err := s.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.OUTPUT_CHANNEL_ID"), &discordgo.MessageSend{
 		Content: "Onboarding information for " + i.Member.Mention(),
 		Embeds: []*discordgo.MessageEmbed{
 			{
@@ -397,11 +415,15 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 				Timestamp: member.Joined.Format(time.RFC3339),
 			},
 		},
-	}); err != nil {
+	})
+	if err != nil {
 		return errors.Wrap(err, "finishing onboarding: sending onboarded message")
 	}
 
-	return nil
+	member.MessageId = msg.ID
+	member.ChannelId = msg.ChannelID
+
+	return member.Save()
 }
 
 func deferInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) error {
