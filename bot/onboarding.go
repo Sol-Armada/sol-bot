@@ -196,6 +196,10 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 
 	data := i.ModalSubmitData()
 
+	if err := deferInteraction(s, i); err != nil {
+		return errors.Wrap(err, "responding")
+	}
+
 	rsiHandle := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 	playTime := data.Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 	gameplay := data.Components[2].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
@@ -235,18 +239,16 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 	// validate rsi handle
 	if !rsi.ValidHandle(rsiHandle) {
 		logger.Debug("invalid RSI handle")
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "I couldn't find that RSI handle!\n\nPlease make sure it is correct and try again.\nYour RSI handle can be found on your public RSI profile page or in your settings here: https://robertsspaceindustries.com/account/settings",
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{
-					discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								Label:    "Try Again",
-								CustomID: "onboarding:tryagain:" + i.Interaction.Member.User.ID,
-							},
+
+		if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "I couldn't find that RSI handle!\n\nPlease make sure it is correct and try again.\nYour RSI handle can be found on your public RSI profile page or in your settings here: https://robertsspaceindustries.com/account/settings",
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    "Try Again",
+							CustomID: "onboarding:tryagain:" + i.Interaction.Member.User.ID,
 						},
 					},
 				},
@@ -312,25 +314,28 @@ func onboardingTryAgainModalHandler(ctx context.Context, s *discordgo.Session, i
 	data := i.ModalSubmitData()
 	rsiHandle := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
 
+	if err := deferInteraction(s, i); err != nil {
+		return errors.Wrap(err, "responding")
+	}
+
 	if !rsi.ValidHandle(rsiHandle) {
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "I couldn't find that RSI handle!\n\nPlease make sure it is correct and try again.\nYour RSI handle can be found on your public RSI profile page or in your settings here: https://robertsspaceindustries.com/account/settings",
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Components: []discordgo.MessageComponent{
-					discordgo.ActionsRow{
-						Components: []discordgo.MessageComponent{
-							discordgo.Button{
-								Label:    "Try Again",
-								CustomID: "onboarding:try_rsi_handle_again:" + i.Interaction.Member.User.ID,
-							},
+		logger.Debug("invalid RSI handle")
+
+		if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+			Content: "I couldn't find that RSI handle!\n\nPlease make sure it is correct and try again.\nYour RSI handle can be found on your public RSI profile page or in your settings here: https://robertsspaceindustries.com/account/settings",
+			Flags:   discordgo.MessageFlagsEphemeral,
+			Components: []discordgo.MessageComponent{
+				discordgo.ActionsRow{
+					Components: []discordgo.MessageComponent{
+						discordgo.Button{
+							Label:    "Try Again",
+							CustomID: "onboarding:tryagain:" + i.Interaction.Member.User.ID,
 						},
 					},
 				},
 			},
 		}); err != nil {
-			return errors.Wrap(err, "onboarding try again modal handler: responding to invalid rsi handle")
+			return errors.Wrap(err, "onboarding modal handler: responding to invalid rsi handle")
 		}
 	}
 
@@ -360,12 +365,9 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 		return err
 	}
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Thank you for answering our questions! Your Discord nickname has been set to your RSI handle. You can contact someone in the <#223290459726807040> to get verbally onboarded!",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
+	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+		Content: "Thank you for answering our questions! Your Discord nickname has been set to your RSI handle. You can contact someone in <#223290459726807040> to get verbally onboarded!",
+		Flags:   discordgo.MessageFlagsEphemeral,
 	}); err != nil {
 		return errors.Wrap(err, "finishing onboarding: responding")
 	}
@@ -400,4 +402,13 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 	}
 
 	return nil
+}
+
+func deferInteraction(s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
 }
