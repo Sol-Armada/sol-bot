@@ -538,7 +538,7 @@ func revertAttendanceAutocompleteHandler(ctx context.Context, s *discordgo.Sessi
 	switch {
 	case !allowed(i.Member, "ATTENDANCE"):
 	case data.Options[0].Options[0].Focused:
-		attendanceRecords, err := attdnc.ListActive(5)
+		attendanceRecords, err := attdnc.List(bson.D{}, 10, 1)
 		if err != nil {
 			return errors.Wrap(err, "getting recorded attendance records")
 		}

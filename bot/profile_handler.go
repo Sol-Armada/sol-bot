@@ -89,6 +89,14 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 			if len(data.Options) > 1 && data.Options[1].BoolValue() { // update the member before getting their profile
 				logger.Debug("force updating member")
+
+				guildMember, err := s.GuildMember(i.GuildID, otherMember.Id)
+				if err != nil {
+					return errors.Wrap(err, "getting guild member")
+				}
+
+				otherMember.Name = guildMember.Nick
+
 				if err := rsi.UpdateRsiInfo(otherMember); err != nil {
 					if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
 						return err
