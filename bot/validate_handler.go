@@ -12,8 +12,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func validateCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-
+func startValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	member, err := members.Get(i.Member.User.ID)
 	if err != nil {
 		return err
@@ -39,31 +38,27 @@ func validateCommandHandler(ctx context.Context, s *discordgo.Session, i *discor
 		return err
 	}
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: fmt.Sprintf("Please insert this generated code into the Short Bio section of your [RSI profile](https://robertsspaceindustries.com/account/profile), then click \"APPLY ALL CHANGES\" on the page. Wait 5 seconds, then click the \"Validate\" button.\n\n%s", code),
+			Content: fmt.Sprintf("Please insert the generated code below anywhere into the short bio section of your [RSI profile](https://robertsspaceindustries.com/account/profile), then click \"APPLY ALL CHANGES\" on the page. Wait 5 seconds, then click the \"Validate\" button.\n\n%s\n", code),
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{
 						discordgo.Button{
 							Label:    "Validate",
-							CustomID: fmt.Sprintf("onboarding:validate:%s", i.Member.User.ID),
+							CustomID: fmt.Sprintf("validate:check:%s", i.Member.User.ID),
 							Emoji:    &discordgo.ComponentEmoji{Name: "✅"},
 						},
 					},
 				},
 			},
 		},
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	})
 }
 
-func validateButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func checkValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	memberId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
 	member, err := members.Get(memberId)
@@ -125,6 +120,8 @@ func validateButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	member.Validated = true
+	now := time.Now().UTC()
+	member.ValidatedAt = &now
 	member.ValidationCode = ""
 	if err := member.Save(); err != nil {
 		return err

@@ -35,22 +35,18 @@ var commandHandlers = map[string]Handler{
 	"profile":           profileCommandHandler,
 	"merit":             giveMeritCommandHandler,
 	"demerit":           giveDemeritCommandHandler,
-	"validate":          validateCommandHandler,
 	"rankups":           rankUpsCommandHandler,
 }
 
 var autocompleteHandlers = map[string]map[string]Handler{
-	// "takeattendance": takeAttendanceAutocompleteHandler,
 	"attendance": {
 		"add":    addRemoveMembersAttendanceAutocompleteHandler,
 		"remove": addRemoveMembersAttendanceAutocompleteHandler,
 		"revert": revertAttendanceAutocompleteHandler,
 	},
-	// "removeattendance": removeAttendanceAutocompleteHandler,
 }
 
 var onboardingButtonHanlders = map[string]Handler{
-	"validate": validateButtonHandler,
 	"choice":   onboardingButtonHandler,
 	"tryagain": onboardingTryAgainHandler,
 }
@@ -66,6 +62,11 @@ var attendanceButtonHandlers = map[string]Handler{
 	"delete":       deleteAttendanceButtonHandler,
 	"verifydelete": verifyDeleteButtonModalHandler,
 	"canceldelete": cancelDeleteButtonModalHandler,
+}
+
+var validateButtonHandlers = map[string]Handler{
+	"start": startValidateButtonHandler,
+	"check": checkValidateButtonHandler,
 }
 
 func New() (*Bot, error) {
@@ -185,6 +186,10 @@ func (b *Bot) Setup() error {
 				}
 			case "onboarding":
 				if h, ok := onboardingButtonHanlders[id[1]]; ok {
+					err = h(ctx, s, i)
+				}
+			case "validate":
+				if h, ok := validateButtonHandlers[id[1]]; ok {
 					err = h(ctx, s, i)
 				}
 			}
@@ -328,15 +333,6 @@ func (b *Bot) Setup() error {
 		Description: "View help",
 	}); err != nil {
 		return errors.Wrap(err, "creating help command")
-	}
-
-	// validate
-	log.Debug("creating validate command")
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "validate",
-		Description: "Validate your RSI profile",
-	}); err != nil {
-		return errors.Wrap(err, "creating validate command")
 	}
 
 	// rank up

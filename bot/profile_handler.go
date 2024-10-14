@@ -68,16 +68,6 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 					return errors.Wrap(err, "getting member for profile command")
 				}
 
-				// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
-				// 	Data: &discordgo.InteractionResponseData{
-				// 		Content: "That member was not found in the system!",
-				// 		Flags:   discordgo.MessageFlagsEphemeral,
-				// 	},
-				// }); err != nil {
-				// 	return errors.Wrap(err, "responding to attendance command interaction: no member found")
-				// }
-
 				if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 					Content: "That member was not found in the system!",
 				}); err != nil {
@@ -239,22 +229,25 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 	}
 
-	// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-	// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
-	// 	Data: &discordgo.InteractionResponseData{
-	// 		Flags: discordgo.MessageFlagsEphemeral,
-	// 		Embeds: []*discordgo.MessageEmbed{
-	// 			em,
-	// 		},
-	// 	},
-	// }); err != nil {
-	// 	return errors.Wrap(err, "responding to attendance command interaction")
-	// }
-
-	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	params := &discordgo.WebhookParams{
 		Content: "",
 		Embeds:  []*discordgo.MessageEmbed{em},
-	}); err != nil {
+	}
+
+	if !member.Validated {
+		params.Components = []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: []discordgo.MessageComponent{
+					discordgo.Button{
+						Label:    "Validate",
+						CustomID: fmt.Sprintf("validate:start:%s", i.Member.User.ID),
+					},
+				},
+			},
+		}
+	}
+
+	if _, err := s.FollowupMessageCreate(i.Interaction, true, params); err != nil {
 		return errors.Wrap(err, "responding to attendance command interaction")
 	}
 

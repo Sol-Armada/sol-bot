@@ -14,12 +14,8 @@ func helpCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 	memberComamnds := `# Member Commands
 ## profile
 ` + "```/profile```" + `
-Gets your Sol Armada profile that includes things like your current rank and how many events you have attended.
-───────────────────────────────────────────
-## validate
-` + "```/validate```" + `
-Validates your RSI profile to your Sol Armada Discord server nickname as to prove you are who you say you are. (not currently required to be on Sol Armada)
-`
+Gets your Sol Armada profile that includes things like if you are validated, your current rank and how many events you have attended.
+───────────────────────────────────────────`
 
 	officerCommands := `# Officer Commands
 ## attendance

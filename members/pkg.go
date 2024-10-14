@@ -31,6 +31,7 @@ type Member struct {
 	Avatar         string     `json:"avatar" bson:"avatar"`
 	Updated        time.Time  `json:"updated" bson:"updated"`
 	Validated      bool       `json:"validated" bson:"validated"`
+	ValidatedAt    *time.Time `json:"validated_at" bson:"validated_at"`
 	ValidationCode string     `json:"validation_code" bson:"validation_code"`
 	Joined         time.Time  `json:"joined" bson:"joined"`
 	Suffix         string     `json:"suffix" bson:"suffix"`
