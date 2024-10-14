@@ -202,7 +202,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 				Inline: false,
 			},
 			{
-				Name:   "RSI Validated (/validate)",
+				Name:   "RSI Validated",
 				Value:  validated,
 				Inline: false,
 			},
