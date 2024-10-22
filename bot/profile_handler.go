@@ -221,7 +221,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 	em := &discordgo.MessageEmbed{
 		Title:       "Profile",
-		Description: "Information about you in Sol Armada",
+		Description: fmt.Sprintf("Information about %s in Sol Armada", i.Member.User.Mention()),
 		Color:       0x00FFFF,
 		Fields:      emFields,
 		Footer: &discordgo.MessageEmbedFooter{
