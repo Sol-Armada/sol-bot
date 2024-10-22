@@ -234,7 +234,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		Embeds:  []*discordgo.MessageEmbed{em},
 	}
 
-	if !member.Validated {
+	if !member.Validated && member.Id == i.Member.User.ID {
 		params.Components = []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
