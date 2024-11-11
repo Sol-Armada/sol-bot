@@ -65,6 +65,11 @@ var attendanceButtonHandlers = map[string]Handler{
 	"delete":       attendancehandler.DeleteAttendanceButtonHandler,
 	"verifydelete": attendancehandler.VerifyDeleteButtonModalHandler,
 	"canceldelete": attendancehandler.CancelDeleteButtonModalHandler,
+	"payout":       attendancehandler.AddPayoutButtonHandler,
+}
+
+var attendanceModalHandlers = map[string]Handler{
+	"payout": attendancehandler.AddPayoutModalHandler,
 }
 
 var validateButtonHandlers = map[string]Handler{
@@ -205,6 +210,10 @@ func (b *Bot) Setup() error {
 			switch id[0] {
 			case "onboarding":
 				if h, ok := onboardingModalHandlers[id[1]]; ok {
+					err = h(ctx, s, i)
+				}
+			case "attendance":
+				if h, ok := attendanceModalHandlers[id[1]]; ok {
 					err = h(ctx, s, i)
 				}
 			}

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -397,6 +398,14 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		}
 	}
 
+	if a.Payouts != nil {
+		fields = append(fields, &discordgo.MessageEmbedField{
+			Name:   "Payouts",
+			Value:  "Total: " + strconv.Itoa(int(a.Payouts.Total)) + "\nPer Member: " + strconv.Itoa(int(a.Payouts.PerMember)) + "\nOrg Take: " + strconv.Itoa(int(a.Payouts.OrgTake)),
+			Inline: false,
+		})
+	}
+
 	embeds := []*discordgo.MessageEmbed{
 		{
 			Title:       a.Name,
@@ -441,8 +450,29 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 						},
 						CustomID: "attendance:recheck:" + a.Id,
 					},
+					discordgo.Button{
+						Label:    "Add Payout",
+						Style:    discordgo.PrimaryButton,
+						Disabled: a.Recorded,
+						Emoji: &discordgo.ComponentEmoji{
+							Name: "💰",
+						},
+						CustomID: "attendance:payout:" + a.Id,
+					},
 				},
 			},
+		}
+
+		if a.Payouts != nil {
+			components[0].(discordgo.ActionsRow).Components[3] = discordgo.Button{
+				Label:    "Edit Payout",
+				Style:    discordgo.PrimaryButton,
+				Disabled: a.Recorded,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "💰",
+				},
+				CustomID: "attendance:payout:" + a.Id,
+			}
 		}
 	}
 
@@ -521,4 +551,14 @@ func (a *Attendance) removeDuplicates() {
 
 func (a *Attendance) Delete() error {
 	return attendanceStore.Delete(a.Id)
+}
+
+func (a *Attendance) AddPayout(total, perMember, orgTake int64) error {
+	a.Payouts = &Payouts{
+		Total:     total,
+		PerMember: perMember,
+		OrgTake:   orgTake,
+	}
+
+	return a.Save()
 }
