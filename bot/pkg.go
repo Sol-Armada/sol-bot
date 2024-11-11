@@ -9,6 +9,8 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/sol-bot/bot/attendancehandler"
+	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -29,20 +31,21 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]Handler{
-	"help":              helpCommandHandler,
-	"attendance":        attendanceCommandHandler,
-	"refreshattendance": refreshAttendanceCommandHandler,
-	"profile":           profileCommandHandler,
-	"merit":             giveMeritCommandHandler,
-	"demerit":           giveDemeritCommandHandler,
-	"rankups":           rankUpsCommandHandler,
+	"help":       helpCommandHandler,
+	"attendance": attendancehandler.AttendanceCommandHandler,
+	// "refreshattendance": refreshAttendanceCommandHandler,
+	"profile": profileCommandHandler,
+	"merit":   giveMeritCommandHandler,
+	"demerit": giveDemeritCommandHandler,
+	"rankups": rankUpsCommandHandler,
 }
 
 var autocompleteHandlers = map[string]map[string]Handler{
 	"attendance": {
-		"add":    addRemoveMembersAttendanceAutocompleteHandler,
-		"remove": addRemoveMembersAttendanceAutocompleteHandler,
-		"revert": revertAttendanceAutocompleteHandler,
+		"add":    attendancehandler.AddRemoveMembersAttendanceAutocompleteHandler,
+		"remove": attendancehandler.AddRemoveMembersAttendanceAutocompleteHandler,
+		"revert": attendancehandler.RevertAttendanceAutocompleteHandler,
+		"new":    attendancehandler.TagAutocompleteHandler,
 	},
 }
 
@@ -57,11 +60,11 @@ var onboardingModalHandlers = map[string]Handler{
 }
 
 var attendanceButtonHandlers = map[string]Handler{
-	"record":       recordAttendanceButtonHandler,
-	"recheck":      recheckIssuesButtonHandler,
-	"delete":       deleteAttendanceButtonHandler,
-	"verifydelete": verifyDeleteButtonModalHandler,
-	"canceldelete": cancelDeleteButtonModalHandler,
+	"record":       attendancehandler.RecordAttendanceButtonHandler,
+	"recheck":      attendancehandler.RecheckIssuesButtonHandler,
+	"delete":       attendancehandler.DeleteAttendanceButtonHandler,
+	"verifydelete": attendancehandler.VerifyDeleteButtonModalHandler,
+	"canceldelete": attendancehandler.CancelDeleteButtonModalHandler,
 }
 
 var validateButtonHandlers = map[string]Handler{
@@ -347,6 +350,24 @@ func (b *Bot) Setup() error {
 	// attendance
 	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
 		log.Debug("using attendance feature")
+
+		tags := []string{
+			"FPS",
+			"SALVAGE",
+			"MINING",
+			"FREIGHT",
+			"RACING",
+			"COMBAT",
+			"EXPLORATION",
+			"MISSIONS",
+			"TRADING",
+			"MERCENARY",
+			"OTHER",
+		}
+
+		if err := config.SetConfig("tags", tags); err != nil {
+			return errors.Wrap(err, "setting attendance tags")
+		}
 
 		subCommands := []*discordgo.ApplicationCommandOption{}
 
