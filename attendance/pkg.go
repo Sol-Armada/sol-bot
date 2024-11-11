@@ -19,6 +19,12 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type Payouts struct {
+	Total     int64 `json:"total"`
+	PerMember int64 `json:"per_member"`
+	OrgTake   int64 `json:"org_take"`
+}
+
 type Attendance struct {
 	Id          string            `json:"id" bson:"_id"`
 	Name        string            `json:"name"`
@@ -26,6 +32,7 @@ type Attendance struct {
 	Members     []*members.Member `json:"members"`
 	WithIssues  []*members.Member `json:"with_issues" bson:"with_issues"`
 	Recorded    bool              `json:"recorded"`
+	Payouts     *Payouts          `json:"payouts" bson:"payouts"`
 
 	ChannelId string `json:"channel_id" bson:"channel_id"`
 	MessageId string `json:"message_id" bson:"message_id"`
