@@ -15,6 +15,7 @@ import (
 	"github.com/sol-armada/sol-bot/activity"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
+	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
@@ -84,6 +85,11 @@ func init() {
 
 	if err := activity.Setup(); err != nil {
 		log.WithError(err).Error("failed to setup activity")
+		os.Exit(1)
+	}
+
+	if err := config.Setup(); err != nil {
+		log.WithError(err).Error("failed to setup config")
 		os.Exit(1)
 	}
 

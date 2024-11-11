@@ -14,6 +14,12 @@ var (
 	ErrMissingId       = e.New("Missing Id")
 
 	ErrStartWrongFormat = e.New("Start is in wrong format")
+
+	// bot hanlder errors
+	ChannelNotExist         = e.New("channel does not exist")
+	InvalidPermissions      = e.New("invalid permissions")
+	InvalidSubcommand       = e.New("invalid subcommand")
+	InvalidAttendanceRecord = e.New("invalid attendance record")
 )
 
 func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string, errorCode *string) {
@@ -37,4 +43,12 @@ func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message strin
 			log.WithError(err).Error("responding to event command interaction")
 		}
 	}
+}
+
+func Is(err, target error) bool {
+	return e.Is(err, target)
+}
+
+func Wrap(err error, message string) error {
+	return e.Join(err, e.New(message))
 }
