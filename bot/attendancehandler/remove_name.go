@@ -9,9 +9,9 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func AddNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func RemoveNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("add attendance name command")
+	logger.Debug("remove attendance name command")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
@@ -24,12 +24,12 @@ func AddNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 	name := data.Options[0].Options[0].StringValue()
 
-	if err := config.NewAttendanceName(name); err != nil {
+	if err := config.RemoveAttendanceName(name); err != nil {
 		return err
 	}
 
 	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Name added successfully",
+		Content: "Name removed successfully",
 	})
 
 	return err

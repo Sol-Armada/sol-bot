@@ -15,12 +15,13 @@ import (
 )
 
 var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"create":       NewCommandHandler,
-	"add":          AddMembersCommandHandler,
-	"remove":       RemoveMembersCommandHandler,
-	"refresh":      RefreshCommandHandler,
-	"revert":       RevertCommandHandler,
-	"addEventName": AddNameCommandHandler,
+	"create":            NewCommandHandler,
+	"add":               AddMembersCommandHandler,
+	"remove":            RemoveMembersCommandHandler,
+	"refresh":           RefreshCommandHandler,
+	"revert":            RevertCommandHandler,
+	"add_event_name":    AddNameCommandHandler,
+	"remove_event_name": RemoveNameCommandHandler,
 }
 
 var lastRefreshTime time.Time
@@ -156,7 +157,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 	// add event name
 	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "addEventName",
+		Name:        "add_event_name",
 		Description: "add an event name to the available list",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -169,10 +170,10 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 	})
 	// end add event name
 
-	// add event name
+	// remove event name
 	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "removeEventName",
+		Name:        "remove_event_name",
 		Description: "remove an event name to the available list",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
@@ -183,7 +184,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 			},
 		},
 	})
-	// end add event name
+	// end remove event name
 
 	return &discordgo.ApplicationCommand{
 		Name:        "attendance",
