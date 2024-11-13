@@ -92,19 +92,19 @@ func AddPayoutModalHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	totalPayoutS := i.ModalSubmitData().Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	totalPayout, err := strconv.ParseInt(totalPayoutS, 10, 64)
+	totalPayout, err := strconv.ParseInt(strings.ReplaceAll(totalPayoutS, ",", ""), 10, 64)
 	if err != nil {
 		return errors.New("invalid total payout")
 	}
 
 	perMemeberS := i.ModalSubmitData().Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	perMember, err := strconv.ParseInt(perMemeberS, 10, 64)
+	perMember, err := strconv.ParseInt(strings.ReplaceAll(perMemeberS, ",", ""), 10, 64)
 	if err != nil {
 		perMember = 0
 	}
 
 	orgShareS := i.ModalSubmitData().Components[2].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	orgShare, err := strconv.ParseInt(orgShareS, 10, 64)
+	orgShare, err := strconv.ParseInt(strings.ReplaceAll(orgShareS, ",", ""), 10, 64)
 	if err != nil {
 		orgShare = 0
 	}

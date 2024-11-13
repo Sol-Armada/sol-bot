@@ -10,7 +10,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
-	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -32,7 +31,7 @@ var bot *Bot
 // command handlers
 var commandHandlers = map[string]Handler{
 	"help":       helpCommandHandler,
-	"attendance": attendancehandler.AttendanceCommandHandler,
+	"attendance": attendancehandler.CommandHandler,
 	// "refreshattendance": refreshAttendanceCommandHandler,
 	"profile": profileCommandHandler,
 	"merit":   giveMeritCommandHandler,
@@ -42,10 +41,10 @@ var commandHandlers = map[string]Handler{
 
 var autocompleteHandlers = map[string]map[string]Handler{
 	"attendance": {
-		"add":    attendancehandler.AddRemoveMembersAttendanceAutocompleteHandler,
-		"remove": attendancehandler.AddRemoveMembersAttendanceAutocompleteHandler,
-		"revert": attendancehandler.RevertAttendanceAutocompleteHandler,
-		"new":    attendancehandler.TagAutocompleteHandler,
+		"add":    attendancehandler.AddRemoveMembersAutocompleteHandler,
+		"remove": attendancehandler.AddRemoveMembersAutocompleteHandler,
+		"revert": attendancehandler.RevertAutocompleteHandler,
+		"new":    attendancehandler.NewAutocompleteHandler,
 	},
 }
 
@@ -60,9 +59,9 @@ var onboardingModalHandlers = map[string]Handler{
 }
 
 var attendanceButtonHandlers = map[string]Handler{
-	"record":       attendancehandler.RecordAttendanceButtonHandler,
+	"record":       attendancehandler.RecordButtonHandler,
 	"recheck":      attendancehandler.RecheckIssuesButtonHandler,
-	"delete":       attendancehandler.DeleteAttendanceButtonHandler,
+	"delete":       attendancehandler.DeleteButtonHandler,
 	"verifydelete": attendancehandler.VerifyDeleteButtonModalHandler,
 	"canceldelete": attendancehandler.CancelDeleteButtonModalHandler,
 	"payout":       attendancehandler.AddPayoutButtonHandler,
@@ -360,137 +359,9 @@ func (b *Bot) Setup() error {
 	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
 		log.Debug("using attendance feature")
 
-		tags := []string{
-			"FPS",
-			"SALVAGE",
-			"MINING",
-			"FREIGHT",
-			"RACING",
-			"COMBAT",
-			"EXPLORATION",
-			"MISSIONS",
-			"TRADING",
-			"MERCENARY",
-			"OTHER",
-		}
-
-		if err := config.SetConfig("tags", tags); err != nil {
-			return errors.Wrap(err, "setting attendance tags")
-		}
-
-		subCommands := []*discordgo.ApplicationCommandOption{}
-
-		// new attedance record
-		newAttendanceOptions := []*discordgo.ApplicationCommandOption{
-			{
-				Name:        "name",
-				Description: "Name of the event",
-				Type:        discordgo.ApplicationCommandOptionString,
-				Required:    true,
-			},
-		}
-		for i := 0; i < 10; i++ {
-			o := &discordgo.ApplicationCommandOption{
-				Name:         fmt.Sprintf("member-%d", i+1),
-				Description:  "The member to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			}
-			newAttendanceOptions = append(newAttendanceOptions, o)
-		}
-
-		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionSubCommand,
-			Name:        "new",
-			Description: "Create a new attendance record",
-			Options:     newAttendanceOptions,
-		})
-		// end new attendance record
-
-		// add member to attendance record
-		addToAttendanceOptions := []*discordgo.ApplicationCommandOption{
-			{
-				Name:         "event",
-				Description:  "The event to add the member to",
-				Type:         discordgo.ApplicationCommandOptionString,
-				Required:     true,
-				Autocomplete: true,
-			},
-		}
-		for i := 0; i < 10; i++ {
-			o := &discordgo.ApplicationCommandOption{
-				Name:         fmt.Sprintf("member-%d", i+1),
-				Description:  "The member to take attendance for",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			}
-			addToAttendanceOptions = append(addToAttendanceOptions, o)
-		}
-		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionSubCommand,
-			Name:        "add",
-			Description: "Add a member to an attendance record",
-			Options:     addToAttendanceOptions,
-		})
-		// end add member to attendance record
-
-		// remove member from attendance record
-		removeFromAttendanceOptions := []*discordgo.ApplicationCommandOption{
-			{
-				Name:         "event",
-				Description:  "The event to remove the member from",
-				Type:         discordgo.ApplicationCommandOptionString,
-				Required:     true,
-				Autocomplete: true,
-			},
-		}
-		for i := 0; i < 10; i++ {
-			o := &discordgo.ApplicationCommandOption{
-				Name:         fmt.Sprintf("member-%d", i+1),
-				Description:  "The member to remove from attendance",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Autocomplete: true,
-			}
-			removeFromAttendanceOptions = append(removeFromAttendanceOptions, o)
-		}
-		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionSubCommand,
-			Name:        "remove",
-			Description: "remove a member from an attendance record",
-			Options:     removeFromAttendanceOptions,
-		})
-		// end remove member from attendance record
-
-		// revert attendance record
-		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionSubCommand,
-			Name:        "revert",
-			Description: "revert an attendance record",
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:         "event",
-					Description:  "The event to revert",
-					Type:         discordgo.ApplicationCommandOptionString,
-					Required:     true,
-					Autocomplete: true,
-				},
-			},
-		})
-		// end revert attendance record
-
-		// refresh attendance records
-		subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionSubCommand,
-			Name:        "refresh",
-			Description: "refresh the last 10 attendance records",
-		})
-		// end refresh attendance records
-
-		cmd := &discordgo.ApplicationCommand{
-			Name:        "attendance",
-			Description: "Manage attendance records",
-			Type:        discordgo.ChatApplicationCommand,
-			Options:     subCommands,
+		cmd, err := attendancehandler.Setup()
+		if err != nil {
+			return errors.Wrap(err, "setting attendance commands")
 		}
 
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
@@ -572,4 +443,8 @@ func (b *Bot) Close() error {
 	}
 
 	return b.Session.Close()
+}
+
+func allowed(discordMember *discordgo.Member, feature string) bool {
+	return utils.StringSliceContainsOneOf(discordMember.Roles, settings.GetStringSlice("FEATURES."+feature+".ALLOWED_ROLES"))
 }

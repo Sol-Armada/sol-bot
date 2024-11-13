@@ -11,18 +11,27 @@ func Issues(member *members.Member) []string {
 
 	if member.IsBot {
 		issues = append(issues, "bot")
+		return issues
 	}
 
 	if member.IsGuest {
 		issues = append(issues, "guest")
+		return issues
 	}
 
 	if !member.RSIMember {
 		issues = append(issues, "not on rsi")
+		return issues
 	}
 
 	if !member.RSIMember && member.IsAlly {
 		issues = append(issues, "marked as ally, but not a rsi member")
+		return issues
+	}
+
+	if member.RSIMember && member.IsAffiliate {
+		issues = append(issues, "is affiliate")
+		return issues
 	}
 
 	if member.RSIMember && member.BadAffiliation {
@@ -31,14 +40,12 @@ func Issues(member *members.Member) []string {
 
 	if member.RSIMember && member.PrimaryOrg == "REDACTED" {
 		issues = append(issues, "redacted org")
+		return issues
 	}
 
 	if member.RSIMember && member.Rank <= ranks.Technician && member.PrimaryOrg != settings.GetString("rsi_org_sid") {
-		issues = append(issues, "bad primary org")
-	}
-
-	if member.RSIMember && member.IsAffiliate {
-		issues = append(issues, "is affiliate")
+		issues = append(issues, "ranked, but org not set as primary")
+		return issues
 	}
 
 	if member.RSIMember && member.IsAlly {

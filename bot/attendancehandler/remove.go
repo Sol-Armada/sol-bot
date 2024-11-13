@@ -12,7 +12,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func RemoveMembersAttendanceCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func RemoveMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("remove member attendance command")
 
