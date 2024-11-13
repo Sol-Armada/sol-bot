@@ -29,7 +29,7 @@ func RemoveNameCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 	}
 
 	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Name removed successfully",
+		Content: "Name \"" + name + "\" removed successfully",
 	})
 
 	return err

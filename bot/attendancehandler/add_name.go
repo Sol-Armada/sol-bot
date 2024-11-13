@@ -29,7 +29,7 @@ func AddNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Name added successfully",
+		Content: "Name \"" + name + "\" added successfully",
 	})
 
 	return err
