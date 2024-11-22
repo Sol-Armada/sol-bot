@@ -45,6 +45,8 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 			continue
 		}
 
+		logger.WithField("member", member.Id).Debug("checking if member needs rank up")
+
 		count, err := attendance.GetMemberAttendanceCount(member.Id)
 		if err != nil {
 			return err
@@ -55,25 +57,17 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		if member.Rank == ranks.Recruit && count >= 3 {
 			tt.NextRank = ranks.Member
 		}
-
 		if member.Rank == ranks.Member && count >= 10 {
 			tt.NextRank = ranks.Technician
 		}
-
 		if member.Rank == ranks.Technician && count >= 20 {
 			tt.NextRank = ranks.Specialist
 		}
 
-		if tt.NextRank == 0 {
-			continue
+		if tt.NextRank != 0 {
+			needsRankUp = append(needsRankUp, tt)
 		}
-
-		logger.WithField("member", member).WithField("count", count).WithField("nextRank", tt.NextRank).Debug("checking if member needs rank up")
-
-		needsRankUp = append(needsRankUp, tt)
 	}
-
-	logger.WithField("count", len(needsRankUp)).Debug("need to rank up")
 
 	if len(needsRankUp) == 0 {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -85,15 +79,41 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	// output the list of members that need to be ranked up
 	logger.WithField("members", needsRankUp).Debug("need to rank up")
 
-	embed := &discordgo.MessageEmbed{
-		Title:  "Members that need a Rank Up",
-		Fields: []*discordgo.MessageEmbedField{},
+	fields := []*discordgo.MessageEmbedField{
+		{
+			Name:   "Members to Rank Up",
+			Value:  "",
+			Inline: true,
+		},
 	}
+	embed := &discordgo.MessageEmbed{
+		Title:  "",
+		Fields: fields,
+	}
+
+	ind := 0
 	for _, member := range needsRankUp {
-		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:  "",
-			Value: fmt.Sprintf("<@%s> to %s (%d Events)", member.Member.Id, member.NextRank.String(), member.Count),
-		})
+		if member.NextRank == 0 {
+			continue
+		}
+
+		if ind%10 == 0 && ind != 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "Members to Rank Up (continued)",
+				Value:  "",
+				Inline: true,
+			})
+		}
+
+		field := fields[len(fields)-1]
+		field.Value += fmt.Sprintf("<@%s> to %s (%d Events)", member.Member.Id, member.NextRank.String(), member.Count)
+
+		// if not the 10th member, add a newline
+		if ind%10 != 9 {
+			field.Value += "\n"
+		}
+
+		ind++
 	}
 
 	// create followup

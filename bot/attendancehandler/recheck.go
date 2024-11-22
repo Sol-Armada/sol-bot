@@ -2,6 +2,7 @@ package attendancehandler
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/apex/log"
@@ -50,7 +51,7 @@ func RecheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Attendance record updated!",
+		Content: fmt.Sprintf("Attendance record <#%s> rechecked", attendance.MessageId),
 		Flags:   discordgo.MessageFlagsEphemeral,
 	})
 

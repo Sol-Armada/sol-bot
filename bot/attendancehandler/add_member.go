@@ -2,6 +2,7 @@ package attendancehandler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
@@ -67,7 +68,7 @@ func AddMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Attendance record updated!",
+		Content: fmt.Sprintf("Attendance record <#%s> updated", attendance.MessageId),
 		Flags:   discordgo.MessageFlagsEphemeral,
 	})
 

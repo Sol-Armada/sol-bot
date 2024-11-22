@@ -18,6 +18,10 @@ Gets your Sol Armada profile that includes things like if you are validated, you
 ───────────────────────────────────────────`
 
 	officerCommands := `# Officer Commands
+## profile
+` + "```/profile {member} {force}```" + `
+Gets the Sol Armada profile for the given member. If ` + "`force`" + ` is given, it will force a refresh of the profile.
+───────────────────────────────────────────
 ## attendance
 Manage attendance for events
 ` + "```/attendance create {event name} {optional: members[]}```" + `
@@ -35,11 +39,11 @@ Reverts the given event attendance to "not recorded".
 ` + "```/attendance refresh```" + `
 Refreshes the last ten event attendances' messages in the channel. This is incase anything gets manually updated or you think that they might not be correct. This does _not_ effect members with issues. Use the ` + "`Recheck issues`" + ` button on the attendance before submitting for that action.
 ───────────────────────────────────────────
-` + "```/attendance addEventName {new event name}```" + `
+` + "```/attendance add_event_name {new event name}```" + `
 Adds an event name to the list.
 ───────────────────────────────────────────
-` + "```/attendance removeEventName {event name}```" + `
-Removes an event name to the list.
+` + "```/attendance remove_event_name {event name}```" + `
+Removes an event name from the list.
 ───────────────────────────────────────────
 ## rankups
 Lists members who need to be ranked up.

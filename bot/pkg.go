@@ -41,10 +41,11 @@ var commandHandlers = map[string]Handler{
 
 var autocompleteHandlers = map[string]map[string]Handler{
 	"attendance": {
-		"add":    attendancehandler.AddRemoveMembersAutocompleteHandler,
-		"remove": attendancehandler.AddRemoveMembersAutocompleteHandler,
-		"revert": attendancehandler.RevertAutocompleteHandler,
-		"new":    attendancehandler.NewAutocompleteHandler,
+		"add":               attendancehandler.AddRemoveMembersAutocompleteHandler,
+		"remove":            attendancehandler.AddRemoveMembersAutocompleteHandler,
+		"revert":            attendancehandler.RevertAutocompleteHandler,
+		"create":            attendancehandler.CreateAutocompleteHandler,
+		"remove_event_name": attendancehandler.CreateAutocompleteHandler,
 	},
 }
 

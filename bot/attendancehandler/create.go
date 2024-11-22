@@ -2,6 +2,7 @@ package attendancehandler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
@@ -16,9 +17,9 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func NewCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func CreateCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("new attendance command")
+	logger.Debug("create attendance command")
 
 	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
 
@@ -85,9 +86,9 @@ func NewCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.I
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	content := "Attendance record created!"
+	content := fmt.Sprintf("Attendance record <#%s> created", attendance.MessageId)
 	if exists {
-		content = "Attendance record updated!"
+		content = fmt.Sprintf("Attendance record <#%s> updated", attendance.MessageId)
 	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: content,
@@ -97,9 +98,9 @@ func NewCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.I
 	return nil
 }
 
-func NewAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func CreateAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("attendance new autocomplete")
+	logger.Debug("attendance create autocomplete")
 
 	if !allowed(i.Member, "ATTENDANCE") {
 		return customerrors.InvalidPermissions
@@ -115,7 +116,7 @@ func NewAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discor
 		return errors.Wrap(err, "getting names")
 	}
 
-	matches := fuzzy.Find(typed, names)
+	matches := fuzzy.FindFold(typed, names)
 
 	for _, name := range matches {
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{

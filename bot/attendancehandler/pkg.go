@@ -15,7 +15,7 @@ import (
 )
 
 var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"create":            NewCommandHandler,
+	"create":            CreateCommandHandler,
 	"add":               AddMembersCommandHandler,
 	"remove":            RemoveMembersCommandHandler,
 	"refresh":           RefreshCommandHandler,
@@ -177,10 +177,11 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 		Description: "remove an event name to the available list",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
-				Name:        "name",
-				Description: "The name of the event",
-				Type:        discordgo.ApplicationCommandOptionString,
-				Required:    true,
+				Name:         "name",
+				Description:  "The name of the event",
+				Type:         discordgo.ApplicationCommandOptionString,
+				Required:     true,
+				Autocomplete: true,
 			},
 		},
 	})
