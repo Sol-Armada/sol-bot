@@ -13,6 +13,7 @@ import (
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -86,9 +87,9 @@ func CreateCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	content := fmt.Sprintf("Attendance record <#%s> created", attendance.MessageId)
+	content := fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s created", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId)
 	if exists {
-		content = fmt.Sprintf("Attendance record <#%s> updated", attendance.MessageId)
+		content = fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId)
 	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: content,

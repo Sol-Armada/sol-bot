@@ -10,6 +10,7 @@ import (
 	attdnc "github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -68,7 +69,7 @@ func RemoveMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *d
 	}
 
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: fmt.Sprintf("Attendance record <#%s> updated", attendance.MessageId),
+		Content: fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId),
 		Flags:   discordgo.MessageFlagsEphemeral,
 	})
 
