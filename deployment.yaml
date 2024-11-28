@@ -1,0 +1,26 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sol-bot
+labels:
+  app: sol-bot
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sol-bot
+  template:
+    metadata:
+      labels:
+        app: sol-bot
+    spec:
+      containers:
+        - name: sol-bot
+          image: koothegreat/sol-bot:latest-arm64
+          resources:
+            limits:
+              memory: "2Gi"
+              cpu: "500m"
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
