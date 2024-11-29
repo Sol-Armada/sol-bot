@@ -1,3 +1,16 @@
 web/node_modules
 web/package-lock.json
 web/dist
+settings.*
+deployment.yaml
+Dockerfile
+bin
+LICENSE
+makefile
+README.md
+solbot.service
+staging.Dockerfile
+deploy.sh
+.vscode
+.gitingore
+.git

@@ -4,7 +4,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN go build -o ./dist/solbot ./cmd/
+RUN go build -o ./dist/solbot ./cmd
 
 FROM golang:latest
 

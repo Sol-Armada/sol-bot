@@ -359,12 +359,18 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 
 	logger.Info("finishing onboarding")
 
+	g, _ := s.Guild(bot.GuildId)
+	if g != nil && i.Member.User.ID == g.OwnerID {
+		goto SKIP
+	}
+
 	if _, err := s.GuildMemberEdit(bot.GuildId, member.Id, &discordgo.GuildMemberParams{
 		Nick: member.Name,
 	}); err != nil {
 		return err
 	}
 
+SKIP:
 	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 		Content: "Thank you for answering our questions! Your Discord nickname has been set to your RSI handle. You can contact someone in <#223290459726807040> to get verbally onboarded!",
 		Flags:   discordgo.MessageFlagsEphemeral,
@@ -422,6 +428,7 @@ CREATE:
 
 	member.MessageId = msg.ID
 	member.ChannelId = msg.ChannelID
+	member.OnboardedAt = &msg.Timestamp
 
 	return member.Save()
 }

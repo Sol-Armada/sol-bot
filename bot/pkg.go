@@ -126,26 +126,19 @@ func (b *Bot) Setup() error {
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		member, err := members.Get(i.Member.User.ID)
 		if err != nil {
-			if errors.Is(err, members.MemberNotFound) {
+			if !errors.Is(err, members.MemberNotFound) {
+				log.WithError(err).Error("getting member for incomming interaction")
 				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
-						Content: "Looks like you are not onboarded yet! Ask an @Officer to help onboard you",
+						Content: "Ran into an error, please try again in a few minutes",
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				})
 				return
 			}
 
-			log.WithError(err).Error("getting member for incomming interaction")
-			_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "Ran into an error, please try again in a few minutes",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
-			})
-			return
+			member = members.New(i.Member)
 		}
 
 		ctx := utils.SetMemberToContext(b.ctx, member)
