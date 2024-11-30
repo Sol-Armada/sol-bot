@@ -14,6 +14,11 @@ func Issues(member *members.Member) []string {
 		return issues
 	}
 
+	if member.OnboardedAt == nil {
+		issues = append(issues, "not onboarded")
+		return issues
+	}
+
 	if member.IsGuest {
 		issues = append(issues, "guest")
 		return issues
