@@ -3,6 +3,7 @@ package attendancehandler
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/apex/log"
@@ -15,13 +16,34 @@ import (
 )
 
 var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"create":            CreateCommandHandler,
-	"add":               AddMembersCommandHandler,
-	"remove":            RemoveMembersCommandHandler,
-	"refresh":           RefreshCommandHandler,
-	"revert":            RevertCommandHandler,
-	"add_event_name":    AddNameCommandHandler,
-	"remove_event_name": RemoveNameCommandHandler,
+	"create":            createCommandHandler,
+	"add":               addMembersCommandHandler,
+	"remove":            removeMembersCommandHandler,
+	"refresh":           refreshCommandHandler,
+	"revert":            revertCommandHandler,
+	"add_event_name":    addNameCommandHandler,
+	"remove_event_name": removeNameCommandHandler,
+}
+
+var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
+	"add":               addRemoveMembersAutocompleteHandler,
+	"remove":            addRemoveMembersAutocompleteHandler,
+	"revert":            revertAutocompleteHandler,
+	"create":            createAutocompleteHandler,
+	"remove_event_name": createAutocompleteHandler,
+}
+
+var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
+	"start":         startEventButtonHandler,
+	"end":           endEventButtonHandler,
+	"delete":        deleteButtonHandler,
+	"payout":        addPayoutButtonHandler,
+	"record":        recordButtonHandler,
+	"recheck":       recheckIssuesButtonHandler,
+	"verifydelete":  verifyDeleteButtonModalHandler,
+	"canceldelete":  cancelDeleteButtonModalHandler,
+	"stayed":        stayedSelectHandler,
+	"stayed_submit": stayedSubmitButtonHandler,
 }
 
 var lastRefreshTime time.Time
@@ -207,6 +229,47 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 	handler, ok := subCommands[data.Options[0].Name]
 	if !ok {
 		return customerrors.InvalidSubcommand
+	}
+
+	return handler(ctx, s, i)
+}
+
+func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("attendance autocomplete handler")
+
+	if !allowed(i.Member, "ATTENDANCE") {
+		return customerrors.InvalidPermissions
+	}
+
+	data := i.ApplicationCommandData()
+	handler, ok := autoCompletes[data.Options[0].Name]
+	logger = logger.WithFields(log.Fields{
+		"subcommand": data.Options[0].Name,
+	})
+	ctx = utils.SetLoggerToContext(ctx, logger)
+	if !ok {
+		return customerrors.InvalidAutocomplete
+	}
+
+	logger.Debug("calling autocomplete handler")
+
+	return handler(ctx, s, i)
+}
+
+func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger.Debug("attendance button handler")
+
+	if !allowed(i.Member, "ATTENDANCE") {
+		return customerrors.InvalidPermissions
+	}
+
+	data := i.Interaction.MessageComponentData()
+	action := strings.Split(data.CustomID, ":")[1]
+	handler, ok := buttons[action]
+	if !ok {
+		return customerrors.InvalidButton
 	}
 
 	return handler(ctx, s, i)

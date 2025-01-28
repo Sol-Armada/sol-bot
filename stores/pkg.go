@@ -12,12 +12,7 @@ import (
 
 type Collection string
 
-const (
-	MEMBERS    Collection = "members"
-	CONFIGS    Collection = "configs"
-	ATTENDANCE Collection = "attendance"
-	ACTIVITY   Collection = "activity"
-)
+const ()
 
 type store struct {
 	*mongo.Collection
@@ -65,44 +60,14 @@ func New(ctx context.Context, host string, port int, username string, password s
 	client.databases[CONFIGS] = newConfigsStore(ctx, client.Client, database)
 	client.databases[ATTENDANCE] = newAttendanceStore(ctx, client.Client, database)
 	client.databases[ACTIVITY] = newActivityStore(ctx, client.Client, database)
+	client.databases[SOS] = newSOSStore(ctx, client.Client, database)
+	client.databases[DKP] = newDKPStore(ctx, client.Client, database)
 
 	return client, nil
 }
 
 func Get() *Client {
 	return client
-}
-
-func (c *Client) GetMembersStore() (*MembersStore, bool) {
-	storeInterface, ok := c.GetCollection(MEMBERS)
-	if !ok {
-		return nil, false
-	}
-	return storeInterface.(*MembersStore), ok
-}
-
-func (c *Client) GetConfigsStore() (*ConfigsStore, bool) {
-	storeInterface, ok := c.GetCollection(CONFIGS)
-	if !ok {
-		return nil, false
-	}
-	return storeInterface.(*ConfigsStore), ok
-}
-
-func (c *Client) GetAttendanceStore() (*AttendanceStore, bool) {
-	storeInterface, ok := c.GetCollection(ATTENDANCE)
-	if !ok {
-		return nil, false
-	}
-	return storeInterface.(*AttendanceStore), ok
-}
-
-func (c *Client) GetActivityStore() (*ActivityStore, bool) {
-	storeInterface, ok := c.GetCollection(ACTIVITY)
-	if !ok {
-		return nil, false
-	}
-	return storeInterface.(*ActivityStore), ok
 }
 
 func (c *Client) GetCollection(collection Collection) (interface{}, bool) {

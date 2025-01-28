@@ -12,6 +12,8 @@ type ActivityStore struct {
 	*store
 }
 
+const ACTIVITY Collection = "activity"
+
 func newActivityStore(ctx context.Context, client *mongo.Client, database string) *ActivityStore {
 	_ = client.Database(database).CreateCollection(ctx, string(ACTIVITY), &options.CreateCollectionOptions{
 		TimeSeriesOptions: &options.TimeSeriesOptions{
@@ -24,6 +26,14 @@ func newActivityStore(ctx context.Context, client *mongo.Client, database string
 		ctx:        ctx,
 	}
 	return &ActivityStore{s}
+}
+
+func (c *Client) GetActivityStore() (*ActivityStore, bool) {
+	storeInterface, ok := c.GetCollection(ACTIVITY)
+	if !ok {
+		return nil, false
+	}
+	return storeInterface.(*ActivityStore), ok
 }
 
 func (s *ActivityStore) Create(activity any) error {

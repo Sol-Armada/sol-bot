@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/dkp"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
@@ -31,16 +32,6 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 	if member.Name == "" {
 		logger.Debug("no member found")
-
-		// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		// 	Type: discordgo.InteractionResponseChannelMessageWithSource,
-		// 	Data: &discordgo.InteractionResponseData{
-		// 		Content: "You have not been onboarded yet! Contact an @Officer for some help!",
-		// 		Flags:   discordgo.MessageFlagsEphemeral,
-		// 	},
-		// }); err != nil {
-		// 	return errors.Wrap(err, "responding to attendance command interaction: no member found")
-		// }
 
 		if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "You have not been onboarded yet! Contact an @Officer for some help!",
@@ -85,7 +76,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 					return errors.Wrap(err, "getting guild member")
 				}
 
-				otherMember.Name = guildMember.Nick
+				otherMember.Name = otherMember.GetTrueNick(guildMember)
 
 				if err := rsi.UpdateRsiInfo(otherMember); err != nil {
 					if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
@@ -100,7 +91,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 						return errors.Wrap(err, "getting rsi info")
 					}
 
-					logger.WithField("member", member).Debug("rsi user not found")
+					logger.WithFields(log.Fields{"member": otherMember, "error": err.Error()}).Debug("rsi user not found")
 					otherMember.RSIMember = false
 				}
 
@@ -209,6 +200,18 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		}
 		emFields = append(emFields, rsiFields...)
 	}
+
+	balance, err := dkp.GetBalanceByMemberId(member.Id)
+	if err != nil {
+		logger.WithError(err).Error("getting balance")
+		balance = 0
+	}
+
+	emFields = append(emFields, &discordgo.MessageEmbedField{
+		Name:   "StarCoin Balance",
+		Value:  fmt.Sprintf("%d", balance),
+		Inline: false,
+	})
 
 	memberIssues := attdnc.Issues(member)
 	if len(memberIssues) > 0 {

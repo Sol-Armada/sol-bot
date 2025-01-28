@@ -32,21 +32,14 @@ var bot *Bot
 var commandHandlers = map[string]Handler{
 	"help":       helpCommandHandler,
 	"attendance": attendancehandler.CommandHandler,
-	// "refreshattendance": refreshAttendanceCommandHandler,
-	"profile": profileCommandHandler,
-	"merit":   giveMeritCommandHandler,
-	"demerit": giveDemeritCommandHandler,
-	"rankups": rankUpsCommandHandler,
+	"profile":    profileCommandHandler,
+	"merit":      giveMeritCommandHandler,
+	"demerit":    giveDemeritCommandHandler,
+	"rankups":    rankUpsCommandHandler,
 }
 
-var autocompleteHandlers = map[string]map[string]Handler{
-	"attendance": {
-		"add":               attendancehandler.AddRemoveMembersAutocompleteHandler,
-		"remove":            attendancehandler.AddRemoveMembersAutocompleteHandler,
-		"revert":            attendancehandler.RevertAutocompleteHandler,
-		"create":            attendancehandler.CreateAutocompleteHandler,
-		"remove_event_name": attendancehandler.CreateAutocompleteHandler,
-	},
+var autocompleteHandlers = map[string]Handler{
+	"attendance": attendancehandler.AutocompleteHander,
 }
 
 var onboardingButtonHanlders = map[string]Handler{
@@ -57,15 +50,6 @@ var onboardingButtonHanlders = map[string]Handler{
 var onboardingModalHandlers = map[string]Handler{
 	"onboard":   onboardingModalHandler,
 	"rsihandle": onboardingTryAgainModalHandler,
-}
-
-var attendanceButtonHandlers = map[string]Handler{
-	"record":       attendancehandler.RecordButtonHandler,
-	"recheck":      attendancehandler.RecheckIssuesButtonHandler,
-	"delete":       attendancehandler.DeleteButtonHandler,
-	"verifydelete": attendancehandler.VerifyDeleteButtonModalHandler,
-	"canceldelete": attendancehandler.CancelDeleteButtonModalHandler,
-	"payout":       attendancehandler.AddPayoutButtonHandler,
 }
 
 var attendanceModalHandlers = map[string]Handler{
@@ -159,19 +143,18 @@ func (b *Bot) Setup() error {
 				err = h(ctx, s, i)
 			}
 		case discordgo.InteractionApplicationCommandAutocomplete:
+			parentCommandData := i.ApplicationCommandData()
+
 			logger = logger.WithFields(log.Fields{
 				"interaction_type": "application command autocomplete",
-				"command":          i.ApplicationCommandData().Name,
+				"command":          parentCommandData.Name,
 			})
 
-			parentCommandData := i.ApplicationCommandData()
-			if handlers, ok := autocompleteHandlers[parentCommandData.Name]; ok {
-				if h, ok := handlers[parentCommandData.Options[0].Name]; ok {
-					ctx = utils.SetLoggerToContext(ctx, logger.WithFields(log.Fields{
-						"subcommand": parentCommandData.Options[0].Name,
-					}))
-					err = h(ctx, s, i)
-				}
+			if handler, ok := autocompleteHandlers[parentCommandData.Name]; ok {
+				ctx = utils.SetLoggerToContext(ctx, logger.WithFields(log.Fields{
+					"command": parentCommandData.Options[0].Name,
+				}))
+				err = handler(ctx, s, i)
 			}
 		case discordgo.InteractionMessageComponent:
 			logger = logger.WithFields(log.Fields{
@@ -182,9 +165,7 @@ func (b *Bot) Setup() error {
 			ctx = utils.SetLoggerToContext(ctx, logger)
 			switch id[0] {
 			case "attendance":
-				if h, ok := attendanceButtonHandlers[id[1]]; ok {
-					err = h(ctx, s, i)
-				}
+				err = attendancehandler.ButtonHandler(ctx, s, i)
 			case "onboarding":
 				if h, ok := onboardingButtonHanlders[id[1]]; ok {
 					err = h(ctx, s, i)

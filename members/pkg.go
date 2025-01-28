@@ -41,6 +41,9 @@ type Member struct {
 	IsAffiliate bool `json:"is_affiliate" bson:"is_affiliate"`
 	IsGuest     bool `json:"is_guest" bson:"is_guest"`
 
+	DKP      []string `json:"dkp" bson:"dkp"`
+	DKPSpent int      `json:"dkp_spent" bson:"dkp_spent"`
+
 	Merits   []*Merit   `json:"merits" bson:"merits"`
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
 
@@ -50,7 +53,7 @@ type Member struct {
 	Pronouns    string         `json:"pronouns" bson:"pronouns"`
 	Playtime    int            `json:"playtime" bson:"playtime"`
 	Gameplay    []GameplayType `json:"gamplay" bson:"gameplay"`
-	Recruiter   *Member        `json:"recruiter" bson:"recruiter"`
+	Recruiter   *string        `json:"recruiter" bson:"recruiter"`
 	ChannelId   string         `json:"channel_id" bson:"channel_id"`
 	MessageId   string         `json:"message_id" bson:"message_id"`
 	LeftAt      *time.Time     `json:"left_at" bson:"left_at"`

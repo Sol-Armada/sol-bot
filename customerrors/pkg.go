@@ -19,6 +19,8 @@ var (
 	ChannelNotExist         = e.New("channel does not exist")
 	InvalidPermissions      = e.New("invalid permissions")
 	InvalidSubcommand       = e.New("invalid subcommand")
+	InvalidAutocomplete     = e.New("invalid autocomplete")
+	InvalidButton           = e.New("invalid button")
 	InvalidAttendanceRecord = e.New("invalid attendance record")
 )
 

@@ -16,6 +16,7 @@ import (
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
 	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/dkp"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
@@ -73,24 +74,21 @@ func init() {
 		os.Exit(1)
 	}
 
-	if err := members.Setup(); err != nil {
-		log.WithError(err).Error("failed to setup members")
-		os.Exit(1)
+	setups := map[string]func() error{
+		"members":    members.Setup,
+		"attendance": attendance.Setup,
+		"activity":   activity.Setup,
+		"dkp":        dkp.Setup,
+		"config":     config.Setup,
 	}
 
-	if err := attendance.Setup(); err != nil {
-		log.WithError(err).Error("failed to setup attendance")
-		os.Exit(1)
-	}
+	for name, setup := range setups {
+		log.Debug(fmt.Sprintf("setting up %s store", name))
 
-	if err := activity.Setup(); err != nil {
-		log.WithError(err).Error("failed to setup activity")
-		os.Exit(1)
-	}
-
-	if err := config.Setup(); err != nil {
-		log.WithError(err).Error("failed to setup config")
-		os.Exit(1)
+		if err := setup(); err != nil {
+			log.WithError(err).Errorf("failed to setup %s", name)
+			os.Exit(1)
+		}
 	}
 
 	// monitor health of the server

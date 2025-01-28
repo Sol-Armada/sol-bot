@@ -13,7 +13,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func RecheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func recheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("rechecking issues button handler")
 

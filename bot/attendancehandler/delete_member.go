@@ -13,7 +13,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func DeleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("deleting attendance button handler")
 
@@ -67,7 +67,7 @@ func DeleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 	return nil
 }
 
-func VerifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("deleting verify modal handler")
 
@@ -109,7 +109,7 @@ func VerifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 	return nil
 }
 
-func CancelDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func cancelDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("deleting cancel modal handler")
 

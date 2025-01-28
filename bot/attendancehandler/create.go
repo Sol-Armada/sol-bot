@@ -18,7 +18,7 @@ import (
 	"go.mongodb.org/mongo-driver/bson"
 )
 
-func CreateCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("create attendance command")
 
@@ -63,6 +63,13 @@ func CreateCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 				return errors.Wrap(err, "getting member for new attendance")
 			}
 
+			if member == nil {
+				attendance.WithIssues = append(attendance.WithIssues, &members.Member{
+					Id:   discordMember.UserValue(s).ID,
+					Name: discordMember.UserValue(s).Username,
+				})
+			}
+
 			attendance.WithIssues = append(attendance.WithIssues, member)
 
 			continue
@@ -99,7 +106,7 @@ func CreateCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 	return nil
 }
 
-func CreateAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("attendance create autocomplete")
 

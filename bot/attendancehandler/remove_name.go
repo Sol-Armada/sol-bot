@@ -9,7 +9,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func RemoveNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func removeNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("remove attendance name command")
 

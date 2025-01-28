@@ -13,6 +13,8 @@ type AttendanceStore struct {
 	*store
 }
 
+const ATTENDANCE Collection = "attendance"
+
 func newAttendanceStore(ctx context.Context, client *mongo.Client, database string) *AttendanceStore {
 	_ = client.Database(database).CreateCollection(ctx, string(ATTENDANCE))
 	s := &store{
@@ -20,6 +22,14 @@ func newAttendanceStore(ctx context.Context, client *mongo.Client, database stri
 		ctx:        ctx,
 	}
 	return &AttendanceStore{s}
+}
+
+func (c *Client) GetAttendanceStore() (*AttendanceStore, bool) {
+	storeInterface, ok := c.GetCollection(ATTENDANCE)
+	if !ok {
+		return nil, false
+	}
+	return storeInterface.(*AttendanceStore), ok
 }
 
 func (s *AttendanceStore) Create(attendance any) error {
@@ -47,6 +57,16 @@ func (s *AttendanceStore) Get(id string) (*mongo.Cursor, error) {
 					{Key: "localField", Value: "members"},
 					{Key: "foreignField", Value: "_id"},
 					{Key: "as", Value: "members"},
+				},
+			},
+		},
+		bson.D{
+			{Key: "$lookup",
+				Value: bson.D{
+					{Key: "from", Value: "members"},
+					{Key: "localField", Value: "from_start"},
+					{Key: "foreignField", Value: "_id"},
+					{Key: "as", Value: "from_start"},
 				},
 			},
 		},
@@ -105,6 +125,16 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 					{Key: "localField", Value: "members"},
 					{Key: "foreignField", Value: "_id"},
 					{Key: "as", Value: "members"},
+				},
+			},
+		},
+		bson.D{
+			{Key: "$lookup",
+				Value: bson.D{
+					{Key: "from", Value: "members"},
+					{Key: "localField", Value: "from_start"},
+					{Key: "foreignField", Value: "_id"},
+					{Key: "as", Value: "from_start"},
 				},
 			},
 		},
@@ -171,18 +201,18 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
-		bson.D{{"$sort", bson.D{{"date_created", 1}}}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "date_created", Value: 1}}}},
 		bson.D{
-			{"$group",
-				bson.D{
-					{"_id", primitive.Null{}},
-					{"records",
-						bson.D{
-							{"$push",
-								bson.D{
-									{"_id", "$_id"},
-									{"name", "$name"},
-									{"date_created", "$date_created"},
+			{Key: "$group",
+				Value: bson.D{
+					{Key: "_id", Value: primitive.Null{}},
+					{Key: "records",
+						Value: bson.D{
+							{Key: "$push",
+								Value: bson.D{
+									{Key: "_id", Value: "$_id"},
+									{Key: "name", Value: "$name"},
+									{Key: "date_created", Value: "$date_created"},
 								},
 							},
 						},
@@ -191,64 +221,64 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 			},
 		},
 		bson.D{
-			{"$addFields",
-				bson.D{
-					{"recordsWithPrev",
-						bson.D{
-							{"$map",
-								bson.D{
-									{"input",
-										bson.D{
-											{"$range",
-												bson.A{
+			{Key: "$addFields",
+				Value: bson.D{
+					{Key: "recordsWithPrev",
+						Value: bson.D{
+							{Key: "$map",
+								Value: bson.D{
+									{Key: "input",
+										Value: bson.D{
+											{Key: "$range",
+												Value: bson.A{
 													0,
-													bson.D{{"$size", "$records"}},
+													bson.D{{Key: "$size", Value: "$records"}},
 												},
 											},
 										},
 									},
-									{"as", "i"},
-									{"in",
-										bson.D{
-											{"current",
-												bson.D{
-													{"$arrayElemAt",
-														bson.A{
+									{Key: "as", Value: "i"},
+									{Key: "in",
+										Value: bson.D{
+											{Key: "current",
+												Value: bson.D{
+													{Key: "$arrayElemAt",
+														Value: bson.A{
 															"$records",
 															"$$i",
 														},
 													},
 												},
 											},
-											{"prev",
-												bson.D{
-													{"$switch",
-														bson.D{
-															{"branches",
-																bson.A{
+											{Key: "prev",
+												Value: bson.D{
+													{Key: "$switch",
+														Value: bson.D{
+															{Key: "branches",
+																Value: bson.A{
 																	bson.D{
-																		{"case",
-																			bson.D{
-																				{"$eq",
-																					bson.A{
+																		{Key: "case",
+																			Value: bson.D{
+																				{Key: "$eq",
+																					Value: bson.A{
 																						"$$i",
 																						0,
 																					},
 																				},
 																			},
 																		},
-																		{"then", primitive.Null{}},
+																		{Key: "then", Value: primitive.Null{}},
 																	},
 																},
 															},
-															{"default",
-																bson.D{
-																	{"$arrayElemAt",
-																		bson.A{
+															{Key: "default",
+																Value: bson.D{
+																	{Key: "$arrayElemAt",
+																		Value: bson.A{
 																			"$records",
 																			bson.D{
-																				{"$subtract",
-																					bson.A{
+																				{Key: "$subtract",
+																					Value: bson.A{
 																						"$$i",
 																						1,
 																					},
@@ -271,20 +301,20 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
-		bson.D{{"$unwind", "$recordsWithPrev"}},
+		bson.D{{Key: "$unwind", Value: "$recordsWithPrev"}},
 		bson.D{
-			{"$addFields",
-				bson.D{
-					{"time_delta_hours",
-						bson.D{
-							{"$round",
-								bson.A{
+			{Key: "$addFields",
+				Value: bson.D{
+					{Key: "time_delta_hours",
+						Value: bson.D{
+							{Key: "$round",
+								Value: bson.A{
 									bson.D{
-										{"$divide",
-											bson.A{
+										{Key: "$divide",
+											Value: bson.A{
 												bson.D{
-													{"$subtract",
-														bson.A{
+													{Key: "$subtract",
+														Value: bson.A{
 															"$recordsWithPrev.current.date_created",
 															"$recordsWithPrev.prev.date_created",
 														},
@@ -302,36 +332,36 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
-		bson.D{{"$addFields", bson.D{{"date_created", "$recordsWithPrev.current.date_created"}}}},
-		bson.D{{"$sort", bson.D{{"date_created", -1}}}},
+		bson.D{{Key: "$addFields", Value: bson.D{{Key: "date_created", Value: "$recordsWithPrev.current.date_created"}}}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "date_created", Value: -1}}}},
 		bson.D{
-			{"$group",
-				bson.D{
-					{"_id",
-						bson.D{
-							{"$switch",
-								bson.D{
-									{"branches",
-										bson.A{
+			{Key: "$group",
+				Value: bson.D{
+					{Key: "_id",
+						Value: bson.D{
+							{Key: "$switch",
+								Value: bson.D{
+									{Key: "branches",
+										Value: bson.A{
 											bson.D{
-												{"case",
-													bson.D{
-														{"$and",
-															bson.A{
+												{Key: "case",
+													Value: bson.D{
+														{Key: "$and",
+															Value: bson.A{
 																bson.D{
-																	{"$lte",
-																		bson.A{
+																	{Key: "$lte",
+																		Value: bson.A{
 																			"$time_delta_hours",
 																			8,
 																		},
 																	},
 																},
 																bson.D{
-																	{"$not",
-																		bson.A{
+																	{Key: "$not",
+																		Value: bson.A{
 																			bson.D{
-																				{"$eq",
-																					bson.A{
+																				{Key: "$eq",
+																					Value: bson.A{
 																						"$recordsWithPrev.prev",
 																						primitive.Null{},
 																					},
@@ -344,15 +374,15 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 														},
 													},
 												},
-												{"then",
-													bson.D{
-														{"$concat",
-															bson.A{
+												{Key: "then",
+													Value: bson.D{
+														{Key: "$concat",
+															Value: bson.A{
 																bson.D{
-																	{"$dateToString",
-																		bson.D{
-																			{"date", "$date_created"},
-																			{"format", "%Y-%m-%d-%H"},
+																	{Key: "$dateToString",
+																		Value: bson.D{
+																			{Key: "date", Value: "$date_created"},
+																			{Key: "format", Value: "%Y-%m-%d-%H"},
 																		},
 																	},
 																},
@@ -364,12 +394,12 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 											},
 										},
 									},
-									{"default",
-										bson.D{
-											{"$dateToString",
-												bson.D{
-													{"date", "$date_created"},
-													{"format", "%Y-%m-%d-%H"},
+									{Key: "default",
+										Value: bson.D{
+											{Key: "$dateToString",
+												Value: bson.D{
+													{Key: "date", Value: "$date_created"},
+													{Key: "format", Value: "%Y-%m-%d-%H"},
 												},
 											},
 										},
@@ -378,15 +408,15 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 							},
 						},
 					},
-					{"names", bson.D{{"$push", "$recordsWithPrev.current.name"}}},
-					{"ids", bson.D{{"$push", "$recordsWithPrev.current._id"}}},
-					{"count", bson.D{{"$sum", 1}}},
+					{Key: "names", Value: bson.D{{Key: "$push", Value: "$recordsWithPrev.current.name"}}},
+					{Key: "ids", Value: bson.D{{Key: "$push", Value: "$recordsWithPrev.current._id"}}},
+					{Key: "count", Value: bson.D{{Key: "$sum", Value: 1}}},
 				},
 			},
 		},
-		bson.D{{"$sort", bson.D{{"_id", 1}}}},
-		bson.D{{"$match", bson.D{{"_id", bson.D{{"$not", bson.D{{"$regex", "overlap"}}}}}}}},
-		bson.D{{"$count", "count"}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "_id", Value: 1}}}},
+		bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: bson.D{{Key: "$not", Value: bson.D{{Key: "$regex", Value: "overlap"}}}}}}}},
+		bson.D{{Key: "$count", Value: "count"}},
 	}
 
 	cur, err := s.Aggregate(s.ctx, pipeline)

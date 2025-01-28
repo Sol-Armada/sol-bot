@@ -12,6 +12,8 @@ type ConfigsStore struct {
 	*store
 }
 
+const CONFIGS Collection = "configs"
+
 func newConfigsStore(ctx context.Context, client *mongo.Client, database string) *ConfigsStore {
 	_ = client.Database(database).CreateCollection(ctx, string(CONFIGS))
 	s := &store{
@@ -19,6 +21,14 @@ func newConfigsStore(ctx context.Context, client *mongo.Client, database string)
 		ctx:        ctx,
 	}
 	return &ConfigsStore{s}
+}
+
+func (c *Client) GetConfigsStore() (*ConfigsStore, bool) {
+	storeInterface, ok := c.GetCollection(CONFIGS)
+	if !ok {
+		return nil, false
+	}
+	return storeInterface.(*ConfigsStore), ok
 }
 
 func (s *ConfigsStore) Get(name string) *mongo.SingleResult {

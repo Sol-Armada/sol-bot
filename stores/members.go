@@ -12,6 +12,8 @@ type MembersStore struct {
 	*store
 }
 
+const MEMBERS Collection = "members"
+
 func newMembersStore(ctx context.Context, client *mongo.Client, database string) *MembersStore {
 	_ = client.Database(database).CreateCollection(ctx, string(MEMBERS))
 	s := &store{
@@ -19,6 +21,14 @@ func newMembersStore(ctx context.Context, client *mongo.Client, database string)
 		ctx:        ctx,
 	}
 	return &MembersStore{s}
+}
+
+func (c *Client) GetMembersStore() (*MembersStore, bool) {
+	storeInterface, ok := c.GetCollection(MEMBERS)
+	if !ok {
+		return nil, false
+	}
+	return storeInterface.(*MembersStore), ok
 }
 
 func (s *MembersStore) Get(id string) (*mongo.Cursor, error) {

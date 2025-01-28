@@ -6,6 +6,14 @@ import (
 	"github.com/sol-armada/sol-bot/stores"
 )
 
+// var defaults = map[string]interface{}{
+// 	"attendance_tags":          []string{},
+// 	"attendance_names":         []string{},
+// 	"attendance_allowed_roles": []string{},
+
+// 	"dkp_name": "StarCoin",
+// }
+
 var configStore *stores.ConfigsStore
 
 func Setup() error {
@@ -15,6 +23,7 @@ func Setup() error {
 		return errors.New("config store not found")
 	}
 	configStore = cs
+
 	return nil
 }
 

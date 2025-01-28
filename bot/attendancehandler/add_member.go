@@ -14,7 +14,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func AddMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func addMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("add member attendance command")
 
@@ -76,7 +76,7 @@ func AddMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 	return nil
 }
 
-func AddRemoveMembersAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func addRemoveMembersAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("taking attendance autocomplete")
 

@@ -9,7 +9,7 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func AddNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func addNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("add attendance name command")
 
