@@ -8,7 +8,7 @@ import (
 	"github.com/sol-armada/sol-bot/attendance"
 )
 
-func stayedSelectHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func unsuccessfulButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
 	attendance, err := attendance.Get(attendanceId)
@@ -16,7 +16,7 @@ func stayedSelectHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		return err
 	}
 
-	attendance.Stayed = i.MessageComponentData().Values
+	attendance.Successful = false
 
 	if err := attendance.Save(); err != nil {
 		return err

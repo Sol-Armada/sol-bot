@@ -54,7 +54,7 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 		Channel:    attendance.ChannelId,
 		ID:         attendance.MessageId,
 		Components: &attendanceMessage.Components,
-		Embed:      attendanceMessage.Embed,
+		Embeds:     &attendanceMessage.Embeds,
 	}); err != nil {
 		return err
 	}

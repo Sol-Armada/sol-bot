@@ -44,6 +44,8 @@ var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *disc
 	"canceldelete":  cancelDeleteButtonModalHandler,
 	"stayed":        stayedSelectHandler,
 	"stayed_submit": stayedSubmitButtonHandler,
+	"successful":    successfulButtonHandler,
+	"unsuccessful":  unsuccessfulButtonHandler,
 }
 
 var lastRefreshTime time.Time

@@ -26,7 +26,7 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 		Channel:    attendance.ChannelId,
 		ID:         attendance.MessageId,
 		Components: &attendanceMessage.Components,
-		Embed:      attendanceMessage.Embed,
+		Embeds:      &attendanceMessage.Embeds,
 	}); err != nil {
 		return err
 	}

@@ -37,7 +37,7 @@ func startEventButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 		Channel:    attendance.ChannelId,
 		ID:         attendance.MessageId,
 		Components: &attendanceMessage.Components,
-		Embed:      attendanceMessage.Embed,
+		Embeds:     &attendanceMessage.Embeds,
 	}); err != nil {
 		return err
 	}

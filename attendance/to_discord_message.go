@@ -75,11 +75,11 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			field.Value += "<@" + member.Id + ">"
 
 			if a.IsFromStart(member) {
-				field.Value += " ⭐"
-			}
-
-			if a.TheyStayed(member) {
-				field.Value += "🌟"
+				if a.TheyStayed(member) {
+					field.Value += " 🌟"
+				} else {
+					field.Value += " ⭐"
+				}
 			}
 
 			// if not the 10th, add a new line
