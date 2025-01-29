@@ -64,16 +64,6 @@ func (s *AttendanceStore) Get(id string) (*mongo.Cursor, error) {
 			{Key: "$lookup",
 				Value: bson.D{
 					{Key: "from", Value: "members"},
-					{Key: "localField", Value: "from_start"},
-					{Key: "foreignField", Value: "_id"},
-					{Key: "as", Value: "from_start"},
-				},
-			},
-		},
-		bson.D{
-			{Key: "$lookup",
-				Value: bson.D{
-					{Key: "from", Value: "members"},
 					{Key: "localField", Value: "submitted_by"},
 					{Key: "foreignField", Value: "_id"},
 					{Key: "as", Value: "submitted_by"},
@@ -125,16 +115,6 @@ func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.
 					{Key: "localField", Value: "members"},
 					{Key: "foreignField", Value: "_id"},
 					{Key: "as", Value: "members"},
-				},
-			},
-		},
-		bson.D{
-			{Key: "$lookup",
-				Value: bson.D{
-					{Key: "from", Value: "members"},
-					{Key: "localField", Value: "from_start"},
-					{Key: "foreignField", Value: "_id"},
-					{Key: "as", Value: "from_start"},
 				},
 			},
 		},

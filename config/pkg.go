@@ -11,7 +11,7 @@ import (
 // 	"attendance_names":         []string{},
 // 	"attendance_allowed_roles": []string{},
 
-// 	"dkp_name": "StarCoin",
+// 	"dkp_name": "Tokens",
 // }
 
 var configStore *stores.ConfigsStore

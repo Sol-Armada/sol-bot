@@ -34,7 +34,8 @@ type Attendance struct {
 	Successful  bool              `json:"successful" bson:"successful"`
 	Active      bool              `json:"active" bson:"active"`
 
-	FromStart []*members.Member `json:"from_start" bson:"from_start"`
+	FromStart []string `json:"from_start" bson:"from_start"`
+	Stayed    []string `json:"stayed" bson:"stayed"`
 
 	ChannelId string `json:"channel_id" bson:"channel_id"`
 	MessageId string `json:"message_id" bson:"message_id"`
@@ -274,13 +275,6 @@ func (a *Attendance) Save() error {
 	}
 	attendanceMap["with_issues"] = issues
 
-	// convert from_start to just ids for mongo optimization
-	fromStartIds := make([]string, len(a.FromStart))
-	for i, member := range a.FromStart {
-		fromStartIds[i] = member.Id
-	}
-	attendanceMap["from_start"] = fromStartIds
-
 	// convert submitted by to just id for mongo optimization
 	attendanceMap["submitted_by"] = a.SubmittedBy.Id
 
@@ -328,10 +322,28 @@ func (a *Attendance) AddPayout(total, perMember, orgTake int64) error {
 }
 
 func (a *Attendance) IsFromStart(m *members.Member) bool {
-	for _, member := range a.FromStart {
-		if member.Id == m.Id {
+	for _, memberId := range a.FromStart {
+		if memberId == m.Id {
 			return true
 		}
 	}
 	return false
+}
+
+func (a *Attendance) TheyStayed(m *members.Member) bool {
+	for _, memberId := range a.Stayed {
+		if memberId == m.Id {
+			return true
+		}
+	}
+	return false
+}
+
+func (a *Attendance) GetMember(id string) (*members.Member, bool) {
+	for _, member := range a.Members {
+		if member.Id == id {
+			return member, true
+		}
+	}
+	return nil, false
 }

@@ -61,8 +61,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 
 		fields[1].Value = ""
 
-		i := 0
-		for _, member := range a.Members {
+		for i, member := range a.Members {
 			// for every 10 members, make a new field
 			if i%10 == 0 && i != 0 {
 				fields = append(fields, &discordgo.MessageEmbedField{
@@ -76,14 +75,17 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			field.Value += "<@" + member.Id + ">"
 
 			if a.IsFromStart(member) {
-				field.Value += "*"
+				field.Value += " ⭐"
+			}
+
+			if a.TheyStayed(member) {
+				field.Value += "🌟"
 			}
 
 			// if not the 10th, add a new line
 			if i%10 != 9 {
 				field.Value += "\n"
 			}
-			i++
 		}
 	}
 
@@ -94,8 +96,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			Inline: true,
 		})
 
-		i := 0
-		for _, member := range a.WithIssues {
+		for i, member := range a.WithIssues {
 			field := fields[len(fields)-1]
 
 			field.Value += "<@" + member.Id + "> - " + strings.Join(Issues(member), ", ")
@@ -113,7 +114,6 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 					Inline: true,
 				})
 			}
-			i++
 		}
 	}
 
@@ -132,7 +132,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			Timestamp:   a.DateCreated.Format(time.RFC3339),
 			Fields:      fields,
 			Footer: &discordgo.MessageEmbedFooter{
-				Text: "Last Updated " + a.DateUpdated.Format(time.RFC3339) + " | * denotes member joined from the start",
+				Text: "⭐ joined from the start | 🌟 stayed entire event",
 			},
 		},
 	}

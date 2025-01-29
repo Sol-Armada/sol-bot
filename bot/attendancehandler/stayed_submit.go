@@ -11,8 +11,6 @@ import (
 	"github.com/sol-armada/sol-bot/dkp"
 )
 
-var stayed map[string][]string = make(map[string][]string)
-
 func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
@@ -21,18 +19,11 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 		return err
 	}
 
-	membersWhoStayed := stayed[attendanceId]
-
-	for _, member := range membersWhoStayed {
-		// Do something with the member
-		_ = member
-	}
-
 	if err := s.ChannelMessageDelete(i.Message.ChannelID, i.Message.ID); err != nil {
 		return err
 	}
 
-	content := "StarCoin has been distributed"
+	content := "Tokens has been distributed"
 
 	for _, member := range attendance.Members {
 		amount := 10
@@ -47,14 +38,25 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 			amount += 20
 		}
 
-		if slices.Contains(membersWhoStayed, member.Id) {
+		if slices.Contains(attendance.Stayed, member.Id) {
 			if err := dkp.New(member.Id, 10, dkp.AttendanceFull, &attendanceId, nil).Save(); err != nil {
 				return err
 			}
 			amount += 10
 		}
 
-		content += fmt.Sprintf("\n<@%s> has received %d StarCoins", member.Id, amount)
+		content += fmt.Sprintf("\n<@%s> has received %d Tokens", member.Id, amount)
+	}
+
+	attendanceMessage := attendance.ToDiscordMessage()
+
+	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		Channel:    attendance.ChannelId,
+		ID:         attendance.MessageId,
+		Components: &attendanceMessage.Components,
+		Embed:      attendanceMessage.Embed,
+	}); err != nil {
+		return err
 	}
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

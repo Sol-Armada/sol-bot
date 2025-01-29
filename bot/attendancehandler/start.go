@@ -2,6 +2,7 @@ package attendancehandler
 
 import (
 	"context"
+	"slices"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -9,34 +10,34 @@ import (
 )
 
 func startEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	recordId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
+	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	record, err := attendance.Get(recordId)
+	attendance, err := attendance.Get(attendanceId)
 	if err != nil {
 		return err
 	}
 
-	for _, member := range record.Members {
-		if member.Id == "" {
+	for _, member := range attendance.Members {
+		if member.Id == "" || slices.Contains(attendance.FromStart, member.Id) {
 			continue
 		}
 
-		record.FromStart = append(record.FromStart, member)
+		attendance.FromStart = append(attendance.FromStart, member.Id)
 	}
 
-	record.Active = true
+	attendance.Active = true
 
-	if err := record.Save(); err != nil {
+	if err := attendance.Save(); err != nil {
 		return err
 	}
 
-	recordMessage := record.ToDiscordMessage()
+	attendanceMessage := attendance.ToDiscordMessage()
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    record.ChannelId,
-		ID:         record.MessageId,
-		Components: &recordMessage.Components,
-		Embed:      recordMessage.Embed,
+		Channel:    attendance.ChannelId,
+		ID:         attendance.MessageId,
+		Components: &attendanceMessage.Components,
+		Embed:      attendanceMessage.Embed,
 	}); err != nil {
 		return err
 	}

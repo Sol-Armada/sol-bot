@@ -208,7 +208,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	emFields = append(emFields, &discordgo.MessageEmbedField{
-		Name:   "StarCoin Balance",
+		Name:   "Tokens",
 		Value:  fmt.Sprintf("%d", balance),
 		Inline: false,
 	})
