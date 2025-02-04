@@ -26,7 +26,7 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 		Channel:    attendance.ChannelId,
 		ID:         attendance.MessageId,
 		Components: &attendanceMessage.Components,
-		Embeds:      &attendanceMessage.Embeds,
+		Embeds:     &attendanceMessage.Embeds,
 	}); err != nil {
 		return err
 	}
@@ -45,10 +45,10 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 		})
 	}
 
-	if len(fromStartMembers) >= 0 {
+	if len(fromStartMembers) >= 0 && attendance.Tokenable {
 		ch, err := s.ThreadStartComplex(attendance.ChannelId, &discordgo.ThreadStart{
 			Name:                "Attendance for " + attendance.Name,
-			Type:                discordgo.ChannelTypeGuildPrivateThread,
+			Type:                discordgo.ChannelTypeGuildPublicThread,
 			Invitable:           true,
 			AutoArchiveDuration: 1440,
 		})

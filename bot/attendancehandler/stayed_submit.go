@@ -8,7 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/dkp"
+	"github.com/sol-armada/sol-bot/tokens"
 )
 
 func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -27,19 +27,19 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 
 	for _, member := range attendance.Members {
 		amount := 10
-		if err := dkp.New(member.Id, 10, dkp.Attendance, &attendanceId, nil).Save(); err != nil {
+		if err := tokens.New(member.Id, 10, tokens.ReasonAttendance, &attendanceId, nil).Save(); err != nil {
 			return err
 		}
 
 		if attendance.Successful {
-			if err := dkp.New(member.Id, 20, dkp.EventSuccessful, &attendanceId, nil).Save(); err != nil {
+			if err := tokens.New(member.Id, 20, tokens.ReasonEventSuccessful, &attendanceId, nil).Save(); err != nil {
 				return err
 			}
 			amount += 20
 		}
 
 		if slices.Contains(attendance.Stayed, member.Id) {
-			if err := dkp.New(member.Id, 10, dkp.AttendanceFull, &attendanceId, nil).Save(); err != nil {
+			if err := tokens.New(member.Id, 10, tokens.ReasonAttendanceFull, &attendanceId, nil).Save(); err != nil {
 				return err
 			}
 			amount += 10

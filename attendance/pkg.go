@@ -33,6 +33,7 @@ type Attendance struct {
 	Payouts     *Payouts          `json:"payouts" bson:"payouts"`
 	Successful  bool              `json:"successful" bson:"successful"`
 	Active      bool              `json:"active" bson:"active"`
+	Tokenable   bool              `json:"tokenable" bson:"tokenable"`
 
 	FromStart []string `json:"from_start" bson:"from_start"`
 	Stayed    []string `json:"stayed" bson:"stayed"`

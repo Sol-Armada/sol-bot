@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/customerrors"
-	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -79,6 +78,12 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 			Type:         discordgo.ApplicationCommandOptionString,
 			Required:     true,
 			Autocomplete: true,
+		},
+		{
+			Name:        "tokens",
+			Description: "If the event is tokened (default: false)",
+			Type:        discordgo.ApplicationCommandOptionBoolean,
+			Required:    false,
 		},
 	}
 	for i := 0; i < 10; i++ {
@@ -223,11 +228,11 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("attendance command handler")
 
-	if !allowed(i.Member, "ATTENDANCE") {
+	if !utils.Allowed(i.Member, "ATTENDANCE") {
 		return customerrors.InvalidPermissions
 	}
 
-	data := i.Interaction.ApplicationCommandData()
+	data := i.ApplicationCommandData()
 	handler, ok := subCommands[data.Options[0].Name]
 	if !ok {
 		return customerrors.InvalidSubcommand
@@ -240,7 +245,7 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("attendance autocomplete handler")
 
-	if !allowed(i.Member, "ATTENDANCE") {
+	if !utils.Allowed(i.Member, "ATTENDANCE") {
 		return customerrors.InvalidPermissions
 	}
 
@@ -263,7 +268,7 @@ func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inter
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("attendance button handler")
 
-	if !allowed(i.Member, "ATTENDANCE") {
+	if !utils.Allowed(i.Member, "ATTENDANCE") {
 		return customerrors.InvalidPermissions
 	}
 
@@ -275,8 +280,4 @@ func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inter
 	}
 
 	return handler(ctx, s, i)
-}
-
-func allowed(discordMember *discordgo.Member, feature string) bool {
-	return utils.StringSliceContainsOneOf(discordMember.Roles, settings.GetStringSlice("FEATURES."+feature+".ALLOWED_ROLES"))
 }

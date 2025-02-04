@@ -9,11 +9,11 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/dkp"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/tokens"
 	"github.com/sol-armada/sol-bot/utils"
 	"golang.org/x/exp/slices"
 )
@@ -201,7 +201,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		emFields = append(emFields, rsiFields...)
 	}
 
-	balance, err := dkp.GetBalanceByMemberId(member.Id)
+	balance, err := tokens.GetBalanceByMemberId(member.Id)
 	if err != nil {
 		logger.WithError(err).Error("getting balance")
 		balance = 0

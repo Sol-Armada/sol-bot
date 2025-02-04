@@ -16,11 +16,11 @@ import (
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
 	"github.com/sol-armada/sol-bot/config"
-	"github.com/sol-armada/sol-bot/dkp"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/tokens"
 )
 
 type customFormatter struct {
@@ -78,7 +78,7 @@ func init() {
 		"members":    members.Setup,
 		"attendance": attendance.Setup,
 		"activity":   activity.Setup,
-		"dkp":        dkp.Setup,
+		"tokens":     tokens.Setup,
 		"config":     config.Setup,
 	}
 

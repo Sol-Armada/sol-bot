@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
+	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -36,10 +37,17 @@ var commandHandlers = map[string]Handler{
 	"merit":      giveMeritCommandHandler,
 	"demerit":    giveDemeritCommandHandler,
 	"rankups":    rankUpsCommandHandler,
+	"tokens":     tokenshandler.CommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
 	"attendance": attendancehandler.AutocompleteHander,
+	"tokens":     tokenshandler.AutocompleteHandler,
+}
+
+var buttonHandlers = map[string]Handler{
+	"attendance": attendancehandler.ButtonHandler,
+	"tokens":     tokenshandler.ButtonHandler,
 }
 
 var onboardingButtonHanlders = map[string]Handler{
@@ -157,24 +165,30 @@ func (b *Bot) Setup() error {
 				err = handler(ctx, s, i)
 			}
 		case discordgo.InteractionMessageComponent:
+			commandSplit := strings.Split(i.MessageComponentData().CustomID, ":")
+			command := commandSplit[0]
+			subcommand := commandSplit[1]
+
 			logger = logger.WithFields(log.Fields{
 				"interaction_type": "message command",
 				"custom_id":        i.MessageComponentData().CustomID,
+				"button_command":   command,
 			})
-			id := strings.Split(i.MessageComponentData().CustomID, ":")
+
 			ctx = utils.SetLoggerToContext(ctx, logger)
-			switch id[0] {
-			case "attendance":
-				err = attendancehandler.ButtonHandler(ctx, s, i)
+			switch command {
 			case "onboarding":
-				if h, ok := onboardingButtonHanlders[id[1]]; ok {
+				if h, ok := onboardingButtonHanlders[subcommand]; ok {
 					err = h(ctx, s, i)
 				}
 			case "validate":
-				if h, ok := validateButtonHandlers[id[1]]; ok {
+				if h, ok := validateButtonHandlers[subcommand]; ok {
 					err = h(ctx, s, i)
 				}
+			default:
+				err = buttonHandlers[command](ctx, s, i)
 			}
+
 		case discordgo.InteractionModalSubmit:
 			logger = logger.WithFields(log.Fields{
 				"interaction_type": "modal submit",
@@ -396,6 +410,19 @@ func (b *Bot) Setup() error {
 	// activity tracking
 	if settings.GetBool("FEATURES.ACTIVITY_TRACKING.ENABLE") {
 		b.AddHandler(onVoiceUpdate)
+	}
+
+	// tokens
+	if settings.GetBool("FEATURES.TOKENS.ENABLE") {
+		log.Debug("using tokens feature")
+		cmd, err := tokenshandler.Setup()
+		if err != nil {
+			return errors.Wrap(err, "setting tokens commands")
+		}
+
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
+			return errors.Wrap(err, "creating tokens command")
+		}
 	}
 
 	return b.Open()

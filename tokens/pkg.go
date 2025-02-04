@@ -1,4 +1,4 @@
-package dkp
+package tokens
 
 import (
 	"context"
@@ -12,13 +12,13 @@ import (
 type Reason string
 
 const (
-	Attendance      Reason = "Attendance"
-	AttendanceFull  Reason = "Stayed for full event"
-	EventSuccessful Reason = "Event Successful"
-	Other           Reason = "Other"
+	ReasonAttendance      Reason = "Attendance"
+	ReasonAttendanceFull  Reason = "Stayed for full event"
+	ReasonEventSuccessful Reason = "Event Successful"
+	ReasonOther           Reason = "Other"
 )
 
-type DKP struct {
+type TokenRecord struct {
 	Id           string    `json:"id" bson:"_id"`
 	MemberId     string    `json:"member_id" bson:"member_id"`
 	Amount       int       `json:"amount" bson:"amount"`
@@ -28,21 +28,21 @@ type DKP struct {
 	CreatedAt    time.Time `json:"created_at" bson:"created_at"`
 }
 
-var dkpStore *stores.DKPStore
+var tokenStore *stores.TokenStore
 
 func Setup() error {
 	storesClient := stores.Get()
-	ds, ok := storesClient.GetDKPStore()
+	ts, ok := storesClient.GetTokensStore()
 	if !ok {
-		return errors.New("members store not found")
+		return errors.New("token store not found")
 	}
-	dkpStore = ds
+	tokenStore = ts
 
 	return nil
 }
 
-func New(memberId string, amount int, reason Reason, attendanceId, comment *string) *DKP {
-	return &DKP{
+func New(memberId string, amount int, reason Reason, attendanceId, comment *string) *TokenRecord {
+	return &TokenRecord{
 		Id:           xid.New().String(),
 		MemberId:     memberId,
 		Amount:       amount,
@@ -53,30 +53,30 @@ func New(memberId string, amount int, reason Reason, attendanceId, comment *stri
 	}
 }
 
-func (d *DKP) Save() error {
-	return dkpStore.Insert(d)
+func (d *TokenRecord) Save() error {
+	return tokenStore.Insert(d)
 }
 
-func GetAll() ([]DKP, error) {
-	cur, err := dkpStore.GetAll()
+func GetAll() ([]TokenRecord, error) {
+	cur, err := tokenStore.GetAll()
 	if err != nil {
 		return nil, err
 	}
 
-	var dkps []DKP
+	var tokenRecords []TokenRecord
 	for cur.Next(context.TODO()) {
-		var d DKP
+		var d TokenRecord
 		if err := cur.Decode(&d); err != nil {
 			return nil, err
 		}
-		dkps = append(dkps, d)
+		tokenRecords = append(tokenRecords, d)
 	}
 
-	return dkps, nil
+	return tokenRecords, nil
 }
 
 func GetBalanceByMemberId(memberId string) (int, error) {
-	cur, err := dkpStore.GetAllBalances()
+	cur, err := tokenStore.GetAllBalances()
 	if err != nil {
 		return 0, err
 	}

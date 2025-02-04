@@ -11,7 +11,6 @@ import (
 	"github.com/rs/xid"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/config"
-	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -54,28 +53,34 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 
 	attendance := attdnc.New(eventName, commandMember)
 
-	discordMembersList := data.Options[1:]
-
-	for _, discordMember := range discordMembersList {
-		member, err := members.Get(discordMember.UserValue(s).ID)
-		if err != nil {
-			if !errors.Is(err, members.MemberNotFound) {
-				return errors.Wrap(err, "getting member for new attendance")
-			}
-
-			if member == nil {
-				attendance.WithIssues = append(attendance.WithIssues, &members.Member{
-					Id:   discordMember.UserValue(s).ID,
-					Name: discordMember.UserValue(s).Username,
-				})
-			}
-
-			attendance.WithIssues = append(attendance.WithIssues, member)
-
-			continue
+	options := data.Options[1:]
+	for _, option := range options {
+		if option.Name == "tokens" {
+			attendance.Tokenable = option.BoolValue()
+			break
 		}
 
-		attendance.AddMember(member)
+		if option.Type == discordgo.ApplicationCommandOptionUser {
+			member, err := members.Get(option.UserValue(s).ID)
+			if err != nil {
+				if !errors.Is(err, members.MemberNotFound) {
+					return errors.Wrap(err, "getting member for new attendance")
+				}
+
+				if member == nil {
+					attendance.WithIssues = append(attendance.WithIssues, &members.Member{
+						Id:   option.UserValue(s).ID,
+						Name: option.UserValue(s).Username,
+					})
+				}
+
+				attendance.WithIssues = append(attendance.WithIssues, member)
+
+				continue
+			}
+
+			attendance.AddMember(member)
+		}
 	}
 
 	// save now incase there is an error with creating the message
@@ -110,20 +115,14 @@ func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("attendance create autocomplete")
 
-	if !allowed(i.Member, "ATTENDANCE") {
-		return customerrors.InvalidPermissions
-	}
-
-	typed := i.Interaction.ApplicationCommandData().Options[0].Options[0].StringValue()
-	_ = typed
-
-	choices := []*discordgo.ApplicationCommandOptionChoice{}
-
 	names, err := config.GetAttendanceNames()
 	if err != nil {
 		return errors.Wrap(err, "getting names")
 	}
 
+	choices := []*discordgo.ApplicationCommandOptionChoice{}
+
+	typed := i.Interaction.ApplicationCommandData().Options[0].Options[0].StringValue()
 	matches := fuzzy.FindFold(typed, names)
 
 	for _, name := range matches {

@@ -9,17 +9,12 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
 func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("deleting attendance button handler")
-
-	if !allowed(i.Member, "ATTENDANCE") {
-		return customerrors.InvalidPermissions
-	}
 
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
@@ -70,10 +65,6 @@ func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("deleting verify modal handler")
-
-	if !allowed(i.Member, "ATTENDANCE") {
-		return customerrors.InvalidPermissions
-	}
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,

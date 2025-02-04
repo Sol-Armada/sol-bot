@@ -9,46 +9,46 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-type DKPStore struct {
+type TokenStore struct {
 	*store
 }
 
-const DKP Collection = "dkp"
+const TOKENS Collection = "tokens"
 
-func newDKPStore(ctx context.Context, client *mongo.Client, database string) *DKPStore {
-	_ = client.Database(database).CreateCollection(ctx, string(DKP), &options.CreateCollectionOptions{
+func newTokensStore(ctx context.Context, client *mongo.Client, database string) *TokenStore {
+	_ = client.Database(database).CreateCollection(ctx, string(TOKENS), &options.CreateCollectionOptions{
 		TimeSeriesOptions: &options.TimeSeriesOptions{
 			TimeField: "created_at",
 			MetaField: utils.StringPointer("member_id"),
 		},
 	})
 	s := &store{
-		Collection: client.Database(database).Collection(string(DKP)),
+		Collection: client.Database(database).Collection(string(TOKENS)),
 		ctx:        ctx,
 	}
-	return &DKPStore{s}
+	return &TokenStore{s}
 }
 
-func (c *Client) GetDKPStore() (*DKPStore, bool) {
-	storeInterface, ok := c.GetCollection(DKP)
+func (c *Client) GetTokensStore() (*TokenStore, bool) {
+	storeInterface, ok := c.GetCollection(TOKENS)
 	if !ok {
 		return nil, false
 	}
-	return storeInterface.(*DKPStore), ok
+	return storeInterface.(*TokenStore), ok
 }
 
-func (s *DKPStore) Insert(dkp any) error {
-	_, err := s.InsertOne(s.ctx, dkp)
+func (s *TokenStore) Insert(tokenRecord any) error {
+	_, err := s.InsertOne(s.ctx, tokenRecord)
 	return err
 }
 
-// Get all dkp grouping by member id
-func (s *DKPStore) GetAll() (*mongo.Cursor, error) {
+// Get all token records grouping by member id
+func (s *TokenStore) GetAll() (*mongo.Cursor, error) {
 	aggregate := []bson.M{
 		{
 			"$group": bson.M{
 				"_id": "$member_id",
-				"dkp": bson.M{
+				"token_records": bson.M{
 					"$push": "$$ROOT",
 				},
 			},
@@ -63,13 +63,13 @@ func (s *DKPStore) GetAll() (*mongo.Cursor, error) {
 	return cursor, nil
 }
 
-func (s *DKPStore) Get(id string) (*mongo.SingleResult, error) {
+func (s *TokenStore) Get(id string) (*mongo.SingleResult, error) {
 	res := s.FindOne(s.ctx, bson.D{{Key: "_id", Value: id}})
 	err := res.Err()
 	return res, err
 }
 
-func (s *DKPStore) GetAllBalances() (*mongo.Cursor, error) {
+func (s *TokenStore) GetAllBalances() (*mongo.Cursor, error) {
 	aggregate := bson.A{
 		bson.D{
 			{Key: "$group", Value: bson.D{
