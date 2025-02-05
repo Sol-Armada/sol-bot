@@ -57,19 +57,31 @@ func (d *TokenRecord) Save() error {
 	return tokenStore.Insert(d)
 }
 
-func GetAll() ([]TokenRecord, error) {
+func GetAll() (map[string]TokenRecord, error) {
 	cur, err := tokenStore.GetAll()
 	if err != nil {
 		return nil, err
 	}
 
-	var tokenRecords []TokenRecord
+	type GroupedRecord struct {
+		Id           string        `json:"id" bson:"_id"`
+		TokenRecords []TokenRecord `json:"token_records" bson:"token_records"`
+	}
+
+	var groupedRecords []GroupedRecord
 	for cur.Next(context.TODO()) {
-		var d TokenRecord
+		var d GroupedRecord
 		if err := cur.Decode(&d); err != nil {
 			return nil, err
 		}
-		tokenRecords = append(tokenRecords, d)
+		groupedRecords = append(groupedRecords, d)
+	}
+
+	tokenRecords := make(map[string]TokenRecord, len(groupedRecords))
+	for _, r := range groupedRecords {
+		for _, tr := range r.TokenRecords {
+			tokenRecords[tr.Id] = tr
+		}
 	}
 
 	return tokenRecords, nil
