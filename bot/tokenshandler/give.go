@@ -26,7 +26,7 @@ func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 	var member *members.Member
 	var amount int = 0
 	var reason tokens.Reason
-	var comment string
+	var comment *string
 
 	options := i.ApplicationCommandData().Options[0].Options
 	for _, option := range options {
@@ -44,7 +44,10 @@ func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 		case "reason":
 			reason = tokens.Reason(option.StringValue())
 		case "comment":
-			comment = option.StringValue()
+			comment = utils.StringPointer(option.StringValue())
+			if *comment == "" {
+				comment = nil
+			}
 		}
 	}
 
@@ -60,7 +63,7 @@ func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 		return errors.New("reason is required")
 	}
 
-	if err := tokens.New(member.Id, amount, reason, nil, &comment).Save(); err != nil {
+	if err := tokens.New(member.Id, amount, reason, nil, comment).Save(); err != nil {
 		return err
 	}
 
