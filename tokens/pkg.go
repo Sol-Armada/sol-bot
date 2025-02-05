@@ -57,7 +57,7 @@ func (d *TokenRecord) Save() error {
 	return tokenStore.Insert(d)
 }
 
-func GetAll() (map[string]TokenRecord, error) {
+func GetAll() (map[string][]TokenRecord, error) {
 	cur, err := tokenStore.GetAll()
 	if err != nil {
 		return nil, err
@@ -77,11 +77,9 @@ func GetAll() (map[string]TokenRecord, error) {
 		groupedRecords = append(groupedRecords, d)
 	}
 
-	tokenRecords := make(map[string]TokenRecord, len(groupedRecords))
+	tokenRecords := make(map[string][]TokenRecord, len(groupedRecords))
 	for _, r := range groupedRecords {
-		for _, tr := range r.TokenRecords {
-			tokenRecords[r.Id] = tr
-		}
+		tokenRecords[r.Id] = append(tokenRecords[r.Id], r.TokenRecords...)
 	}
 
 	return tokenRecords, nil
