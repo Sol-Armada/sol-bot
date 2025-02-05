@@ -80,7 +80,7 @@ func GetAll() (map[string]TokenRecord, error) {
 	tokenRecords := make(map[string]TokenRecord, len(groupedRecords))
 	for _, r := range groupedRecords {
 		for _, tr := range r.TokenRecords {
-			tokenRecords[tr.Id] = tr
+			tokenRecords[r.Id] = tr
 		}
 	}
 
