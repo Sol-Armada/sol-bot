@@ -25,6 +25,7 @@ type TokenRecord struct {
 	Reason       Reason    `json:"reason" bson:"reason"`
 	AttendanceId *string   `json:"attendance_id" bson:"attendance_id"`
 	Comment      *string   `json:"comment" bson:"comment"`
+	GiverId      *string   `json:"giver_id" bson:"giver_id"`
 	CreatedAt    time.Time `json:"created_at" bson:"created_at"`
 }
 
@@ -41,12 +42,13 @@ func Setup() error {
 	return nil
 }
 
-func New(memberId string, amount int, reason Reason, attendanceId, comment *string) *TokenRecord {
+func New(memberId string, amount int, reason Reason, giverId, attendanceId, comment *string) *TokenRecord {
 	return &TokenRecord{
 		Id:           xid.New().String(),
 		MemberId:     memberId,
 		Amount:       amount,
 		Reason:       reason,
+		GiverId:      giverId,
 		AttendanceId: attendanceId,
 		Comment:      comment,
 		CreatedAt:    time.Now(),
@@ -57,7 +59,25 @@ func (d *TokenRecord) Save() error {
 	return tokenStore.Insert(d)
 }
 
-func GetAll() (map[string][]TokenRecord, error) {
+func GetAll() ([]TokenRecord, error) {
+	cur, err := tokenStore.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	var tokenRecords []TokenRecord
+	for cur.Next(context.TODO()) {
+		var d TokenRecord
+		if err := cur.Decode(&d); err != nil {
+			return nil, err
+		}
+		tokenRecords = append(tokenRecords, d)
+	}
+
+	return tokenRecords, nil
+}
+
+func GetAllGrouped() (map[string][]TokenRecord, error) {
 	cur, err := tokenStore.GetAll()
 	if err != nil {
 		return nil, err

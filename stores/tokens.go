@@ -43,7 +43,7 @@ func (s *TokenStore) Insert(tokenRecord any) error {
 }
 
 // Get all token records grouping by member id
-func (s *TokenStore) GetAll() (*mongo.Cursor, error) {
+func (s *TokenStore) GetAllGrouped() (*mongo.Cursor, error) {
 	aggregate := []bson.M{
 		{
 			"$group": bson.M{
@@ -60,6 +60,14 @@ func (s *TokenStore) GetAll() (*mongo.Cursor, error) {
 		return nil, err
 	}
 
+	return cursor, nil
+}
+
+func (s *TokenStore) GetAll() (*mongo.Cursor, error) {
+	cursor, err := s.Find(s.ctx, bson.D{})
+	if err != nil {
+		return nil, err
+	}
 	return cursor, nil
 }
 

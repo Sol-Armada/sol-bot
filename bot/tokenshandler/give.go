@@ -63,7 +63,8 @@ func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 		return errors.New("reason is required")
 	}
 
-	if err := tokens.New(member.Id, amount, reason, nil, comment).Save(); err != nil {
+	giver := utils.GetMemberFromContext(ctx).(*members.Member)
+	if err := tokens.New(member.Id, amount, reason, &giver.Id, nil, comment).Save(); err != nil {
 		return err
 	}
 
