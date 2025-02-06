@@ -9,6 +9,11 @@ import (
 )
 
 func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponsePong,
+		Data: &discordgo.InteractionResponseData{},
+	})
+
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
 	attendance, err := attendance.Get(attendanceId)
@@ -88,8 +93,5 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 		}
 	}
 
-	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{},
-	})
+	return nil
 }

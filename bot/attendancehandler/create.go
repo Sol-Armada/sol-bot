@@ -57,7 +57,7 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 	for _, option := range options {
 		if option.Name == "tokens" {
 			attendance.Tokenable = option.BoolValue()
-			break
+			continue
 		}
 
 		if option.Type == discordgo.ApplicationCommandOptionUser {
@@ -75,7 +75,6 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 				}
 
 				attendance.WithIssues = append(attendance.WithIssues, member)
-
 				continue
 			}
 

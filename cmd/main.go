@@ -67,9 +67,10 @@ func init() {
 	username := settings.GetString("MONGO.USERNAME")
 	pswd := strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`)
 	database := settings.GetStringWithDefault("MONGO.DATABASE", "org")
+	replicaSetName := settings.GetString("MONGO.REPLICA_SET_NAME")
 	ctx := context.Background()
 
-	if _, err := stores.New(ctx, host, port, username, pswd, database); err != nil {
+	if _, err := stores.New(ctx, host, port, username, pswd, database, replicaSetName); err != nil {
 		log.WithError(err).Error("failed to create storage client")
 		os.Exit(1)
 	}

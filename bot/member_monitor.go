@@ -219,7 +219,7 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 		}
 
 		// discord related stuff
-		member.Avatar = discordMember.Avatar
+		member.Avatar = discordMember.User.Avatar
 		if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
 			mlogger.Debug("is recruit")
 			member.Rank = ranks.Recruit

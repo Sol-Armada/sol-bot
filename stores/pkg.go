@@ -29,16 +29,21 @@ type Client struct {
 
 var client *Client
 
-func New(ctx context.Context, host string, port int, username string, password string, database string) (*Client, error) {
+func New(ctx context.Context, host string, port int, username, password, database, replicaSetName string) (*Client, error) {
 	usernamePassword := username + ":" + password + "@"
 	if usernamePassword == ":@" {
 		usernamePassword = ""
 	}
 
-	uri := fmt.Sprintf("mongodb://%s%s:%d",
+	if replicaSetName != "" {
+		replicaSetName = fmt.Sprintf("/?replicaSet=%s", replicaSetName)
+	}
+
+	uri := fmt.Sprintf("mongodb://%s%s:%d%s",
 		usernamePassword,
 		host,
-		port)
+		port,
+		replicaSetName)
 
 	clientOptions := options.Client().ApplyURI(uri).SetConnectTimeout(5 * time.Second)
 	mongoClient, err := mongo.Connect(ctx, clientOptions)
