@@ -41,8 +41,6 @@ func takeCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 			member = m
 		case "amount":
 			amount = int(option.IntValue())
-		case "reason":
-			reason = tokens.Reason(option.StringValue())
 		case "comment":
 			comment = option.StringValue()
 		}
@@ -61,7 +59,7 @@ func takeCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 	}
 
 	giver := utils.GetMemberFromContext(ctx).(*members.Member)
-	if err := tokens.New(member.Id, amount*-1, reason, &giver.Id, nil, &comment).Save(); err != nil {
+	if err := tokens.New(member.Id, amount*-1, tokens.ReasonOther, &giver.Id, nil, &comment).Save(); err != nil {
 		return err
 	}
 

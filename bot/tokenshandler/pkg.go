@@ -76,17 +76,10 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 					Required:    true,
 				},
 				{
-					Name:         "reason",
-					Description:  "The reason for taking tokens",
-					Type:         discordgo.ApplicationCommandOptionString,
-					Required:     true,
-					Autocomplete: true,
-				},
-				{
 					Name:        "comment",
 					Description: "Comment about taking this token",
 					Type:        discordgo.ApplicationCommandOptionString,
-					Required:    false,
+					Required:    true,
 				},
 			},
 		},
