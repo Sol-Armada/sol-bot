@@ -11,3 +11,6 @@ build: clean
 
 build-arm: clean
 	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=${version} -X main.hash=${hash}" -o ./bin/solbot-arm ./cmd/
+
+build-staging: clean
+	@CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -ldflags "-X main.version=${version} -X main.hash=${hash} -X main.environment=staging" -o ./bin/solbot-arm ./cmd/

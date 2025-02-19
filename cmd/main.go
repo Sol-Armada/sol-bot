@@ -23,6 +23,8 @@ import (
 	"github.com/sol-armada/sol-bot/tokens"
 )
 
+var environment string = ""
+
 type customFormatter struct {
 	hander log.Handler
 }
@@ -33,8 +35,13 @@ func (f *customFormatter) HandleLog(e *log.Entry) error {
 }
 
 func init() {
+	if environment == "staging" {
+		settings.SetConfigName("settings.staging")
+	} else {
+		settings.SetConfigName("settings")
+	}
+
 	// setup settings
-	settings.SetConfigName("settings")
 	settings.AddConfigPath(".")
 	settings.AddConfigPath("../")
 	settings.AddConfigPath("/etc/solbot/")

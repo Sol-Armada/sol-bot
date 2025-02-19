@@ -2,7 +2,6 @@ package tokenshandler
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/apex/log"
@@ -25,7 +24,6 @@ func takeCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 
 	var member *members.Member
 	var amount int = 0
-	var reason tokens.Reason
 	var comment string
 
 	options := i.ApplicationCommandData().Options[0].Options
@@ -52,10 +50,6 @@ func takeCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 			Content: "Amount must be greater than 0",
 		})
 		return err
-	}
-
-	if reason == "" {
-		return errors.New("reason is required")
 	}
 
 	giver := utils.GetMemberFromContext(ctx).(*members.Member)

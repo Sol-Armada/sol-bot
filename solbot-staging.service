@@ -1,0 +1,14 @@
+[Unit]
+Description=Sol Bot Staging
+After=network.target
+Wants=network-online.target
+
+[Service]
+Restart=always
+Type=simple
+ExecStart=/opt/solbot-staging
+Environment=
+ExecStop=/bin/kill -s SIGINT -$MAINPID & /bin/kill -s SIGINT -$MAINPID
+
+[Install]
+WantedBy=multi-user.target
