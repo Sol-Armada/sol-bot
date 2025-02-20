@@ -94,6 +94,10 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 	}
 	attendance.MessageId = message.ID
 
+	if _, err := s.ThreadStart(attendance.ChannelId, attendance.Name, discordgo.ChannelTypeGuildPublicThread, 500); err != nil {
+		return err
+	}
+
 	if err := attendance.Save(); err != nil {
 		return errors.Wrap(err, "saving attendance record")
 	}
