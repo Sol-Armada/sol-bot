@@ -67,6 +67,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 	client.databases[ACTIVITY] = newActivityStore(ctx, client.Client, database)
 	client.databases[SOS] = newSOSStore(ctx, client.Client, database)
 	client.databases[TOKENS] = newTokensStore(ctx, client.Client, database)
+	client.databases[RAFFLES] = newRafflesStore(ctx, client.Client, database)
 
 	return client, nil
 }

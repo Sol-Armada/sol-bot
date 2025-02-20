@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
+	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
@@ -38,16 +39,23 @@ var commandHandlers = map[string]Handler{
 	"demerit":    giveDemeritCommandHandler,
 	"rankups":    rankUpsCommandHandler,
 	"tokens":     tokenshandler.CommandHandler,
+	"raffle":     rafflehandler.CommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
 	"attendance": attendancehandler.AutocompleteHander,
 	"tokens":     tokenshandler.AutocompleteHandler,
+	"raffle":     rafflehandler.AutocompleteHander,
 }
 
 var buttonHandlers = map[string]Handler{
 	"attendance": attendancehandler.ButtonHandler,
 	"tokens":     tokenshandler.ButtonHandler,
+	"raffle":     rafflehandler.ButtonHandler,
+}
+
+var modalHandlers = map[string]Handler{
+	"raffle": rafflehandler.ModalHandler,
 }
 
 var onboardingButtonHanlders = map[string]Handler{
@@ -194,16 +202,19 @@ func (b *Bot) Setup() error {
 				"interaction_type": "modal submit",
 			})
 			ctx = utils.SetLoggerToContext(ctx, logger)
-			id := strings.Split(i.ModalSubmitData().CustomID, ":")
-			switch id[0] {
+			command := strings.Split(i.ModalSubmitData().CustomID, ":")
+			subCommand := command[1]
+			switch command[0] {
 			case "onboarding":
-				if h, ok := onboardingModalHandlers[id[1]]; ok {
+				if h, ok := onboardingModalHandlers[subCommand]; ok {
 					err = h(ctx, s, i)
 				}
 			case "attendance":
-				if h, ok := attendanceModalHandlers[id[1]]; ok {
+				if h, ok := attendanceModalHandlers[subCommand]; ok {
 					err = h(ctx, s, i)
 				}
+			default:
+				err = modalHandlers[command[0]](ctx, s, i)
 			}
 		}
 
@@ -422,6 +433,19 @@ func (b *Bot) Setup() error {
 
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
 			return errors.Wrap(err, "creating tokens command")
+		}
+	}
+
+	// raffles
+	if settings.GetBool("FEATURES.RAFFLES.ENABLE") {
+		log.Debug("using raffles feature")
+		cmd, err := rafflehandler.Setup()
+		if err != nil {
+			return errors.Wrap(err, "setting raffles commands")
+		}
+
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
+			return errors.Wrap(err, "creating raffles command")
 		}
 	}
 

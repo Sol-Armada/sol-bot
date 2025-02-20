@@ -18,6 +18,7 @@ import (
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
 	"github.com/sol-armada/sol-bot/tokens"
@@ -88,6 +89,7 @@ func init() {
 		"activity":   activity.Setup,
 		"tokens":     tokens.Setup,
 		"config":     config.Setup,
+		"raffles":    raffles.Setup,
 	}
 
 	for name, setup := range setups {

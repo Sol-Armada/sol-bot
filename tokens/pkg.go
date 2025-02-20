@@ -15,6 +15,7 @@ const (
 	ReasonAttendance      Reason = "Attendance"
 	ReasonAttendanceFull  Reason = "Stayed for full event"
 	ReasonEventSuccessful Reason = "Event Successful"
+	ReasonWonRaffle       Reason = "Won Raffle"
 	ReasonOther           Reason = "Other"
 )
 

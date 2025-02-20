@@ -22,6 +22,7 @@ var (
 	InvalidAutocomplete     = e.New("invalid autocomplete")
 	InvalidButton           = e.New("invalid button")
 	InvalidAttendanceRecord = e.New("invalid attendance record")
+	InvalidModal            = e.New("invalid modal")
 )
 
 func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string, errorCode *string) {
