@@ -19,7 +19,7 @@ func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.I
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
 	if data.Options[0].Options[0].Focused {
-		attendanceRecords, err := attendance.ListActive(5)
+		attendanceRecords, err := attendance.ListRecorded(5)
 		if err != nil {
 			return errors.Join(err, errors.New("getting active attendance records"))
 		}
