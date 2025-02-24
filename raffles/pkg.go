@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/tokens"
 )
 
 type Raffle struct {
@@ -23,6 +25,8 @@ type Raffle struct {
 	Ended       bool           `json:"ended"`
 	ChannelId   string         `json:"channel_id"`
 	MessageId   string         `json:"message_id"`
+	CreatedAt   time.Time      `json:"created_at"`
+	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
 var rafflesStore *stores.RaffleStore
@@ -39,11 +43,14 @@ func Setup() error {
 }
 
 func New(attendanceId, prize string) *Raffle {
+	n := time.Now().UTC()
 	return &Raffle{
 		Id:          xid.New().String(),
 		AttedanceId: attendanceId,
 		Prize:       prize,
 		Tickets:     map[string]int{},
+		CreatedAt:   n,
+		UpdatedAt:   n,
 	}
 }
 
@@ -58,6 +65,7 @@ func Get(id string) (*Raffle, error) {
 }
 
 func (r *Raffle) Save() error {
+	r.UpdatedAt = time.Now().UTC()
 	return rafflesStore.Upsert(r.Id, r)
 }
 
@@ -136,7 +144,11 @@ func (r *Raffle) GetTickets() string {
 
 	tickets := ""
 	for _, ticket := range sorted {
-		tickets += fmt.Sprintf("<@%s>: %d\n", ticket.MemberId, ticket.Amount)
+		tickets += fmt.Sprintf("<@%s>", ticket.MemberId)
+		if r.WinnerId != "" {
+			tickets += fmt.Sprintf(" | %d", ticket.Amount)
+		}
+		tickets += "\n"
 	}
 	return tickets
 }
@@ -158,11 +170,65 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 			Value:  r.Prize,
 			Inline: true,
 		},
+	}
+
+	tokenFields := []*discordgo.MessageEmbedField{
 		{
-			Name:  "Tickets",
-			Value: r.GetTickets(),
+			Name:  "Tokens Available",
+			Value: "",
 		},
 	}
+
+	ticketFields := []*discordgo.MessageEmbedField{
+		{
+			Name:  "Participating",
+			Value: "",
+		},
+	}
+
+	i := 0
+	for memberId, ticketAmount := range r.Tickets {
+
+		// for every 10 members, make a new field
+		if i%10 == 0 && i != 0 {
+			tokenFields = append(tokenFields, &discordgo.MessageEmbedField{
+				Name:   "",
+				Value:  "",
+				Inline: true,
+			})
+
+			ticketFields = append(ticketFields, &discordgo.MessageEmbedField{
+				Name:   "",
+				Value:  "",
+				Inline: true,
+			})
+		}
+
+		tokenAmount, err := tokens.GetBalanceByMemberId(memberId)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenField := tokenFields[len(tokenFields)-1]
+		tokenField.Value += fmt.Sprintf("<@%s> | %d", memberId, tokenAmount)
+
+		ticketField := ticketFields[len(ticketFields)-1]
+		ticketField.Value += fmt.Sprintf("<@%s>", memberId)
+
+		if r.WinnerId != "" {
+			ticketField.Value += " | " + fmt.Sprintf("%d", ticketAmount)
+		}
+
+		// if not the 10th, add a new line
+		if i%10 != 9 {
+			ticketField.Value += "\n"
+		}
+
+		i++
+	}
+
+	feilds = append(feilds, tokenFields...)
+	feilds = append(feilds, ticketFields...)
 
 	if r.Ended {
 		winner, err := members.Get(r.WinnerId)
@@ -191,4 +257,8 @@ func (r *Raffle) UpdateMessage(s *discordgo.Session) error {
 
 	_, err = s.ChannelMessageEditEmbed(r.ChannelId, r.MessageId, embed)
 	return err
+}
+
+func (r *Raffle) Delete() error {
+	return rafflesStore.Delete(r.Id)
 }

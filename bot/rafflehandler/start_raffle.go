@@ -47,12 +47,17 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 					discordgo.Button{
 						CustomID: "raffle:back_out:" + raffle.Id,
 						Label:    "Back Out",
-						Style:    discordgo.DangerButton,
+						Style:    discordgo.SecondaryButton,
 					},
 					discordgo.Button{
 						CustomID: "raffle:end:" + raffle.Id,
 						Label:    "End",
 						Style:    discordgo.SecondaryButton,
+					},
+					discordgo.Button{
+						CustomID: "raffle:cancel:" + raffle.Id,
+						Label:    "Cancel",
+						Style:    discordgo.DangerButton,
 					},
 				},
 			},

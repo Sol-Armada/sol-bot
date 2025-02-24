@@ -9,6 +9,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/raffles"
+	"github.com/sol-armada/sol-bot/tokens"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -30,23 +31,26 @@ func addEntries(ctx context.Context, s *discordgo.Session, i *discordgo.Interact
 		return err
 	}
 
-	for _, member := range attendanceRecord.Members {
-		if member.Id == i.Member.User.ID {
-			return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-				Type: discordgo.InteractionResponseChannelMessageWithSource,
-				Data: &discordgo.InteractionResponseData{
-					Content: "You did not attend this event and cannot enter the raffle.",
-					Flags:   discordgo.MessageFlagsEphemeral,
-				},
-			})
-		}
+	if _, ok := attendanceRecord.GetMember(i.Member.User.ID); !ok {
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "You did not attend this event and cannot enter the raffle.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
+
+	tokens, err := tokens.GetBalanceByMemberId(i.Member.User.ID)
+	if err != nil {
+		return err
 	}
 
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
 			CustomID: fmt.Sprintf("raffle:add_entries:%s", raffleId),
-			Title:    "Add Entries",
+			Title:    fmt.Sprintf("Add Entries (%d max)", tokens),
 			Components: []discordgo.MessageComponent{
 				discordgo.ActionsRow{
 					Components: []discordgo.MessageComponent{

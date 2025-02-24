@@ -45,3 +45,9 @@ func (s *RaffleStore) Upsert(id string, raffle any) error {
 	}
 	return nil
 }
+
+func (s *RaffleStore) Delete(id string) error {
+	filter := bson.D{{Key: "_id", Value: id}}
+	_, err := s.DeleteOne(s.ctx, filter)
+	return err
+}
