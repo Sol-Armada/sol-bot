@@ -114,15 +114,7 @@ func GetBot() (*Bot, error) {
 	return bot, nil
 }
 
-func ready(s *discordgo.Session, event *discordgo.Ready) {
-	s.State.TrackVoice = true
-	log.Info("bot is ready")
-}
-
 func (b *Bot) Setup() error {
-	// setup state when bot is ready
-	b.AddHandler(ready)
-
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		member, err := members.Get(i.Member.User.ID)
 		if err != nil {

@@ -10,10 +10,6 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"start": start,
-}
-
 var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
 	"start": startAutocomplete,
 }
@@ -30,12 +26,10 @@ var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *disco
 }
 
 func Setup() (*discordgo.ApplicationCommand, error) {
-	subCommands := []*discordgo.ApplicationCommandOption{}
-
-	startCmd := &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "start",
+	return &discordgo.ApplicationCommand{
+		Name:        "raffle",
 		Description: "Start a raffle",
+		Type:        discordgo.ChatApplicationCommand,
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
@@ -51,30 +45,6 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 				Required:    true,
 			},
 		},
-	}
-	subCommands = append(subCommands, startCmd)
-
-	endCmd := &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "end",
-		Description: "End a raffle",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "raffle",
-				Description:  "The raffle to end",
-				Required:     true,
-				Autocomplete: true,
-			},
-		},
-	}
-	subCommands = append(subCommands, endCmd)
-
-	return &discordgo.ApplicationCommand{
-		Name:        "raffle",
-		Description: "Manage raffles",
-		Type:        discordgo.ChatApplicationCommand,
-		Options:     subCommands,
 	}, nil
 }
 
@@ -86,13 +56,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 		return customerrors.InvalidPermissions
 	}
 
-	data := i.ApplicationCommandData()
-	handler, ok := subCommands[data.Options[0].Name]
-	if !ok {
-		return customerrors.InvalidSubcommand
-	}
-
-	return handler(ctx, s, i)
+	return start(ctx, s, i)
 }
 
 func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
