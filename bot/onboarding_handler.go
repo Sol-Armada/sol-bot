@@ -126,7 +126,7 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 			Components: []discordgo.MessageComponent{
 				discordgo.TextInput{
 					CustomID:    "gameplay",
-					Label:       "What gamplay are you most interested in?",
+					Label:       "What gameplay are you most interested in?",
 					Style:       discordgo.TextInputShort,
 					Placeholder: "Combat, Rescue, Mining, etc",
 					Required:    true,
@@ -221,7 +221,7 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 	}
 
 	member.LegacyPlaytime = playTime
-	member.LegacyGamplay = gameplay
+	member.LegacyGameplay = gameplay
 	member.LegacyAge = age
 
 	if recruiter != "" {
@@ -383,7 +383,7 @@ SKIP:
 		{Name: "Primary Org", Value: "https://robertsspaceindustries.com/orgs/" + member.PrimaryOrg},
 		{Name: "Affiliate Orgs", Value: strings.Join(member.Affilations, ", ")},
 		{Name: "Playtime", Value: member.LegacyPlaytime},
-		{Name: "Gameplay", Value: member.LegacyGamplay},
+		{Name: "Gameplay", Value: member.LegacyGameplay},
 		{Name: "Age", Value: member.LegacyAge},
 	}
 

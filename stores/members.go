@@ -34,13 +34,13 @@ func (c *Client) GetMembersStore() (*MembersStore, bool) {
 func (s *MembersStore) Get(id string) (*mongo.Cursor, error) {
 	return s.Aggregate(s.ctx, bson.A{
 		bson.D{{Key: "$match", Value: bson.D{{Key: "_id", Value: id}}}},
-		bson.D{{Key: "$lookup", Value: bson.D{
-			{Key: "from", Value: "members"},
-			{Key: "localField", Value: "recruiter"},
-			{Key: "foreignField", Value: "_id"},
-			{Key: "as", Value: "recruiter"},
-		}}},
-		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
+		// bson.D{{Key: "$lookup", Value: bson.D{
+		// 	{Key: "from", Value: "members"},
+		// 	{Key: "localField", Value: "recruiter"},
+		// 	{Key: "foreignField", Value: "_id"},
+		// 	{Key: "as", Value: "recruiter"},
+		// }}},
+		// bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
 	})
 }
 
@@ -76,16 +76,16 @@ func (s *MembersStore) GetRandom(max int, maxRank int) ([]map[string]interface{}
 	return members, nil
 }
 
-func (s *MembersStore) List(filter interface{}, page, max int) (*mongo.Cursor, error) {
+func (s *MembersStore) List(filter any, page, max int) (*mongo.Cursor, error) {
 	pipeline := bson.A{
 		bson.D{{Key: "$match", Value: filter}},
-		bson.D{{Key: "$lookup", Value: bson.D{
-			{Key: "from", Value: "members"},
-			{Key: "localField", Value: "recruiter"},
-			{Key: "foreignField", Value: "_id"},
-			{Key: "as", Value: "recruiter"},
-		}}},
-		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
+		// bson.D{{Key: "$lookup", Value: bson.D{
+		// 	{Key: "from", Value: "members"},
+		// 	{Key: "localField", Value: "recruiter"},
+		// 	{Key: "foreignField", Value: "_id"},
+		// 	{Key: "as", Value: "recruiter"},
+		// }}},
+		// bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$recruiter"}, {Key: "preserveNullAndEmptyArrays", Value: true}}}},
 	}
 
 	if page > 0 {

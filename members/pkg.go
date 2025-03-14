@@ -52,7 +52,7 @@ type Member struct {
 	Age         int            `json:"age" bson:"age"`
 	Pronouns    string         `json:"pronouns" bson:"pronouns"`
 	Playtime    int            `json:"playtime" bson:"playtime"`
-	Gameplay    []GameplayType `json:"gamplay" bson:"gameplay"`
+	Gameplay    []GameplayType `json:"gameplay" bson:"gameplay"`
 	Recruiter   *string        `json:"recruiter" bson:"recruiter"`
 	ChannelId   string         `json:"channel_id" bson:"channel_id"`
 	MessageId   string         `json:"message_id" bson:"message_id"`
@@ -63,7 +63,7 @@ type Member struct {
 
 	LegacyAge       string `json:"legacy_age" bson:"legacy_age"`
 	LegacyPlaytime  string `json:"legacy_playtime" bson:"legacy_playtime"`
-	LegacyGamplay   string `json:"legacy_gamplay" bson:"legacy_gamplay"`
+	LegacyGameplay  string `json:"legacy_gameplay" bson:"legacy_gameplay"`
 	LegacyRecruiter string `json:"legacy_recruiter" bson:"legacy_recruiter"`
 	LegacyOther     string `json:"legacy_other" bson:"legacy_other"`
 }
@@ -355,7 +355,7 @@ func (m *Member) GetOnboardingMessage() *discordgo.Message {
 				Value: "Many Years",
 			},
 			{
-				Name:  "Interested Gamplay",
+				Name:  "Interested Gameplay",
 				Value: "Salvage, Bounty Hunting, Mining",
 			},
 		}...)
