@@ -1,6 +1,7 @@
 package raffles
 
 import (
+	"context"
 	"crypto/rand"
 	"errors"
 	"fmt"
@@ -14,6 +15,7 @@ import (
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/stores"
 	"github.com/sol-armada/sol-bot/tokens"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Raffle struct {
@@ -210,7 +212,7 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 		}
 
 		tokenField := tokenFields[len(tokenFields)-1]
-		tokenField.Value += fmt.Sprintf("<@%s> | %d", memberId, tokenAmount)
+		tokenField.Value += fmt.Sprintf("<@%s> | %d\n", memberId, tokenAmount)
 
 		ticketField := ticketFields[len(ticketFields)-1]
 		ticketField.Value += fmt.Sprintf("<@%s>", memberId)
@@ -249,10 +251,55 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 	}, nil
 }
 
+func (r *Raffle) GetLatest() (*Raffle, error) {
+	latestRaffle := &Raffle{}
+	cur, err := rafflesStore.GetLatest()
+	if err != nil && err != mongo.ErrNoDocuments {
+		return nil, err
+	}
+
+	if !cur.Next(context.TODO()) {
+		return nil, nil
+	}
+
+	if err := cur.Decode(latestRaffle); err != nil {
+		return nil, err
+	}
+
+	return latestRaffle, nil
+}
+
+func (r *Raffle) MemberWonLast(id string) (bool, error) {
+	latestRaffle, err := r.GetLatest()
+	if err != nil {
+		return false, err
+	}
+
+	if latestRaffle == nil {
+		return false, nil
+	}
+
+	if latestRaffle.WinnerId == "" {
+		return false, nil
+	}
+
+	return latestRaffle.WinnerId == id, nil
+}
+
 func (r *Raffle) UpdateMessage(s *discordgo.Session) error {
 	embed, err := r.GetEmbed()
 	if err != nil {
 		return err
+	}
+
+	if r.Ended {
+		if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+			Channel:    r.ChannelId,
+			ID:         r.MessageId,
+			Components: &[]discordgo.MessageComponent{},
+		}); err != nil {
+			return err
+		}
 	}
 
 	_, err = s.ChannelMessageEditEmbed(r.ChannelId, r.MessageId, embed)

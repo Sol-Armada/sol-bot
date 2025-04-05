@@ -11,7 +11,7 @@ import (
 )
 
 var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"start": startAutocomplete,
+	"event": startAutocomplete,
 }
 
 var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{

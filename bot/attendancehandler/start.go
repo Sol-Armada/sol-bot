@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/attendance"
+	attnc "github.com/sol-armada/sol-bot/attendance"
 )
 
 func startEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	attendance, err := attendance.Get(attendanceId)
+	attendance, err := attnc.Get(attendanceId)
 	if err != nil {
 		return err
 	}
@@ -26,6 +26,7 @@ func startEventButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 	}
 
 	attendance.Active = true
+	attendance.Status = attnc.AttendanceStatusActive
 
 	if err := attendance.Save(); err != nil {
 		return err

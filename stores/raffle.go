@@ -36,6 +36,11 @@ func (s *RaffleStore) Get(id string) *mongo.SingleResult {
 	return s.FindOne(s.ctx, filter)
 }
 
+func (s *RaffleStore) GetLatest() (*mongo.Cursor, error) {
+	opts := options.Find().SetSort(bson.D{{Key: "createdat", Value: -1}}).SetLimit(1)
+	return s.Find(s.ctx, bson.D{}, opts)
+}
+
 func (s *RaffleStore) Upsert(id string, raffle any) error {
 	opts := options.FindOneAndReplace().SetUpsert(true)
 	if err := s.FindOneAndReplace(s.ctx, bson.D{{Key: "_id", Value: id}}, raffle, opts).Err(); err != nil {

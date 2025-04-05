@@ -41,6 +41,21 @@ func addEntries(ctx context.Context, s *discordgo.Session, i *discordgo.Interact
 		})
 	}
 
+	won, err := raffle.MemberWonLast(i.Member.User.ID)
+	if err != nil {
+		return err
+	}
+
+	if won {
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "You are on a raffle lockout and cannot enter this one. You will be able to enter the next.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
+
 	tokens, err := tokens.GetBalanceByMemberId(i.Member.User.ID)
 	if err != nil {
 		return err

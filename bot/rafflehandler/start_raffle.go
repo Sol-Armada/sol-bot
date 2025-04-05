@@ -22,7 +22,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		return err
 	}
 
-	data := i.ApplicationCommandData().Options[0]
+	data := i.ApplicationCommandData()
 
 	attendanceRecordId := data.Options[0].Value.(string)
 	prize := data.Options[1].Value.(string)
