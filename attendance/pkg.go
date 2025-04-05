@@ -17,6 +17,15 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
+type Status string
+
+const (
+	AttendanceStatusCreated  Status = "created"
+	AttendanceStatusActive   Status = "active"
+	AttendanceStatusRecorded Status = "recorded"
+	AttendanceStatusReverted Status = "reverted"
+)
+
 type Payouts struct {
 	Total     int64 `json:"total"`
 	PerMember int64 `json:"per_member"`
@@ -34,6 +43,7 @@ type Attendance struct {
 	Successful  bool              `json:"successful" bson:"successful"`
 	Active      bool              `json:"active" bson:"active"`
 	Tokenable   bool              `json:"tokenable" bson:"tokenable"`
+	Status      Status            `json:"status" bson:"status"`
 
 	FromStart []string `json:"from_start" bson:"from_start"`
 	Stayed    []string `json:"stayed" bson:"stayed"`
@@ -153,63 +163,6 @@ func NewFromThreadMessages(threadMessages []*discordgo.Message) (*Attendance, er
 	return attendance, nil
 }
 
-func ListActive(limit int) ([]*Attendance, error) {
-	cur, err := attendanceStore.List(bson.M{"recorded": bson.M{"$eq": false}}, limit, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	var attendances []*Attendance
-
-	for cur.Next(context.TODO()) {
-		attendance := &Attendance{}
-		if err := cur.Decode(attendance); err != nil {
-			return nil, err
-		}
-		attendances = append(attendances, attendance)
-	}
-
-	return attendances, nil
-}
-
-func ListRecorded(limit int) ([]*Attendance, error) {
-	cur, err := attendanceStore.List(bson.M{"recorded": bson.M{"$eq": true}}, limit, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	var attendances []*Attendance
-
-	for cur.Next(context.TODO()) {
-		attendance := &Attendance{}
-		if err := cur.Decode(attendance); err != nil {
-			return nil, err
-		}
-		attendances = append(attendances, attendance)
-	}
-
-	return attendances, nil
-}
-
-func List(filter interface{}, limit int, page int) ([]*Attendance, error) {
-	cur, err := attendanceStore.List(filter, limit, page)
-	if err != nil {
-		return nil, err
-	}
-
-	var attendances []*Attendance
-
-	for cur.Next(context.TODO()) {
-		attendance := &Attendance{}
-		if err := cur.Decode(attendance); err != nil {
-			return nil, err
-		}
-		attendances = append(attendances, attendance)
-	}
-
-	return attendances, nil
-}
-
 func GetMemberAttendanceCount(memberId string) (int, error) {
 	return attendanceStore.GetCount(memberId)
 }
@@ -242,12 +195,14 @@ func GetMemberAttendanceRecords(memberId string) ([]*Attendance, error) {
 func (a *Attendance) Record() error {
 	a.Active = false
 	a.Recorded = true
+	a.Status = AttendanceStatusRecorded
 	return a.Save()
 }
 
 func (a *Attendance) Revert() error {
 	a.Active = false
 	a.Recorded = false
+	a.Status = AttendanceStatusReverted
 	return a.Save()
 }
 
