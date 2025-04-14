@@ -229,7 +229,10 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 		i++
 	}
 
-	feilds = append(feilds, tokenFields...)
+	if !r.Ended {
+		feilds = append(feilds, tokenFields...)
+	}
+
 	feilds = append(feilds, ticketFields...)
 
 	if r.Ended {
