@@ -79,6 +79,9 @@ func New(name string, submittedBy *members.Member) *Attendance {
 		DateUpdated: time.Now().UTC(),
 		SubmittedBy: submittedBy,
 
+		Active: true,
+		Status: AttendanceStatusActive,
+
 		ChannelId: settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"),
 	}
 

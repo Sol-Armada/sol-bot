@@ -127,15 +127,20 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		})
 	}
 
+	var footer *discordgo.MessageEmbedFooter
+	if a.Tokenable {
+		footer = &discordgo.MessageEmbedFooter{
+			Text: "⭐ joined from the start | 🌟 stayed entire event",
+		}
+	}
+
 	embeds := []*discordgo.MessageEmbed{
 		{
 			Title:       a.Name,
 			Description: a.Id,
 			Timestamp:   a.DateCreated.Format(time.RFC3339),
 			Fields:      fields,
-			Footer: &discordgo.MessageEmbedFooter{
-				Text: "⭐ joined from the start | 🌟 stayed entire event",
-			},
+			Footer:      footer,
 		},
 	}
 
@@ -159,7 +164,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		}
 		buttons = append(buttons, startButton)
 
-		if a.Active {
+		if a.Active && a.Tokenable {
 			successButton := discordgo.Button{
 				Label: "Successful",
 				Style: discordgo.SuccessButton,

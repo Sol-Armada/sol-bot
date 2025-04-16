@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -417,6 +418,36 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 	}
 
 	return int(result["count"].(int32)), nil
+}
+
+func (s *AttendanceStore) GetUniqueMemberCount(days int) (int, error) {
+	// Open an aggregation cursor
+	pipeline := bson.A{
+		bson.D{{Key: "$match", Value: bson.D{{Key: "date_created", Value: bson.D{{Key: "$gte", Value: time.Now().Add(-time.Duration(days) * time.Hour * 24)}}}}}},
+		bson.D{{Key: "$sort", Value: bson.D{{Key: "date_created", Value: 1}}}},
+		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$members"}}}},
+		bson.D{{Key: "$group", Value: bson.D{{Key: "_id", Value: "$members"}}}},
+		bson.D{{Key: "$count", Value: "uniqueCount"}},
+	}
+
+	cur, err := s.Aggregate(s.ctx, pipeline)
+	if err != nil {
+		return 0, err
+	}
+
+	// get the count
+	var result bson.M
+	cur.Next(s.ctx)
+
+	if err := cur.Decode(&result); err != nil {
+		if err.Error() == "EOF" {
+			return 0, nil
+		}
+
+		return 0, err
+	}
+
+	return int(result["uniqueCount"].(int32)), nil
 }
 
 func (s *AttendanceStore) Upsert(id string, attendance any) error {
