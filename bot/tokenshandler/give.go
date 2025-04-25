@@ -44,7 +44,7 @@ func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 		case "reason":
 			reason = tokens.Reason(option.StringValue())
 		case "comment":
-			comment = utils.StringPointer(option.StringValue())
+			comment = utils.ToPointer(option.StringValue())
 			if *comment == "" {
 				comment = nil
 			}

@@ -21,6 +21,16 @@ import (
 func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 
+	if len(i.Member.Roles) == 0 {
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "You are a guest! This command is not available to you",
+			},
+		})
+	}
+
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
@@ -44,7 +54,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 	data := i.ApplicationCommandData()
 
-	if len(data.Options) > 0 {
+	if len(data.Options) > 1 && member.Rank <= ranks.Lieutenant {
 		logger.Debug("getting profile of other member")
 		if member.Rank > ranks.Lieutenant {
 			return InvalidPermissions
@@ -59,14 +69,12 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 					return errors.Wrap(err, "getting member for profile command")
 				}
 
-				if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-					Content: "That member was not found in the system!",
-				}); err != nil {
-					return errors.Wrap(err, "responding to attendance command interaction: no member found")
+				discordMember, err := s.GuildMember(i.GuildID, otherMemberId)
+				if err != nil {
+					return errors.Wrap(err, "creating new guild member")
 				}
+				otherMember = members.New(discordMember)
 			}
-
-			logger.Debug(fmt.Sprintf("data length is %d", len(data.Options)))
 
 			if len(data.Options) > 1 && data.Options[1].BoolValue() { // update the member before getting their profile
 				logger.Debug("force updating member")

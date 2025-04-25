@@ -36,6 +36,8 @@ type Member struct {
 	Joined         time.Time  `json:"joined" bson:"joined"`
 	Suffix         string     `json:"suffix" bson:"suffix"`
 
+	MemberSince time.Time `json:"member_since" bson:"member_since"`
+
 	IsBot       bool `json:"is_bot" bson:"is_bot"`
 	IsAlly      bool `json:"is_ally" bson:"is_ally"`
 	IsAffiliate bool `json:"is_affiliate" bson:"is_affiliate"`
@@ -208,8 +210,25 @@ func (m *Member) Save() error {
 	memberMap["_id"] = memberMap["id"]
 	delete(memberMap, "id")
 
-	if recruiter, ok := memberMap["recruiter"].(map[string]interface{}); ok {
+	if recruiter, ok := memberMap["recruiter"].(map[string]any); ok {
 		memberMap["recruiter"] = recruiter["id"]
+	}
+
+	if m.MemberSince.IsZero() {
+		memberMap["member_since"] = m.Joined.UTC()
+	}
+
+	// convert go datetimes to mongo datetimes
+	memberMap["joined"] = m.Joined.UTC()
+
+	memberMap["updated"] = m.Updated.UTC()
+
+	if m.ValidatedAt != nil {
+		memberMap["validated_at"] = m.ValidatedAt.UTC()
+	}
+
+	if m.OnboardedAt != nil {
+		memberMap["onboarded_at"] = m.OnboardedAt.UTC()
 	}
 
 	return membersStore.Upsert(m.Id, memberMap)

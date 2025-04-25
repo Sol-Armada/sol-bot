@@ -93,7 +93,7 @@ func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 	}
 
 	_, _ = s.FollowupMessageEdit(i.Interaction, i.Message.ID, &discordgo.WebhookEdit{
-		Content:    utils.StringPointer("Attendance record deleted!"),
+		Content:    utils.ToPointer("Attendance record deleted!"),
 		Components: &[]discordgo.MessageComponent{},
 	})
 

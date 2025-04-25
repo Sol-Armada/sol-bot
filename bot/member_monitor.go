@@ -1,7 +1,6 @@
 package bot
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,8 +15,6 @@ import (
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
-	"github.com/sol-armada/sol-bot/stores"
-	"go.mongodb.org/mongo-driver/bson"
 	"golang.org/x/exp/slices"
 )
 
@@ -48,11 +45,11 @@ func MemberMonitor(stop <-chan bool) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	membersStore, ok := stores.Get().GetMembersStore()
-	if !ok {
-		logger.Error("failed to get members store")
-		return
-	}
+	// membersStore, ok := stores.Get().GetMembersStore()
+	// if !ok {
+	// 	logger.Error("failed to get members store")
+	// 	return
+	// }
 
 	lastChecked := time.Now().UTC().Add(-30 * time.Minute)
 	for {
@@ -101,15 +98,20 @@ func MemberMonitor(stop <-chan bool) {
 			}
 
 			// get the stored members
-			storedMembers := []*members.Member{}
-			cur, err := membersStore.List(bson.M{}, 0, 0)
+			// storedMembers := []*members.Member{}
+			// cur, err := membersStore.List(bson.M{}, 0, 0)
+			// if err != nil {
+			// 	logger.Error("getting stored members", "error", err)
+			// 	continue
+			// }
+
+			// if err := cur.All(context.Background(), &storedMembers); err != nil {
+			// 	logger.Error("reading in stored members", "error", err)
+			// 	continue
+			// }
+			storedMembers, err := members.List(0)
 			if err != nil {
 				logger.Error("getting stored members", "error", err)
-				continue
-			}
-
-			if err := cur.All(context.Background(), &storedMembers); err != nil {
-				logger.Error("reading in stored members", "error", err)
 				continue
 			}
 
@@ -137,10 +139,6 @@ func MemberMonitor(stop <-chan bool) {
 
 		continue
 	}
-}
-
-func (b *Bot) UpdateMember() error {
-	return nil
 }
 
 func (b *Bot) GetDiscordMembers() ([]*discordgo.Member, error) {
@@ -296,7 +294,7 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 	return nil
 }
 
-func stillInDiscord(member *members.Member, discordMembers []*discordgo.Member) bool {
+func stillInDiscord(member members.Member, discordMembers []*discordgo.Member) bool {
 	for _, discordMember := range discordMembers {
 		if member.Id == discordMember.User.ID {
 			return true

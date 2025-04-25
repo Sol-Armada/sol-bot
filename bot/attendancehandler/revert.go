@@ -78,7 +78,7 @@ func revertCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		if derr, ok := err.(*discordgo.RESTError); ok {
 			if derr.Response.StatusCode == 404 {
 				_, _ = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-					Content: utils.StringPointer("It looks like that attendance record message is missing! Creating it again..."),
+					Content: utils.ToPointer("It looks like that attendance record message is missing! Creating it again..."),
 				})
 
 				if _, err := s.ChannelMessageSendComplex(attendance.ChannelId, &discordgo.MessageSend{
@@ -106,7 +106,7 @@ func revertCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 	}
 
 	_, _ = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-		Content: utils.StringPointer("Attendance reverted!"),
+		Content: utils.ToPointer("Attendance reverted!"),
 	})
 
 	return nil

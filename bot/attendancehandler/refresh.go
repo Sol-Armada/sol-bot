@@ -54,14 +54,14 @@ func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		}
 
 		_, _ = s.FollowupMessageEdit(i.Interaction, m.ID, &discordgo.WebhookEdit{
-			Content: utils.StringPointer(fmt.Sprintf("Attendance refreshing... (%d/%d)", idx+1, len(attendance))),
+			Content: utils.ToPointer(fmt.Sprintf("Attendance refreshing... (%d/%d)", idx+1, len(attendance))),
 		})
 
 		time.Sleep(250 * time.Millisecond)
 	}
 
 	_, _ = s.FollowupMessageEdit(i.Interaction, m.ID, &discordgo.WebhookEdit{
-		Content: utils.StringPointer("Attendance refreshed!"),
+		Content: utils.ToPointer("Attendance refreshed!"),
 	})
 
 	lastRefreshTime = time.Now()

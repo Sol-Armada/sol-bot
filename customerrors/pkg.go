@@ -23,6 +23,8 @@ var (
 	InvalidButton           = e.New("invalid button")
 	InvalidAttendanceRecord = e.New("invalid attendance record")
 	InvalidModal            = e.New("invalid modal")
+	InvalidInput            = e.New("invalid input")
+	InvalidGiveaway         = e.New("invalid giveaway")
 )
 
 func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string, errorCode *string) {

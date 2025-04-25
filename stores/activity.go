@@ -18,7 +18,7 @@ func newActivityStore(ctx context.Context, client *mongo.Client, database string
 	_ = client.Database(database).CreateCollection(ctx, string(ACTIVITY), &options.CreateCollectionOptions{
 		TimeSeriesOptions: &options.TimeSeriesOptions{
 			TimeField: "when",
-			MetaField: utils.StringPointer("meta"),
+			MetaField: utils.ToPointer("meta"),
 		},
 	})
 	s := &store{

@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
+	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/members"
@@ -40,18 +41,21 @@ var commandHandlers = map[string]Handler{
 	"rankups":    rankUpsCommandHandler,
 	"tokens":     tokenshandler.CommandHandler,
 	"raffle":     rafflehandler.CommandHandler,
+	"giveaway":   giveawayhandler.CommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
 	"attendance": attendancehandler.AutocompleteHander,
 	"tokens":     tokenshandler.AutocompleteHandler,
 	"raffle":     rafflehandler.AutocompleteHander,
+	"giveaway":   giveawayhandler.AutocompleteHander,
 }
 
 var buttonHandlers = map[string]Handler{
 	"attendance": attendancehandler.ButtonHandler,
 	"tokens":     tokenshandler.ButtonHandler,
 	"raffle":     rafflehandler.ButtonHandler,
+	"giveaway":   giveawayhandler.ButtonHandler,
 }
 
 var modalHandlers = map[string]Handler{
@@ -115,6 +119,10 @@ func GetBot() (*Bot, error) {
 }
 
 func (b *Bot) Setup() error {
+	b.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.Ready) {
+		log.WithField("user", r.User.Username).Info("bot is ready")
+	})
+
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		member, err := members.Get(i.Member.User.ID)
 		if err != nil {
@@ -229,6 +237,7 @@ func (b *Bot) Setup() error {
 								Title:       "Error",
 								Description: err.Error(),
 								Fields: []*discordgo.MessageEmbedField{
+									{Name: "Command", Value: i.Interaction.Type.String()},
 									{Name: "Who ran the command", Value: i.Member.User.Mention()},
 									{Name: "When", Value: time.Now().Format("2006-01-02 15:04:05 -0700 MST")},
 									{Name: "Error", Value: err.Error()},
@@ -440,6 +449,20 @@ func (b *Bot) Setup() error {
 			return errors.Wrap(err, "creating raffles command")
 		}
 	}
+
+	// giveaways
+	if settings.GetBool("FEATURES.GIVEAWAYS.ENABLE") {
+		log.Debug("using giveaways feature")
+		cmd, err := giveawayhandler.Setup()
+		if err != nil {
+			return errors.Wrap(err, "setting giveaways commands")
+		}
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
+			return errors.Wrap(err, "creating giveaways command")
+		}
+	}
+
+	// b.AddHandler(OnRoleChange)
 
 	return b.Open()
 }

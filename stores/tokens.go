@@ -19,7 +19,7 @@ func newTokensStore(ctx context.Context, client *mongo.Client, database string) 
 	_ = client.Database(database).CreateCollection(ctx, string(TOKENS), &options.CreateCollectionOptions{
 		TimeSeriesOptions: &options.TimeSeriesOptions{
 			TimeField: "created_at",
-			MetaField: utils.StringPointer("member_id"),
+			MetaField: utils.ToPointer("member_id"),
 		},
 	})
 	s := &store{

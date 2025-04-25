@@ -247,23 +247,26 @@ func (a *Attendance) Save() error {
 }
 
 func (a *Attendance) removeDuplicates() {
-	memberSet := map[string]*members.Member{}
-	for _, member := range a.Members {
+	a.Members = uniqueMembers(a.Members)
+	a.WithIssues = uniqueMembers(a.WithIssues)
+}
+
+func uniqueMembers(mmbrs []*members.Member) []*members.Member {
+	memberSet := make(map[string]*members.Member)
+	for _, member := range mmbrs {
+		if member == nil {
+			continue
+		}
+
 		memberSet[member.Id] = member
 	}
-	a.Members = []*members.Member{}
+
+	uniqueList := make([]*members.Member, 0, len(memberSet))
 	for _, member := range memberSet {
-		a.Members = append(a.Members, member)
+		uniqueList = append(uniqueList, member)
 	}
 
-	withIssuesSet := map[string]*members.Member{}
-	for _, member := range a.WithIssues {
-		withIssuesSet[member.Id] = member
-	}
-	a.WithIssues = []*members.Member{}
-	for _, member := range withIssuesSet {
-		a.WithIssues = append(a.WithIssues, member)
-	}
+	return uniqueList
 }
 
 func (a *Attendance) Delete() error {

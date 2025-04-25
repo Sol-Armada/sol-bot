@@ -182,6 +182,59 @@ func (s *AttendanceStore) GetCount(memberId string) (int, error) {
 				},
 			},
 		},
+		bson.D{
+			{Key: "$lookup",
+				Value: bson.D{
+					{Key: "from", Value: "members"},
+					{Key: "localField", Value: "members"},
+					{Key: "foreignField", Value: "_id"},
+					{Key: "as", Value: "member_info"},
+				},
+			},
+		},
+		bson.D{
+			{Key: "$addFields",
+				Value: bson.D{
+					{Key: "member_info",
+						Value: bson.D{
+							{Key: "$filter",
+								Value: bson.D{
+									{Key: "input", Value: "$member_info"},
+									{Key: "as", Value: "member"},
+									{Key: "cond",
+										Value: bson.D{
+											{Key: "$eq",
+												Value: bson.A{
+													"$$member._id",
+													memberId,
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		bson.D{{Key: "$unwind", Value: bson.D{{Key: "path", Value: "$member_info"}}}},
+		bson.D{
+			{Key: "$match",
+				Value: bson.D{
+					{Key: "$expr",
+						Value: bson.D{
+							{Key: "$gt",
+								Value: bson.A{
+									"$date_created",
+									"$member_info.joined",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 		bson.D{{Key: "$sort", Value: bson.D{{Key: "date_created", Value: 1}}}},
 		bson.D{
 			{Key: "$group",
