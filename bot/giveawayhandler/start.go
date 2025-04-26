@@ -67,6 +67,10 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 			Amount: amount,
 		}
 
+		if item.Name == "NONE" {
+			continue
+		}
+
 		items = append(items, item)
 	}
 
@@ -82,21 +86,34 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	g.ChannelId = i.ChannelID
 
 	msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
-		Embeds:     []*discordgo.MessageEmbed{g.GetEmbed()},
+		Embeds: []*discordgo.MessageEmbed{g.GetEmbed()},
+	})
+	if err != nil {
+		return err
+	}
+	g.EmbedMessageId = msg.ID
+
+	msg, err = s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
 		Components: g.GetComponents(),
 	})
 	if err != nil {
 		return err
 	}
-	g.MessageId = msg.ID
+	g.InputMessageId = msg.ID
 
 	g.Save()
+
+	if err := s.ChannelMessagePin(i.ChannelID, msg.ID); err != nil {
+		return err
+	}
 
 	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content: utils.ToPointer("Giveaway started!"),
 	}); err != nil {
 		return err
 	}
+
+	g.StartTimer(s)
 
 	return nil
 }

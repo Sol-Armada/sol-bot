@@ -19,14 +19,23 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 
 	g := giveaway.GetGiveaway(giveawayId).End()
 
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    g.ChannelId,
-		ID:         g.MessageId,
-		Components: utils.ToPointer(g.GetComponents()),
-		Embeds:     &[]*discordgo.MessageEmbed{g.GetEmbed()},
+	_ = s.ChannelMessageUnpin(g.ChannelId, g.EmbedMessageId)
+
+	if _, err := s.ChannelMessageSendComplex(g.ChannelId, &discordgo.MessageSend{
+		Components: g.GetComponents(),
+		Embeds:     []*discordgo.MessageEmbed{g.GetEmbed()},
 	}); err != nil {
 		return err
 	}
 
-	return nil
+	_ = s.ChannelMessageDelete(g.ChannelId, g.EmbedMessageId)
+	_ = s.ChannelMessageDelete(g.ChannelId, g.InputMessageId)
+
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Content: "Giveaway ended",
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
 }

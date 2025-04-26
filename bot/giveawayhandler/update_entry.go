@@ -31,17 +31,7 @@ func updateEntry(ctx context.Context, s *discordgo.Session, i *discordgo.Interac
 		return nil
 	}
 
-	components := g.GetComponents()
-	embeds := g.GetEmbed()
-
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    g.ChannelId,
-		ID:         g.MessageId,
-		Components: &components,
-		Embeds:     &[]*discordgo.MessageEmbed{embeds},
-	}); err != nil {
-		return err
-	}
+	_ = g.UpdateMessage(s)
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,

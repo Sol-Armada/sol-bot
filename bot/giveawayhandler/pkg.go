@@ -43,9 +43,10 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 
 	for i := range 10 {
 		option := &discordgo.ApplicationCommandOption{
-			Type:        discordgo.ApplicationCommandOptionString,
-			Name:        fmt.Sprintf("item-%d", i+1),
-			Description: "The item to add. Use colon to separate the name and amount. Example: item:amount",
+			Type:         discordgo.ApplicationCommandOptionString,
+			Name:         fmt.Sprintf("item-%d", i+1),
+			Description:  "The item to add. Use colon to separate the name and amount. Example: item:amount",
+			Autocomplete: true,
 		}
 
 		if i == 0 {
@@ -101,7 +102,7 @@ func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inter
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("giveaway button handler")
 
-	if ok := checkExists(ctx, s, i); !ok {
+	if ok := checkExists(ctx, i); !ok {
 		customerrors.ErrorResponse(s, i.Interaction, "That giveaway no longer exists in the system! I will remove it so that doesn't happen again", nil)
 		return s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 	}
@@ -120,7 +121,7 @@ func ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Intera
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("giveaway modal handler")
 
-	if ok := checkExists(ctx, s, i); !ok {
+	if ok := checkExists(ctx, i); !ok {
 		customerrors.ErrorResponse(s, i.Interaction, "That giveaway no longer exists in the system! I will remove it so that doesn't happen again", nil)
 		return s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 	}
@@ -135,16 +136,12 @@ func ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Intera
 	return handler(ctx, s, i)
 }
 
-func checkExists(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) bool {
+func checkExists(ctx context.Context, i *discordgo.InteractionCreate) bool {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
 	logger.Debug("giveaway check exists")
 
 	data := i.MessageComponentData()
 	giveawayId := strings.Split(data.CustomID, ":")[2]
 
-	if giveaway.GetGiveaway(giveawayId) == nil {
-		return false
-	}
-
-	return true
+	return giveaway.GetGiveaway(giveawayId) != nil
 }

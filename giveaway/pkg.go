@@ -2,20 +2,25 @@ package giveaway
 
 import (
 	"errors"
+	"log/slog"
+	"time"
 
+	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
 )
 
 type Giveaway struct {
-	Id         string
-	Items      map[string]*Item
-	Attendance *attendance.Attendance
-	Timer      int
+	Id             string
+	Name           string
+	Items          map[string]*Item
+	Attendance     *attendance.Attendance
+	TimeRemainingS int
 
-	Ended     bool
-	ChannelId string
-	MessageId string
+	Ended          bool
+	ChannelId      string
+	EmbedMessageId string
+	InputMessageId string
 }
 
 var giveaways = map[string]*Giveaway{}
@@ -47,8 +52,8 @@ func NewGiveaway(attendanceId string, items []*Item) (*Giveaway, error) {
 	return g, nil
 }
 
-func (g *Giveaway) SetTimer(timer int) *Giveaway {
-	g.Timer = timer
+func (g *Giveaway) SetTimer(time_m int) *Giveaway {
+	g.TimeRemainingS = time_m * 60
 	return g
 }
 
@@ -74,5 +79,42 @@ func (g *Giveaway) End() *Giveaway {
 	}
 
 	g.Ended = true
+	delete(giveaways, g.Id)
 	return g.Save()
+}
+
+func (g *Giveaway) StartTimer(s *discordgo.Session) {
+	go func() {
+
+		for g.TimeRemainingS >= 0 {
+			if g.Ended {
+				return
+			}
+
+			g.TimeRemainingS--
+			if err := g.UpdateMessage(s); err != nil {
+				slog.Error("failed to update giveaway message", "error", err)
+			}
+			time.Sleep(1 * time.Second)
+		}
+
+		g.End()
+
+		_ = s.ChannelMessageUnpin(g.ChannelId, g.EmbedMessageId)
+
+		if _, err := s.ChannelMessageSendComplex(g.ChannelId, &discordgo.MessageSend{
+			Components: g.GetComponents(),
+			Embeds:     []*discordgo.MessageEmbed{g.GetEmbed()},
+		}); err != nil {
+			slog.Error("failed to send giveaway end message", "error", err)
+		}
+
+		if err := s.ChannelMessageDelete(g.ChannelId, g.EmbedMessageId); err != nil {
+			slog.Error("failed to delete giveaway embeded message", "error", err)
+		}
+
+		if err := s.ChannelMessageDelete(g.ChannelId, g.InputMessageId); err != nil {
+			slog.Error("failed to delete giveaway input message", "error", err)
+		}
+	}()
 }

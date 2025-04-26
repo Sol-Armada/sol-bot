@@ -18,7 +18,7 @@ func (g *Giveaway) GetViewEntriesEmbed(member *members.Member) *discordgo.Messag
 
 	return &discordgo.MessageEmbed{
 		Title:       fmt.Sprintf("Giveaway for %s", g.Attendance.Name),
-		Description: "## 🎟️ You have entered the Giveaway!\nBelow are the entries you submitted.\n\n _If you would like to resubmit for different items, please reselect all the items you want. You will be removed from any you chose before._",
+		Description: "## 🎟️ You have entered the Giveaway!\nBelow are the entries you submitted.\n\n _If you would like to resubmit for different items, please adjust the items you want in the original message. See pinned messages in this channel if you can't find it._",
 		Fields: []*discordgo.MessageEmbedField{
 			{
 				Name:  "Your Entries",

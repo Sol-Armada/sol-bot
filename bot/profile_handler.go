@@ -54,11 +54,8 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 	data := i.ApplicationCommandData()
 
-	if len(data.Options) > 1 && member.Rank <= ranks.Lieutenant {
+	if len(data.Options) > 0 && member.IsOfficer() {
 		logger.Debug("getting profile of other member")
-		if member.Rank > ranks.Lieutenant {
-			return InvalidPermissions
-		}
 
 		otherMemberId := data.Options[0].UserValue(s).ID
 
