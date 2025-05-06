@@ -3,6 +3,7 @@ package giveawayhandler
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/apex/log"
@@ -10,6 +11,7 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/utils"
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -23,14 +25,14 @@ func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.I
 	items := utils.GetItemNames()
 	for _, option := range data.Options {
 		if option.Name == "event" && option.Focused {
-			attendanceRecords, err := attendance.ListActive(5)
+			attendanceRecords, err := attendance.List(bson.D{}, 10, 0)
 			if err != nil {
 				return errors.Join(err, errors.New("getting active attendance records"))
 			}
 
 			for _, record := range attendanceRecords {
 				choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-					Name:  record.Name,
+					Name:  fmt.Sprintf("%s (%s)", record.Name, record.DateCreated.Format("2006-01-02")),
 					Value: record.Id,
 				})
 			}
@@ -38,9 +40,16 @@ func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.I
 		if strings.Contains(option.Name, "item") && option.Focused {
 			typed := option.StringValue()
 			if typed != "" {
-				matches := fuzzy.FindFold(typed, items)
+				typedS := strings.Split(typed, ":")
+				typed = typedS[0]
+
+				matches := fuzzy.Find(typed, items)
 
 				for _, name := range matches {
+					if len(typedS) > 1 {
+						name = name + ":" + typedS[1]
+					}
+
 					choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
 						Name:  name,
 						Value: name,

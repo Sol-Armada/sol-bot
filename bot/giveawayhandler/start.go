@@ -42,11 +42,19 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		}
 
 		if opt.Name == "timer" {
-			timer = int(opt.FloatValue())
-			if timer <= 0 {
-				customerrors.ErrorResponse(s, i.Interaction, "Invalid giveaway timer. Please use whole numbers only and greater than 0", nil)
+			str := opt.StringValue()
+
+			dur, err := utils.StringToDuration(str)
+			if err != nil {
+				return err
+			}
+
+			timer = int(dur.Minutes())
+			if timer < 0 {
+				customerrors.ErrorResponse(s, i.Interaction, "Invalid timer format. Please use the format 24h15m10s", nil)
 				return nil
 			}
+
 			continue
 		}
 
@@ -74,7 +82,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		items = append(items, item)
 	}
 
-	g, err := giveaway.NewGiveaway(attendanceId, items)
+	g, err := giveaway.NewGiveaway(s, attendanceId, items)
 	if err != nil {
 		return err
 	}
@@ -82,7 +90,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		customerrors.ErrorResponse(s, i.Interaction, "Invalid giveaway", nil)
 		return nil
 	}
-	g.SetTimer(timer)
+	g.SetEndTime(timer)
 	g.ChannelId = i.ChannelID
 
 	msg, err := s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
@@ -92,6 +100,10 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		return err
 	}
 	g.EmbedMessageId = msg.ID
+
+	if err := s.ChannelMessagePin(i.ChannelID, msg.ID); err != nil {
+		return err
+	}
 
 	msg, err = s.ChannelMessageSendComplex(i.ChannelID, &discordgo.MessageSend{
 		Components: g.GetComponents(),
@@ -103,17 +115,11 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 
 	g.Save()
 
-	if err := s.ChannelMessagePin(i.ChannelID, msg.ID); err != nil {
-		return err
-	}
-
 	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content: utils.ToPointer("Giveaway started!"),
 	}); err != nil {
 		return err
 	}
-
-	g.StartTimer(s)
 
 	return nil
 }

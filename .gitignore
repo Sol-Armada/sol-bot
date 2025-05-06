@@ -10,3 +10,4 @@ deploy.sh
 solbot*.service
 deployment*
 __debug*
+giveaways.json

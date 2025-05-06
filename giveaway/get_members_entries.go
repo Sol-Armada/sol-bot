@@ -1,12 +1,10 @@
 package giveaway
 
-import "github.com/sol-armada/sol-bot/members"
-
-func (g *Giveaway) GetMembersEntries(member *members.Member) []*Item {
+func (g *Giveaway) GetMembersEntries(memberId string) []*Item {
 	entries := []*Item{}
 
 	for _, item := range g.Items {
-		if item.HasMember(member) {
+		if item.HasMember(memberId) {
 			entries = append(entries, item)
 		}
 	}

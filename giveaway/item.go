@@ -3,41 +3,39 @@ package giveaway
 import (
 	"math/rand"
 	"slices"
-
-	"github.com/sol-armada/sol-bot/members"
 )
 
 type Item struct {
-	Id      string            `json:"id"`
-	Name    string            `json:"name"`
-	Amount  int               `json:"amount"`
-	Members []*members.Member `json:"members"`
+	Id      string   `json:"id"`
+	Name    string   `json:"name"`
+	Amount  int      `json:"amount"`
+	Members []string `json:"members"`
 }
 
-func (i *Item) AddMember(member *members.Member) {
+func (i *Item) AddMember(memberId string) {
 	if i.Members == nil {
-		i.Members = []*members.Member{}
+		i.Members = []string{}
 	}
 
-	if i.HasMember(member) {
+	if i.HasMember(memberId) {
 		return
 	}
 
-	i.Members = append(i.Members, member)
+	i.Members = append(i.Members, memberId)
 }
 
-func (i *Item) RemoveMember(member *members.Member) {
-	for j, m := range i.Members {
-		if m.Id == member.Id {
+func (i *Item) RemoveMember(memberId string) {
+	for j, mid := range i.Members {
+		if mid == memberId {
 			i.Members = slices.Delete(i.Members, j, j+1)
 			return
 		}
 	}
 }
 
-func (i *Item) HasMember(member *members.Member) bool {
-	for _, m := range i.Members {
-		if m.Id == member.Id {
+func (i *Item) HasMember(memberId string) bool {
+	for _, mid := range i.Members {
+		if mid == memberId {
 			return true
 		}
 	}
@@ -55,12 +53,18 @@ func (i *Item) SelectWinners() {
 		i.Members[j], i.Members[k] = i.Members[k], i.Members[j]
 	}
 
+	if len(i.Members) <= i.Amount {
+		return
+	}
+
 	// only keep the top N members
-	for range i.Amount {
-		if len(i.Members) <= i.Amount {
+	selected := []string{}
+	for j := range i.Amount {
+		if len(selected) > i.Amount {
 			break
 		}
 
-		i.Members = slices.Delete(i.Members, 0, 1)
+		selected = append(selected, i.Members[j])
 	}
+	i.Members = selected
 }

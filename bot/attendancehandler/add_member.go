@@ -50,9 +50,17 @@ func addMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 				return errors.Wrap(err, "getting member for new attendance")
 			}
 
-			attendance.WithIssues = append(attendance.WithIssues, member)
+			// if the member is not found, create a new one
+			guildMember, err := s.GuildMember(i.GuildID, discordMember.UserValue(s).ID)
+			if err != nil {
+				return errors.Wrap(err, "getting guild member")
+			}
+			member = members.New(guildMember)
+			_ = member.Save()
 
-			continue
+			// attendance.WithIssues = append(attendance.WithIssues, member)
+
+			// continue
 		}
 
 		attendance.AddMember(member)
@@ -92,7 +100,7 @@ func addRemoveMembersAutocompleteHandler(ctx context.Context, s *discordgo.Sessi
 
 		for _, record := range attendanceRecords {
 			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  record.Name,
+				Name:  fmt.Sprintf("%s (%s)", record.Name, record.DateCreated.Local().Format("2006-01-02")),
 				Value: record.Id,
 			})
 		}

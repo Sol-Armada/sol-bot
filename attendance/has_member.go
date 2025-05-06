@@ -8,8 +8,8 @@ func (a *Attendance) HasMember(memberId string, includeIssues bool) bool {
 	}
 
 	if includeIssues {
-		for _, issue := range a.WithIssues {
-			if issue.Id == memberId {
+		for _, member := range a.WithIssues {
+			if member.Id == memberId {
 				return true
 			}
 		}

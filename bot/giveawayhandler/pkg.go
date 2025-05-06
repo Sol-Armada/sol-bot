@@ -20,6 +20,7 @@ var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *disc
 	"end":          end,
 	"update_entry": updateEntry,
 	"view_entries": viewEntries,
+	"exit":         exit,
 }
 
 var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{}
@@ -34,9 +35,9 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 			Autocomplete: true,
 		},
 		{
-			Type:        discordgo.ApplicationCommandOptionNumber,
+			Type:        discordgo.ApplicationCommandOptionString,
 			Name:        "timer",
-			Description: "The timer to set for the giveaway in minutes",
+			Description: "The timer to set for the giveaway in minutes. d = days, h = hours, m = minutes. Example: 1d2h3m",
 			Required:    true,
 		},
 	}

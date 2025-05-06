@@ -99,6 +99,10 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		})
 
 		for i, member := range a.WithIssues {
+			if member == nil {
+				continue
+			}
+
 			field := fields[len(fields)-1]
 
 			field.Value += "<@" + member.Id + "> - " + strings.Join(Issues(member), ", ")

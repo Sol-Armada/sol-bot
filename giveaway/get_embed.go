@@ -5,13 +5,22 @@ import (
 	"math/rand"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
 func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 	feilds := []*discordgo.MessageEmbedField{}
+
+	a, err := attendance.Get(g.AttendanceId)
+	if err != nil {
+		a = &attendance.Attendance{
+			Name: "",
+		}
+	}
 
 	if g.Ended {
 		for _, item := range g.Items {
@@ -22,7 +31,7 @@ func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 			members := item.Members
 			membersStr := ""
 			for _, member := range members {
-				membersStr += fmt.Sprintf("<@%s>\n", member.Id)
+				membersStr += fmt.Sprintf("<@%s>\n", member)
 			}
 
 			field := &discordgo.MessageEmbedField{
@@ -36,7 +45,7 @@ func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 		feilds = sortFieldsByName(feilds)
 
 		return &discordgo.MessageEmbed{
-			Title:       g.Attendance.Name,
+			Title:       a.Name,
 			Description: "### 🎊 Giveaway Winners 🎊\nCongrats on your winnings! Please meet at the OIC's hanger to collect your prizes, if your name is shown below.",
 			Fields:      feilds,
 			Color:       0x000000 + rand.Intn(0xffffff),
@@ -66,18 +75,60 @@ func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 	feilds = sortFieldsByName(feilds)
 
 	// get the time remaining
-	timeRemainingM := g.TimeRemainingS / 60
-	timeRemainingS := g.TimeRemainingS % 60
+	r := max(time.Until(g.EndTime), 0)
+	days := int(r.Hours() / 24)
+	hours := int(r.Hours()) % 24
+	minutes := int(r.Minutes()) % 60
+	seconds := int(r.Seconds()) % 60
+
+	timeRemainingParts := []string{}
+
+	if days > 0 {
+		dayStr := fmt.Sprintf("%d Day", days)
+		if days > 1 {
+			dayStr += "s"
+		}
+		timeRemainingParts = append(timeRemainingParts, dayStr)
+	}
+	if hours > 0 {
+		hourStr := fmt.Sprintf("%d Hour", hours)
+		if hours > 1 {
+			hourStr += "s"
+		}
+		timeRemainingParts = append(timeRemainingParts, hourStr)
+	}
+	if minutes > 0 && hours == 0 && days == 0 {
+		minuteStr := fmt.Sprintf("%d Minute", minutes)
+		if minutes > 1 {
+			minuteStr += "s"
+		}
+		timeRemainingParts = append(timeRemainingParts, minuteStr)
+	}
+	if seconds > 0 && minutes < 2 && hours == 0 && days == 0 {
+		secondStr := fmt.Sprintf("%d Second", seconds)
+		if seconds > 1 {
+			secondStr += "s"
+		}
+		timeRemainingParts = append(timeRemainingParts, secondStr)
+	}
+
+	timeRemaining := strings.Join(timeRemainingParts, " ")
+	if timeRemaining == "" {
+		timeRemaining = "0 Seconds"
+	}
+
 	footer := &discordgo.MessageEmbedFooter{
-		Text: fmt.Sprintf("Time Remaining: %02d:%02d", timeRemainingM, timeRemainingS),
+		// Text: fmt.Sprintf("Time Remaining: %s", timeRemaining),
+		Text: fmt.Sprintf("Giveaway ends in %s", timeRemaining),
 	}
 
 	return &discordgo.MessageEmbed{
-		Title:       g.Attendance.Name,
+		Title:       a.Name,
 		Description: "### 🎁  Ongoing Giveaways  🎁\nLooking to earn yourself something nice? Select the items you want from the dropdown below for a chance to win!\n\n_Tokens not required. Must be part of the associated event._",
 		Fields:      feilds,
 		Color:       0x000000 + rand.Intn(0xffffff),
 		Footer:      footer,
+		Timestamp:   g.EndTime.Format(time.RFC3339),
 	}
 }
 

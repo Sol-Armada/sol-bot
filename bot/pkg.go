@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 
@@ -13,6 +14,8 @@ import (
 	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
+	"github.com/sol-armada/sol-bot/customerrors"
+	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -22,7 +25,8 @@ type Bot struct {
 	GuildId  string
 	ClientId string
 
-	ctx context.Context
+	logger *slog.Logger
+	ctx    context.Context
 
 	*discordgo.Session
 }
@@ -97,10 +101,11 @@ func New() (*Bot, error) {
 	b.Client.Timeout = 5 * time.Second
 
 	bot = &Bot{
-		settings.GetString("DISCORD.GUILD_ID"),
-		settings.GetString("DISCORD.CLIENT_ID"),
-		context.Background(),
-		b,
+		GuildId:  settings.GetString("DISCORD.GUILD_ID"),
+		ClientId: settings.GetString("DISCORD.CLIENT_ID"),
+		logger:   slog.Default(),
+		ctx:      context.Background(),
+		Session:  b,
 	}
 
 	return bot, nil
@@ -224,7 +229,7 @@ func (b *Bot) Setup() error {
 			switch err {
 			case InvalidSubcommand:
 				msg = "Invalid subcommand"
-			case InvalidPermissions:
+			case InvalidPermissions, customerrors.InvalidPermissions:
 				msg = "You don't have permission to do that"
 			case InvalidAttendanceRecord:
 				msg = "That is not a valid attendance record"
@@ -453,6 +458,10 @@ func (b *Bot) Setup() error {
 	// giveaways
 	if settings.GetBool("FEATURES.GIVEAWAYS.ENABLE") {
 		log.Debug("using giveaways feature")
+		if err := giveaway.Load(b.Session); err != nil {
+			return errors.Wrap(err, "loading giveaways")
+		}
+
 		cmd, err := giveawayhandler.Setup()
 		if err != nil {
 			return errors.Wrap(err, "setting giveaways commands")

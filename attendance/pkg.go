@@ -215,7 +215,7 @@ func (a *Attendance) Save() error {
 	}
 	a.DateUpdated = time.Now().UTC()
 
-	attendanceMap := map[string]interface{}{}
+	attendanceMap := map[string]any{}
 	j, _ := json.Marshal(a)
 	_ = json.Unmarshal(j, &attendanceMap)
 
@@ -227,9 +227,9 @@ func (a *Attendance) Save() error {
 	attendanceMap["members"] = memberIds
 
 	// convert issues to just ids for mongo optimization
-	issues, _ := attendanceMap["with_issues"].([]interface{})
+	issues, _ := attendanceMap["with_issues"].([]any)
 	for i := range issues {
-		issue, _ := issues[i].(map[string]interface{})
+		issue, _ := issues[i].(map[string]any)
 		issues[i] = issue["id"]
 	}
 	attendanceMap["with_issues"] = issues

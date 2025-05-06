@@ -9,6 +9,10 @@ import (
 func Issues(member *members.Member) []string {
 	issues := []string{}
 
+	if member == nil {
+		return issues
+	}
+
 	if member.IsBot {
 		issues = append(issues, "bot")
 		return issues

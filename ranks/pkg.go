@@ -13,6 +13,7 @@ const (
 	Technician
 	Member
 	Recruit
+	Guest
 )
 
 var Prefix map[Rank]string = map[Rank]string{
@@ -21,6 +22,9 @@ var Prefix map[Rank]string = map[Rank]string{
 	Lieutenant: "[LT]",
 	Specialist: "[SPC]",
 	Technician: "[TEC]",
+	Member:     "",
+	Recruit:    "",
+	Guest:      "",
 }
 
 func GetRankByName(name string) Rank {
@@ -39,6 +43,8 @@ func GetRankByName(name string) Rank {
 		return Member
 	case "RECRUIT":
 		return Recruit
+	case "GUEST":
+		return Guest
 	default:
 		return None
 	}
@@ -80,6 +86,8 @@ func (r Rank) String() string {
 		return "Member"
 	case Recruit:
 		return "Recruit"
+	case Guest:
+		return "Guest"
 	}
 	return ""
 }
