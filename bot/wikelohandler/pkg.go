@@ -165,7 +165,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 		for item, amount := range items {
 			field := &discordgo.MessageEmbedField{
 				Name:   item,
-				Value:  fmt.Sprintf("%d", amount),
+				Value:  fmt.Sprintf("%f", amount),
 				Inline: true,
 			}
 			fields = append(fields, field)
