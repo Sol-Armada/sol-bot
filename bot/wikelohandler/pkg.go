@@ -44,7 +44,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 
 	embeds := make([]*discordgo.MessageEmbed, 0)
 
-	readRange := "Overview!B6:G16"
+	readRange := "Overview!B6:G"
 
 	resp, err := client.Spreadsheets.Values.Get(sheetId, readRange).Do()
 	if err != nil {
@@ -58,6 +58,14 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 
 	itemProgresses := make([]itemProgress, 0, len(resp.Values))
 	for _, row := range resp.Values {
+		if len(row) < 6 || row[0] == nil || row[0] == "Item" || row[0] == "" {
+			continue
+		}
+
+		if row[0] == "Information" {
+			break
+		}
+
 		logger.Debugf("Row: %s", row)
 		itemProgresses = append(itemProgresses, itemProgress{
 			name:      row[0].(string),
@@ -110,7 +118,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 	})
 
 	items := make([]string, 0)
-	contributions := make(map[string]map[string]int)
+	contributions := make(map[string]map[string]float64)
 	for i, row := range resp.Values {
 		if i == 0 { // header
 			for j := 1; j < len(row); j++ {
@@ -124,7 +132,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 
 		who := row[0].(string)
 		if _, ok := contributions[who]; !ok {
-			contributions[who] = make(map[string]int)
+			contributions[who] = make(map[string]float64)
 		}
 		for j := 1; j < len(row); j++ {
 			if row[j] == "" {
@@ -138,12 +146,13 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 			if aString == "" {
 				continue
 			}
-			a, err := strconv.Atoi(aString)
+
+			f, err := strconv.ParseFloat(aString, 64)
 			if err != nil {
-				logger.WithError(err).Error("Failed to convert string to int")
+				logger.WithError(err).Error("Failed to convert string to float64")
 				continue
 			}
-			contributions[who][item] += a
+			contributions[who][item] += f
 		}
 	}
 
@@ -171,7 +180,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 	print := []string{}
 	for r, row := range resp.Values {
 		if strings.Contains(i.Member.Nick, row[0].(string)) || strings.Contains(i.Member.User.Username, row[0].(string)) {
-			if resp.Values[r-1] != nil {
+			if r != 0 && resp.Values[r-1] != nil {
 				print = append(print, fmt.Sprintf("%d) %s", r, resp.Values[r-1][0].(string)))
 			}
 
@@ -179,6 +188,10 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 
 			if resp.Values[r+1] != nil {
 				print = append(print, fmt.Sprintf("%d) %s", r+2, resp.Values[r+1][0].(string)))
+			}
+
+			if r == 0 && resp.Values[r+2] != nil {
+				print = append(print, fmt.Sprintf("%d) %s", r+3, resp.Values[r+2][0].(string)))
 			}
 
 			break

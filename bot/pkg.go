@@ -15,6 +15,7 @@ import (
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/bot/wikelohandler"
+	"github.com/sol-armada/sol-bot/bot/yourlatehandler"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
@@ -48,6 +49,7 @@ var commandHandlers = map[string]Handler{
 	"raffle":     rafflehandler.CommandHandler,
 	"giveaway":   giveawayhandler.CommandHandler,
 	"wikelo":     wikelohandler.CommandHandler,
+	"your_late":  yourlatehandler.CommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
@@ -481,6 +483,14 @@ func (b *Bot) Setup() error {
 	}
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
 		return errors.Wrap(err, "creating wikelohandler command")
+	}
+
+	cmd, err = yourlatehandler.Setup()
+	if err != nil {
+		return errors.Wrap(err, "setting up yourlatehandler")
+	}
+	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
+		return errors.Wrap(err, "creating yourlatehandler command")
 	}
 
 	return b.Open()
