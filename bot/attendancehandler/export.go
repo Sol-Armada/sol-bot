@@ -50,29 +50,29 @@ func exportButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 	})
 
 	thread := i.Message.Thread
-	if i.Message.Thread == nil {
-		thread, _ = s.ThreadStartComplex(i.ChannelID, &discordgo.ThreadStart{
-			Name: "Attendance Thread - " + attendance.Name + " (" + attendance.DateCreated.Format("2006-01-02 15:04:05") + ")",
-			Type: discordgo.ChannelTypeGuildPublicThread,
+	if thread == nil {
+		thread, _ = s.MessageThreadStartComplex(i.Message.ChannelID, i.Message.ID, &discordgo.ThreadStart{
+			Name:                "Attendance Thread - " + attendance.Name + " (" + attendance.DateCreated.Format("2006-01-02 15:04:05") + ")",
+			Type:                discordgo.ChannelTypeGuildPublicThread,
+			AutoArchiveDuration: 60,
 		})
 		_ = s.ThreadMemberAdd(thread.ID, i.Member.User.ID)
 	}
 
-	csvData := ""
-	for _, member := range members {
-		csvData += member.Name + "\n"
+	sb := strings.Builder{}
+	sb.WriteString("Here is the list of members who attended the event: " + attendance.Name + "\n")
+	sb.WriteString("```\n")
+	for i, member := range members {
+		n := member.Name
+		if len(members)-1 != i {
+			n += ","
+		}
+		sb.WriteString(n)
 	}
-	csvReader := strings.NewReader(csvData)
+	sb.WriteString("\n```")
 
 	_, err = s.ChannelMessageSendComplex(thread.ID, &discordgo.MessageSend{
-		Content: "Here is the list of members who attended the event: " + attendance.Name,
-		Flags:   discordgo.MessageFlagsEphemeral,
-		Files: []*discordgo.File{
-			{
-				Name:   "attendance-" + attendance.Id + ".csv",
-				Reader: csvReader,
-			},
-		},
+		Content: sb.String(),
 	})
 
 	return err

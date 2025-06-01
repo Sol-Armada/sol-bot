@@ -51,7 +51,7 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	if len(fromStartMembers) >= 0 && attendance.Tokenable {
-		ch, err := s.ThreadStartComplex(attendance.ChannelId, &discordgo.ThreadStart{
+		ch, err := s.MessageThreadStartComplex(attendance.ChannelId, attendance.MessageId, &discordgo.ThreadStart{
 			Name:                "Attendance for " + attendance.Name,
 			Type:                discordgo.ChannelTypeGuildPublicThread,
 			Invitable:           true,
