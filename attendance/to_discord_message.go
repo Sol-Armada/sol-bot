@@ -148,10 +148,8 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		},
 	}
 
-	components := []discordgo.MessageComponent{}
+	buttons := []discordgo.MessageComponent{}
 	if !a.Recorded {
-		buttons := []discordgo.MessageComponent{}
-
 		startButton := discordgo.Button{
 			Label: "Start Event",
 			Style: discordgo.SuccessButton,
@@ -223,16 +221,23 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			payoutButton.CustomID = "attendance:payout:" + a.Id
 		}
 		buttons = append(buttons, payoutButton)
+	}
 
-		components = []discordgo.MessageComponent{
+	buttons = append(buttons, discordgo.Button{
+		Label: "Export",
+		Style: discordgo.PrimaryButton,
+		Emoji: &discordgo.ComponentEmoji{
+			Name: "📥",
+		},
+		CustomID: "attendance:export:" + a.Id,
+	})
+
+	return &discordgo.MessageSend{
+		Embeds: embeds,
+		Components: []discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: buttons,
 			},
-		}
-	}
-
-	return &discordgo.MessageSend{
-		Embeds:     embeds,
-		Components: components,
+		},
 	}
 }
