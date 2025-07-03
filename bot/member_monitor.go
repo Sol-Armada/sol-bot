@@ -195,7 +195,9 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 		}
 
 		member.Name = strings.ReplaceAll(member.GetTrueNick(discordMember), ".", "")
-		member.Joined = discordMember.JoinedAt.UTC()
+		if member.Joined.IsZero() {
+			member.Joined = discordMember.JoinedAt.UTC()
+		}
 
 		// rsi related stuff
 		if err = rsi.UpdateRsiInfo(member); err != nil {

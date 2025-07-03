@@ -5,11 +5,11 @@ go 1.23.0
 toolchain go1.24.2
 
 require (
-	github.com/bwmarrin/discordgo v0.28.1
+	github.com/bwmarrin/discordgo v0.29.0
 	github.com/lithammer/fuzzysearch v1.1.8
 	go.mongodb.org/mongo-driver v1.17.3
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
-	golang.org/x/text v0.24.0
+	golang.org/x/text v0.26.0
 	google.golang.org/api v0.81.0
 )
 
@@ -57,7 +57,7 @@ require (
 	golang.org/x/crypto v0.37.0 // indirect
 	golang.org/x/net v0.39.0 // indirect
 	golang.org/x/oauth2 v0.0.0-20220411215720-9780585627b5 // indirect
-	golang.org/x/sync v0.14.0 // indirect
+	golang.org/x/sync v0.15.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20220519153652-3a47de7e79bd // indirect
 	google.golang.org/grpc v1.46.2 // indirect

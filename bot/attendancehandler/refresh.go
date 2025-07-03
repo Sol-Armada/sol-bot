@@ -32,7 +32,7 @@ func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		return nil
 	}
 
-	attendance, err := attdnc.List(bson.D{}, 10, 1)
+	attendance, err := attdnc.List(bson.D{}, 3, 1)
 	if err != nil {
 		return errors.Wrap(err, "getting attendance records")
 	}

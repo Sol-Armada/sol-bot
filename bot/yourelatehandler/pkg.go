@@ -1,4 +1,4 @@
-package yourlatehandler
+package yourelatehandler
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 
 func Setup() (*discordgo.ApplicationCommand, error) {
 	return &discordgo.ApplicationCommand{
-		Name:        "your_late",
+		Name:        "you_are_late",
 		Description: "Let a member know what to do when they are late",
 		Type:        discordgo.ChatApplicationCommand,
 		Options: []*discordgo.ApplicationCommandOption{
@@ -36,7 +36,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 
 func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
-	logger.Debug("yourlate command handler")
+	logger.Debug("yourelate command handler")
 
 	if !utils.Allowed(i.Member, "TOKENS") {
 		return customerrors.InvalidPermissions

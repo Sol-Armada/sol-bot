@@ -15,7 +15,7 @@ import (
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/bot/wikelohandler"
-	"github.com/sol-armada/sol-bot/bot/yourlatehandler"
+	"github.com/sol-armada/sol-bot/bot/yourelatehandler"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
@@ -39,17 +39,17 @@ var bot *Bot
 
 // command handlers
 var commandHandlers = map[string]Handler{
-	"help":       helpCommandHandler,
-	"attendance": attendancehandler.CommandHandler,
-	"profile":    profileCommandHandler,
-	"merit":      giveMeritCommandHandler,
-	"demerit":    giveDemeritCommandHandler,
-	"rankups":    rankUpsCommandHandler,
-	"tokens":     tokenshandler.CommandHandler,
-	"raffle":     rafflehandler.CommandHandler,
-	"giveaway":   giveawayhandler.CommandHandler,
-	"wikelo":     wikelohandler.CommandHandler,
-	"your_late":  yourlatehandler.CommandHandler,
+	"help":         helpCommandHandler,
+	"attendance":   attendancehandler.CommandHandler,
+	"profile":      profileCommandHandler,
+	"merit":        giveMeritCommandHandler,
+	"demerit":      giveDemeritCommandHandler,
+	"rankups":      rankUpsCommandHandler,
+	"tokens":       tokenshandler.CommandHandler,
+	"raffle":       rafflehandler.CommandHandler,
+	"giveaway":     giveawayhandler.CommandHandler,
+	"wikelo":       wikelohandler.CommandHandler,
+	"you_are_late": yourelatehandler.CommandHandler,
 }
 
 var autocompleteHandlers = map[string]Handler{
@@ -485,12 +485,12 @@ func (b *Bot) Setup() error {
 		return errors.Wrap(err, "creating wikelohandler command")
 	}
 
-	cmd, err = yourlatehandler.Setup()
+	cmd, err = yourelatehandler.Setup()
 	if err != nil {
-		return errors.Wrap(err, "setting up yourlatehandler")
+		return errors.Wrap(err, "setting up yourelatehandler")
 	}
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
-		return errors.Wrap(err, "creating yourlatehandler command")
+		return errors.Wrap(err, "creating yourelatehandler command")
 	}
 
 	return b.Open()
