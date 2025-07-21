@@ -51,14 +51,22 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	if len(fromStartMembers) >= 0 && attendance.Tokenable {
-		ch, err := s.MessageThreadStartComplex(attendance.ChannelId, attendance.MessageId, &discordgo.ThreadStart{
-			Name:                "Attendance for " + attendance.Name,
-			Type:                discordgo.ChannelTypeGuildPublicThread,
-			Invitable:           true,
-			AutoArchiveDuration: 1440,
-		})
+		msg, err := s.ChannelMessage(attendance.ChannelId, attendance.MessageId)
 		if err != nil {
 			return err
+		}
+
+		ch := msg.Thread
+		if msg.Thread == nil {
+			ch, err = s.MessageThreadStartComplex(attendance.ChannelId, attendance.MessageId, &discordgo.ThreadStart{
+				Name:                "Attendance for " + attendance.Name,
+				Type:                discordgo.ChannelTypeGuildPublicThread,
+				Invitable:           true,
+				AutoArchiveDuration: 1440,
+			})
+			if err != nil {
+				return err
+			}
 		}
 
 		if err := s.ThreadMemberAdd(ch.ID, i.Interaction.Member.User.ID); err != nil {

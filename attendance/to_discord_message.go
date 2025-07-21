@@ -223,21 +223,29 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		buttons = append(buttons, payoutButton)
 	}
 
-	buttons = append(buttons, discordgo.Button{
-		Label: "Export",
-		Style: discordgo.PrimaryButton,
-		Emoji: &discordgo.ComponentEmoji{
-			Name: "📥",
+	components := []discordgo.MessageComponent{}
+
+	if a.Active {
+		components = append(components, discordgo.ActionsRow{
+			Components: buttons,
+		})
+	}
+
+	components = append(components, discordgo.ActionsRow{
+		Components: []discordgo.MessageComponent{
+			discordgo.Button{
+				Label: "Export",
+				Style: discordgo.PrimaryButton,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "📥",
+				},
+				CustomID: "attendance:export:" + a.Id,
+			},
 		},
-		CustomID: "attendance:export:" + a.Id,
 	})
 
 	return &discordgo.MessageSend{
-		Embeds: embeds,
-		Components: []discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: buttons,
-			},
-		},
+		Embeds:     embeds,
+		Components: components,
 	}
 }

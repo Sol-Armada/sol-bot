@@ -24,9 +24,9 @@ func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 	})
 
-	if lastRefreshTime.After(time.Now().Add(-1 * time.Hour)) {
+	if lastRefreshTime.After(time.Now().Add(-1 * time.Minute)) {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "Already refreshed in the last hour!",
+			Content: "Already refreshed in the last minute!",
 			Flags:   discordgo.MessageFlagsEphemeral,
 		})
 		return nil
