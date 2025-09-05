@@ -126,7 +126,11 @@ func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 	typed := i.Interaction.ApplicationCommandData().Options[0].Options[0].StringValue()
 	matches := fuzzy.FindFold(typed, names)
 
-	for _, name := range matches {
+	for i, name := range matches {
+		if i > 25 {
+			break
+		}
+
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
 			Name:  name,
 			Value: name,

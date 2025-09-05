@@ -45,12 +45,6 @@ func MemberMonitor(stop <-chan bool) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	// membersStore, ok := stores.Get().GetMembersStore()
-	// if !ok {
-	// 	logger.Error("failed to get members store")
-	// 	return
-	// }
-
 	lastChecked := time.Now().UTC().Add(-30 * time.Minute)
 	for {
 		select {
@@ -69,7 +63,6 @@ func MemberMonitor(stop <-chan bool) {
 		if time.Now().UTC().After(lastChecked.Add(30 * time.Minute)) {
 			start := time.Now().UTC()
 			logger.Info("scanning members")
-			// TODO: Check if system is healthy
 
 			// rate limit protection
 			rateBucket := bot.Ratelimiter.GetBucket("guild_member_check")
@@ -97,18 +90,6 @@ func MemberMonitor(stop <-chan bool) {
 				continue
 			}
 
-			// get the stored members
-			// storedMembers := []*members.Member{}
-			// cur, err := membersStore.List(bson.M{}, 0, 0)
-			// if err != nil {
-			// 	logger.Error("getting stored members", "error", err)
-			// 	continue
-			// }
-
-			// if err := cur.All(context.Background(), &storedMembers); err != nil {
-			// 	logger.Error("reading in stored members", "error", err)
-			// 	continue
-			// }
 			storedMembers, err := members.List(0)
 			if err != nil {
 				logger.Error("getting stored members", "error", err)

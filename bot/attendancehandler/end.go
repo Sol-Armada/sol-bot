@@ -6,12 +6,12 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/utils"
 )
 
 func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponsePong,
-		Data: &discordgo.InteractionResponseData{},
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 	})
 
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
@@ -101,5 +101,8 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 		}
 	}
 
-	return nil
+	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: utils.ToPointer("Event ended!"),
+	})
+	return err
 }

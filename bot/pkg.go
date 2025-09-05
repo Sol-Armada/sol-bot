@@ -128,6 +128,12 @@ func GetBot() (*Bot, error) {
 }
 
 func (b *Bot) Setup() error {
+	defer func() {
+		if err := b.UpdateCustomStatus("ready to serve"); err != nil {
+			log.WithError(err).Error("failed to update custom status")
+		}
+	}()
+
 	b.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.Ready) {
 		log.WithField("user", r.User.Username).Info("bot is ready")
 	})
@@ -499,6 +505,10 @@ func (b *Bot) Setup() error {
 func (b *Bot) Close() error {
 	log.Info("stopping bot")
 
+	if err := b.UpdateCustomStatus("shutting down"); err != nil {
+		log.WithError(err).Error("failed to update custom status")
+	}
+
 	// clear commands
 	cmds, err := b.ApplicationCommands(b.ClientId, b.GuildId)
 	if err != nil {
@@ -513,6 +523,13 @@ func (b *Bot) Close() error {
 	}
 
 	return b.Session.Close()
+}
+
+func (b *Bot) UpdateCustomStatus(status string) error {
+	if status == "" {
+		status = "ready to serve"
+	}
+	return b.Session.UpdateCustomStatus(status)
 }
 
 func allowed(discordMember *discordgo.Member, feature string) bool {

@@ -39,10 +39,11 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 				Autocomplete: true,
 			},
 			{
-				Type:        discordgo.ApplicationCommandOptionString,
-				Name:        "prize",
-				Description: "The prize",
-				Required:    true,
+				Type:         discordgo.ApplicationCommandOptionString,
+				Name:         "prize",
+				Description:  "The prize",
+				Required:     true,
+				Autocomplete: true,
 			},
 		},
 	}, nil

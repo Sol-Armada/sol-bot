@@ -18,17 +18,48 @@ func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.I
 
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
-	if data.Options[0].Focused {
-		attendanceRecords, err := attendance.ListActive(5)
-		if err != nil {
-			return errors.Join(err, errors.New("getting active attendance records"))
-		}
+	for _, option := range data.Options {
+		switch option.Name {
+		case "event":
+			if option.Focused {
+				attendanceRecords, err := attendance.ListActive(5)
+				if err != nil {
+					return errors.Join(err, errors.New("getting active attendance records"))
+				}
 
-		for _, record := range attendanceRecords {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  record.Name,
-				Value: record.Id,
-			})
+				for _, record := range attendanceRecords {
+					choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
+						Name:  record.Name,
+						Value: record.Id,
+					})
+				}
+			}
+		case "prize":
+			if option.Focused {
+				ships := []*discordgo.ApplicationCommandOptionChoice{
+					{
+						Name:  "Anvil F7A Hornet Mk II Executive",
+						Value: "anvil_f7a_hornet_mk_ii_executive",
+					},
+					{
+						Name:  "Anvil F8C Lightning Executive",
+						Value: "anvil_f8c_lightning_executive",
+					},
+					{
+						Name:  "Drake Corsair Executive",
+						Value: "drake_corsair_executive",
+					},
+					{
+						Name:  "Drake Cutlass Black Executive",
+						Value: "drake_cutlass_black_executive",
+					},
+					{
+						Name:  "Gatac Syulen Executive",
+						Value: "gatac_syulen_executive",
+					},
+				}
+				choices = append(choices, ships...)
+			}
 		}
 	}
 

@@ -225,7 +225,7 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 
 	components := []discordgo.MessageComponent{}
 
-	if a.Active {
+	if !a.Recorded {
 		components = append(components, discordgo.ActionsRow{
 			Components: buttons,
 		})
