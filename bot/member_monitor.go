@@ -15,7 +15,6 @@ import (
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
-	"golang.org/x/exp/slices"
 )
 
 var logger *slog.Logger
@@ -42,7 +41,7 @@ func MemberMonitor(stop <-chan bool) {
 	}
 
 	logger.Info("monitoring discord for members")
-	ticker := time.NewTicker(time.Second)
+	ticker := time.NewTicker(30 * time.Second) // Reduced frequency when idle
 	defer ticker.Stop()
 
 	lastChecked := time.Now().UTC().Add(-30 * time.Minute)
@@ -97,6 +96,12 @@ func MemberMonitor(stop <-chan bool) {
 			}
 
 			// do some cleaning
+			// Create a map of Discord member IDs for efficient lookup
+			discordMemberMap := make(map[string]bool, len(discordMembers))
+			for _, discordMember := range discordMembers {
+				discordMemberMap[discordMember.User.ID] = true
+			}
+
 			for _, storedMember := range storedMembers {
 				select {
 				case <-stop:
@@ -105,7 +110,7 @@ func MemberMonitor(stop <-chan bool) {
 				default:
 				}
 
-				if !stillInDiscord(storedMember, discordMembers) || storedMember.IsBot {
+				if !discordMemberMap[storedMember.Id] || storedMember.IsBot {
 					if err := storedMember.Delete(); err != nil {
 						logger.Error("deleting member", "error", err, "member", storedMember)
 						continue
@@ -141,34 +146,63 @@ func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
 }
 
 func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
+	defer func() {
+		if err := bot.UpdateCustomStatus(""); err != nil {
+			logger.Error("updating custom status", "error", err)
+		}
+	}()
 	logger.Debug("checking members", "discord_members", len(discordMembers))
 
+	// Cache role IDs for efficiency
+	recruitRoleID := settings.GetString("DISCORD.ROLE_IDS.RECRUIT")
+	allyRoleID := settings.GetString("DISCORD.ROLE_IDS.ALLY")
+
+	// Collect members to save for batch processing
+	var membersToSave []members.Member
+	var processingErrors []error
+
 	logger.Info(fmt.Sprintf("updating %d members", len(discordMembers)))
-	for _, discordMember := range discordMembers {
+	if err := bot.UpdateCustomStatus("Updating members..."); err != nil {
+		logger.Error("updating custom status", "error", err)
+	}
+	wait := 0
+	for i, discordMember := range discordMembers {
 		select {
 		case <-stop:
 			logger.Warn("stopping monitor")
 			return nil
 		default:
+			if wait > 0 {
+				wait--
+				time.Sleep(1 * time.Second)
+				continue
+			}
 		}
 
-		time.Sleep(1 * time.Second)
+		time.Sleep(time.Second)
+		if (i > 0 && i%10 == 0) || i > len(discordMembers)-10 {
+			if err := bot.UpdateCustomStatus(fmt.Sprintf("Updating members... (%d/%d)", i, len(discordMembers))); err != nil {
+				logger.Error("updating custom status", "error", err)
+			}
+		}
+
 		mlogger := logger.With(
 			"id", discordMember.User.ID,
 			"name", discordMember.DisplayName())
 
-		mlogger.Info("updating member")
+		mlogger.Debug("updating member")
 
 		if discordMember.User.Bot {
 			mlogger.Debug("skipping bot")
 			continue
 		}
 
-		// get the stord user, if we have one
+		// get the stored user, if we have one
 		member, err := members.Get(discordMember.User.ID)
 		if err != nil {
 			if !errors.Is(err, members.MemberNotFound) {
 				mlogger.Error("getting member for update", "error", err)
+				processingErrors = append(processingErrors, err)
 				continue
 			}
 
@@ -183,7 +217,12 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 		// rsi related stuff
 		if err = rsi.UpdateRsiInfo(member); err != nil {
 			if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
-				return err
+				mlogger.Warn("rsi service issue... waiting for rate limit")
+				if err := bot.UpdateCustomStatus("Updating members... waiting for RSI rate limit"); err != nil {
+					logger.Error("updating custom status", "error", err)
+				}
+				wait = 10
+				continue
 			}
 
 			if strings.Contains(err.Error(), "context deadline exceeded") {
@@ -192,23 +231,30 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 			}
 
 			if !errors.Is(err, rsi.RsiUserNotFound) {
-				return errors.Wrap(err, "getting rsi info")
+				processingErrors = append(processingErrors, errors.Wrap(err, "getting rsi info"))
+				continue
 			}
 
 			mlogger.Debug("rsi user not found", "error", err)
 			member.RSIMember = false
 		}
 
+		// Create role map for efficient lookup
+		roleMap := make(map[string]bool, len(discordMember.Roles))
+		for _, roleID := range discordMember.Roles {
+			roleMap[roleID] = true
+		}
+
 		// discord related stuff
 		member.Avatar = discordMember.User.Avatar
-		if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
+		if roleMap[recruitRoleID] {
 			mlogger.Debug("is recruit")
 			member.Rank = ranks.Recruit
 			member.IsAffiliate = false
 			member.IsAlly = false
 			member.IsGuest = false
 		}
-		if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.ALLY")) {
+		if roleMap[allyRoleID] {
 			mlogger.Debug("is ally")
 			member.Rank = ranks.None
 			member.IsAffiliate = false
@@ -224,65 +270,22 @@ func updateMembers(discordMembers []*discordgo.Member, stop <-chan bool) error {
 			member.IsBot = true
 		}
 
-		logger.Debug("updating member", "member", member)
+		// Add to batch for saving
+		membersToSave = append(membersToSave, *member)
+	}
+
+	// Save members in batch (if the members package supports it) or individually with error collection
+	for _, member := range membersToSave {
 		if err := member.Save(); err != nil {
-			return err
+			logger.Error("saving member", "error", err, "member_id", member.Id)
+			processingErrors = append(processingErrors, err)
 		}
+	}
 
-		// handle rank updates on members
-		// rankRoles := settings.GetStringMapString("DISCORD.ROLES.RANKS")
-		// membersRoleId := rankRoles[strings.ToLower(member.Rank.String())]
-		// if (!utils.StringSliceContains(discordMember.Roles, membersRoleId) && !member.IsGuest) || member.Rank == ranks.Member {
-		// 	if !member.IsGuest && !member.IsAlly && !member.IsAffiliate {
-		// 		if member.Rank != ranks.Member {
-		// 			logger.Debug("is not just a member, adding role: " + membersRoleId)
-		// 			_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, membersRoleId)
-		// 		}
-		// 		_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["member"])
-		// 	}
-
-		// 	if member.IsAlly {
-		// 		_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["ally"])
-		// 	}
-
-		// 	if member.IsAffiliate {
-		// 		_ = bot.GuildMemberRoleAdd(bot.GuildId, member.Id, rankRoles["affiliate"])
-		// 	}
-
-		// 	for rankName, rankId := range rankRoles {
-		// 		// reasons not to remove a rank
-		// 		// member  - all not guests and not recruits have member
-		// 		// ally    - applied somewhere else
-		// 		// affiliate - applied somewhere else
-		// 		if rankName != strings.ToLower(member.Rank.String()) && rankName != "member" && rankName != "ally" && rankName != "affiliate" {
-		// 			_ = bot.GuildMemberRoleRemove(bot.GuildId, member.Id, rankId)
-		// 		}
-		// 	}
-
-		// 	nick := member.GetTrueNick(discordMember)
-		// 	if !member.IsGuest && !member.IsAlly && !member.IsAffiliate && member.IsRanked() {
-		// 		nick = "[" + member.Rank.ShortString() + "] " + nick
-		// 		if member.Suffix != "" {
-		// 			nick += " (" + member.Suffix + ")"
-		// 		}
-		// 	}
-
-		// 	logger.WithField("nick", nick).Debug("setting nick")
-		// 	if err = bot.GuildMemberNickname(bot.GuildId, member.Id, nick); err != nil {
-		// 		logger.WithError(err).Error("setting nick")
-		// 	}
-		// }
+	// Log any processing errors but don't fail the entire operation
+	if len(processingErrors) > 0 {
+		logger.Warn("encountered errors during member processing", "error_count", len(processingErrors))
 	}
 
 	return nil
-}
-
-func stillInDiscord(member members.Member, discordMembers []*discordgo.Member) bool {
-	for _, discordMember := range discordMembers {
-		if member.Id == discordMember.User.ID {
-			return true
-		}
-	}
-
-	return false
 }

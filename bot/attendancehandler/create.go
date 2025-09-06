@@ -127,7 +127,7 @@ func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 	matches := fuzzy.FindFold(typed, names)
 
 	for i, name := range matches {
-		if i > 25 {
+		if i >= 25 {
 			break
 		}
 

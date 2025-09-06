@@ -21,6 +21,7 @@ import (
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/systemd"
 	"github.com/sol-armada/sol-bot/tokens"
 )
 
@@ -107,8 +108,17 @@ func init() {
 
 func main() {
 	defer func() {
+		// Notify systemd we're stopping
+		if err := systemd.Stopping(); err != nil {
+			log.WithError(err).Error("failed to notify systemd of stopping")
+		}
 		log.Info("gracefully shutdown")
 	}()
+
+	// Notify systemd of our status during startup
+	if err := systemd.Status("Starting up..."); err != nil {
+		log.WithError(err).Warn("failed to set systemd status")
+	}
 
 	// start up the bot
 	b, err := bot.New()
@@ -117,9 +127,22 @@ func main() {
 		return
 	}
 
+	if err := systemd.Status("Setting up bot..."); err != nil {
+		log.WithError(err).Warn("failed to set systemd status")
+	}
+
 	if err := b.Setup(); err != nil {
 		log.WithError(err).Error("failed to start the bot")
 		return
+	}
+
+	// Notify systemd that we're ready
+	if err := systemd.Ready(); err != nil {
+		log.WithError(err).Warn("failed to notify systemd ready")
+	}
+
+	if err := systemd.Status("Bot ready and serving"); err != nil {
+		log.WithError(err).Warn("failed to set systemd status")
 	}
 
 	stopMemberMonitor := make(chan bool, 1)
@@ -130,6 +153,25 @@ func main() {
 	if settings.GetBool("FEATURES.ATTENDANCE.MONITOR") { // only enable if attendance is enabled
 		go bot.MonitorAttendance(stopAttendanceMonitor)
 	}
+
+	// Optional: Start systemd watchdog if enabled
+	watchdogStop := make(chan bool, 1)
+	go func() {
+		ticker := time.NewTicker(15 * time.Second) // Send watchdog every 15 seconds
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ticker.C:
+				if err := systemd.Watchdog(); err != nil {
+					log.WithError(err).Debug("failed to send watchdog ping")
+				}
+			case <-watchdogStop:
+				return
+			}
+		}
+	}()
+
 	defer func() {
 		log.Info("shutting down")
 		if err := b.Close(); err != nil {
@@ -137,6 +179,7 @@ func main() {
 		}
 		stopMemberMonitor <- true
 		stopAttendanceMonitor <- true
+		watchdogStop <- true
 		time.Sleep(20 * time.Second)
 		log.Info("shutdown complete")
 	}()
