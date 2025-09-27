@@ -3,14 +3,13 @@ package attendancehandler
 import (
 	"context"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
 func addNameCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("add attendance name command")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

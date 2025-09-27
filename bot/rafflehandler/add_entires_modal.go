@@ -3,10 +3,10 @@ package rafflehandler
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"strconv"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/tokens"
@@ -14,7 +14,7 @@ import (
 )
 
 func addEntriesModal(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle buy in modal")
 
 	data := i.ModalSubmitData()
@@ -39,12 +39,10 @@ func addEntriesModal(ctx context.Context, s *discordgo.Session, i *discordgo.Int
 		})
 	}
 
-	logger = logger.WithFields(
-		log.Fields{
-			"raffle_id":    raffleId,
-			"ticket_count": ticketCount,
-			"member_id":    i.Member.User.ID,
-		},
+	logger = logger.With(
+		slog.String("raffle_id", raffleId),
+		slog.Int("ticket_count", ticketCount),
+		slog.String("member_id", i.Member.User.ID),
 	)
 	logger.Debug("raffle buy in modal submit")
 
@@ -64,7 +62,7 @@ func addEntriesModal(ctx context.Context, s *discordgo.Session, i *discordgo.Int
 	}
 
 	if balance < ticketCount {
-		logger.WithField("balance", balance).Debug("insufficient balance")
+		logger.Debug("insufficient balance", "balance", balance)
 
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,

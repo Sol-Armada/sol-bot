@@ -3,7 +3,6 @@ package attendancehandler
 import (
 	"context"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
@@ -12,7 +11,7 @@ import (
 )
 
 func revertAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("taking attendance autocomplete")
 
 	data := i.ApplicationCommandData()
@@ -46,7 +45,7 @@ func revertAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 }
 
 func revertCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("reverting attendance command handler")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

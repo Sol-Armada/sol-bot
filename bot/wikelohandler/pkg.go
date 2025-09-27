@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -34,7 +33,7 @@ var (
 )
 
 func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("wikelo command handler")
 
 	client, err := sheets.NewService(context.Background(), option.WithAPIKey(settings.GetString("GOOGLE_SHEET_API_KEY")))
@@ -66,7 +65,6 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 			break
 		}
 
-		logger.Debugf("Row: %s", row)
 		itemProgresses = append(itemProgresses, itemProgress{
 			name:      row[0].(string),
 			needed:    row[1].(string),
@@ -77,7 +75,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 
 	resp, err = client.Spreadsheets.Values.Get(sheetId, "Overview!B3").Do()
 	if err != nil {
-		logger.WithError(err).Error("Failed to get sheet data")
+		logger.Error("Failed to get sheet data", "error", err)
 		return err
 	}
 
@@ -90,7 +88,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 
 	resp, err = client.Spreadsheets.Values.Get(sheetId, "Contributions!D3:W").Do()
 	if err != nil {
-		logger.WithError(err).Error("Failed to get sheet data")
+		logger.Error("Failed to get sheet data", "error", err)
 		return nil
 	}
 
@@ -149,7 +147,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 
 			f, err := strconv.ParseFloat(aString, 64)
 			if err != nil {
-				logger.WithError(err).Error("Failed to convert string to float64")
+				logger.Error("Failed to convert string to float64", "error", err)
 				continue
 			}
 			contributions[who][item] += f

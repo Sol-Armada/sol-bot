@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
@@ -15,7 +14,7 @@ import (
 )
 
 func removeMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("remove member attendance command")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

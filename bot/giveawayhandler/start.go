@@ -5,7 +5,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/customerrors"
@@ -14,7 +13,7 @@ import (
 )
 
 func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("giveaway start command")
 
 	if !utils.Allowed(i.Member, "GIVEAWAYS") {

@@ -4,12 +4,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
 	"time"
 
-	"github.com/apex/log"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/settings"
 )
@@ -21,7 +21,7 @@ type Access struct {
 }
 
 func Authenticate(code string) (*Access, error) {
-	logger := log.WithField("code", code)
+	logger := slog.Default().With("code", code)
 	logger.Info("creating new member access")
 
 	redirectUri := strings.TrimSuffix(settings.GetString("DISCORD.REDIRECT_URI"), "/")
@@ -34,13 +34,13 @@ func Authenticate(code string) (*Access, error) {
 	data.Set("grant_type", "authorization_code")
 	data.Set("code", code)
 
-	logger.WithFields(log.Fields{
-		"client_id":     settings.GetString("DISCORD.CLIENT_ID"),
-		"client_secret": settings.GetString("DISCORD.CLIENT_SECRET"),
-		"redirect_uri":  redirectUri,
-		"grant_type":    "authorization_code",
-		"code":          code,
-	}).Debug("sending auth request")
+	logger.Debug("sending auth request",
+		"client_id", settings.GetString("DISCORD.CLIENT_ID"),
+		"client_secret", settings.GetString("DISCORD.CLIENT_SECRET"),
+		"redirect_uri", redirectUri,
+		"grant_type", "authorization_code",
+		"code", code,
+	)
 
 	req, err := http.NewRequest("POST", "https://discord.com/api/v10/oauth2/token", strings.NewReader(data.Encode()))
 	if err != nil {
@@ -58,7 +58,7 @@ func Authenticate(code string) (*Access, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		logger.WithField("status code", resp.StatusCode).Error("could not authorize")
+		logger.Error("could not authorize", "status code", resp.StatusCode)
 		return nil, errors.New("could not authorize")
 	}
 
@@ -86,7 +86,7 @@ func Authenticate(code string) (*Access, error) {
 		RefreshToken: accessMap["refresh_token"].(string),
 	}
 
-	logger.WithField("member access", *access).Debug("created new member access")
+	logger.Debug("created new member access", "member access", *access)
 
 	return access, nil
 }

@@ -4,14 +4,13 @@ import (
 	"context"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
 func exit(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("giveaway exit button")
 
 	giveawayId := strings.Split(i.MessageComponentData().CustomID, ":")[2]

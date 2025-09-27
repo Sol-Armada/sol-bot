@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"regexp"
 	"strings"
@@ -235,7 +236,7 @@ func (m *Member) Save() error {
 }
 
 func (m *Member) IsAdmin() bool {
-	logger := log.WithField("id", m.Id)
+	logger := slog.Default().With("id", m.Id)
 	logger.Debug("checking if admin")
 	if m.Rank <= ranks.Lieutenant {
 		return true
@@ -259,7 +260,7 @@ func (m *Member) Login(code string) error {
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", access.Token))
 
-	log.Debug("request for login to discord")
+	slog.Debug("request for login to discord")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)

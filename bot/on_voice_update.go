@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/apex/log"
@@ -19,7 +20,7 @@ func onVoiceUpdate(_ *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 	member, err := members.Get(v.Member.User.ID)
 	if err != nil {
 		if !errors.Is(err, members.MemberNotFound) {
-			log.WithError(err).Error("getting member")
+			slog.Error("getting member", "error", err)
 			return
 		}
 

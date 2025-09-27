@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/tokens"
@@ -13,7 +12,7 @@ import (
 )
 
 func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("take command handler")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

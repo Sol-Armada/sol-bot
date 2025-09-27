@@ -1,18 +1,19 @@
 package bot
 
 import (
-	"github.com/apex/log"
+	"log/slog"
+
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 )
 
 func onJoinHandler(s *discordgo.Session, i *discordgo.GuildMemberAdd) {
-	logger := log.WithFields(log.Fields{
-		"guild":   i.GuildID,
-		"user":    i.User.ID,
-		"handler": "OnJoinHandler",
-	})
+	logger = logger.With(
+		slog.String("guild", i.GuildID),
+		slog.String("user", i.User.ID),
+		slog.String("handler", "OnJoinHandler"),
+	)
 
 	logger.Info("member joined")
 
@@ -23,7 +24,7 @@ func onJoinHandler(s *discordgo.Session, i *discordgo.GuildMemberAdd) {
 	member := members.New(i.Member)
 
 	if err := member.Save(); err != nil {
-		logger.WithError(err).Error("saving member")
+		logger.Error("saving member", "error", err)
 		return
 	}
 
@@ -35,7 +36,7 @@ func onJoinHandler(s *discordgo.Session, i *discordgo.GuildMemberAdd) {
 			Embeds:  onBoardingMessage.Embeds,
 		})
 		if err != nil {
-			logger.WithError(err).Error("sending onboarding message")
+			logger.Error("sending onboarding message", "error", err)
 			return
 		}
 
@@ -43,7 +44,7 @@ func onJoinHandler(s *discordgo.Session, i *discordgo.GuildMemberAdd) {
 		member.MessageId = message.ID
 
 		if err := member.Save(); err != nil {
-			logger.WithError(err).Error("saving member after onboarding message")
+			logger.Error("saving member after onboarding message", "error", err)
 		}
 	}
 }

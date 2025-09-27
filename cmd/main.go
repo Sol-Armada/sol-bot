@@ -3,15 +3,15 @@ package main
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/apex/log"
-	"github.com/apex/log/handlers/cli"
-	jsn "github.com/apex/log/handlers/json"
+	"github.com/go-co-op/gocron/v2"
+	"github.com/google/uuid"
 	"github.com/sol-armada/sol-bot/activity"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
@@ -27,14 +27,7 @@ import (
 
 var environment string = ""
 
-type customFormatter struct {
-	hander log.Handler
-}
-
-func (f *customFormatter) HandleLog(e *log.Entry) error {
-	e.Message = fmt.Sprintf("[%s][%s] %s", time.Now().Format("15:04:05"), e.Level.String(), e.Message)
-	return f.hander.HandleLog(e)
-}
+var logger *slog.Logger
 
 func init() {
 	if environment == "staging" {
@@ -48,26 +41,35 @@ func init() {
 	settings.AddConfigPath("../")
 	settings.AddConfigPath("/etc/solbot/")
 	if err := settings.ReadInConfig(); err != nil {
-		log.Fatal("could not parse configuration")
+		fmt.Printf("could not parse configuration: %v\n", err)
 		os.Exit(1)
 	}
 
 	// setup the logger
-	if settings.GetBool("LOG.CLI") {
-		handler := &customFormatter{hander: cli.New(os.Stdout)}
-		log.SetHandler(handler)
-	} else {
-		f, err := os.OpenFile(settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			log.Fatal(err.Error())
-			os.Exit(1)
-		}
-		log.SetHandler(jsn.New(f))
+	opts := &slog.HandlerOptions{
+		AddSource: true,
 	}
 
 	if settings.GetBool("LOG.DEBUG") {
-		log.SetLevel(log.DebugLevel)
-		log.Debug("debug mode on")
+		opts.Level = slog.LevelDebug
+	}
+
+	if settings.GetBool("LOG.CLI") {
+		logger = slog.New(slog.NewTextHandler(os.Stdout, opts))
+	} else {
+		f, err := os.OpenFile(settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			fmt.Printf("Failed to open log file: %v\n", err)
+			os.Exit(1)
+		}
+		logger = slog.New(slog.NewJSONHandler(f, opts))
+	}
+
+	// Set as default logger
+	slog.SetDefault(logger)
+
+	if settings.GetBool("LOG.DEBUG") {
+		logger.Debug("debug mode on")
 	}
 
 	// setup storage
@@ -80,7 +82,7 @@ func init() {
 	ctx := context.Background()
 
 	if _, err := stores.New(ctx, host, port, username, pswd, database, replicaSetName); err != nil {
-		log.WithError(err).Error("failed to create storage client")
+		logger.Error("failed to create storage client", "error", err)
 		os.Exit(1)
 	}
 
@@ -94,10 +96,10 @@ func init() {
 	}
 
 	for name, setup := range setups {
-		log.Debug(fmt.Sprintf("setting up %s store", name))
+		logger.Debug("setting up store", "name", name)
 
 		if err := setup(); err != nil {
-			log.WithError(err).Errorf("failed to setup %s", name)
+			logger.Error("failed to setup store", "name", name, "error", err)
 			os.Exit(1)
 		}
 	}
@@ -110,48 +112,142 @@ func main() {
 	defer func() {
 		// Notify systemd we're stopping
 		if err := systemd.Stopping(); err != nil {
-			log.WithError(err).Error("failed to notify systemd of stopping")
+			logger.Error("failed to notify systemd of stopping", "error", err)
 		}
-		log.Info("gracefully shutdown")
+		logger.Info("gracefully shutdown")
 	}()
 
 	// Notify systemd of our status during startup
 	if err := systemd.Status("Starting up..."); err != nil {
-		log.WithError(err).Warn("failed to set systemd status")
+		logger.Warn("failed to set systemd status", "error", err)
 	}
 
 	// start up the bot
 	b, err := bot.New()
 	if err != nil {
-		log.WithError(err).Error("failed to create the bot")
+		logger.Error("failed to create the bot", "error", err)
 		return
 	}
 
 	if err := systemd.Status("Setting up bot..."); err != nil {
-		log.WithError(err).Warn("failed to set systemd status")
+		logger.Warn("failed to set systemd status", "error", err)
 	}
 
 	if err := b.Setup(); err != nil {
-		log.WithError(err).Error("failed to start the bot")
+		logger.Error("failed to start the bot", "error", err)
 		return
 	}
 
 	// Notify systemd that we're ready
 	if err := systemd.Ready(); err != nil {
-		log.WithError(err).Warn("failed to notify systemd ready")
+		logger.Warn("failed to notify systemd ready", "error", err)
 	}
 
 	if err := systemd.Status("Bot ready and serving"); err != nil {
-		log.WithError(err).Warn("failed to set systemd status")
+		logger.Warn("failed to set systemd status", "error", err)
 	}
 
-	stopMemberMonitor := make(chan bool, 1)
-	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
-		go bot.MemberMonitor(stopMemberMonitor)
+	s, err := gocron.NewScheduler()
+	if err != nil {
+		logger.Error("failed to create scheduler", "error", err)
+		return
 	}
+
+	// Start the scheduler
+	s.Start()
+
+	opts := &slog.HandlerOptions{
+		AddSource: true,
+		Level:     slog.LevelDebug,
+	}
+
+	if settings.GetBool("LOG.DEBUG") {
+		opts.Level = slog.LevelDebug
+		slog.Debug("debug mode on")
+	}
+
+	monitorLogger := slog.New(slog.NewTextHandler(os.Stdout, opts))
+
+	if !settings.GetBool("LOG.CLI") {
+		f, err := os.OpenFile(settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+		if err != nil {
+			logger.Error("failed to open member monitor log file", "error", err)
+			os.Exit(1)
+		}
+		monitorLogger = slog.New(slog.NewJSONHandler(f, opts))
+	}
+
+	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
+		slog.Info("scheduling member monitor")
+		j, err := s.NewJob(
+			gocron.CronJob("*/30 * * * *", false),
+			gocron.NewTask(func(ctx context.Context) error {
+				return bot.MemberMonitor(ctx, monitorLogger)
+			}),
+			gocron.WithSingletonMode(gocron.LimitModeReschedule),
+			gocron.WithEventListeners(
+				gocron.BeforeJobRuns(
+					func(jobID uuid.UUID, jobName string) {
+						monitorLogger.Info("starting member monitor", "job_id", jobID, "job_name", jobName)
+					},
+				),
+				gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, jobErr error) {
+					if jobErr != nil {
+						monitorLogger.Error("member monitor failed", "job_id", jobID, "job_name", jobName, "error", jobErr)
+					}
+				}),
+				gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
+					monitorLogger.Info("completed member monitor", "job_id", jobID, "job_name", jobName)
+				}),
+			),
+		)
+		if err != nil {
+			logger.Error("failed to schedule member monitor", "error", err)
+			return
+		}
+
+		go func() {
+			for {
+				lastRun, err := j.LastRun()
+				if err != nil {
+					logger.Error("failed to get last member monitor run", "error", err)
+					time.Sleep(1 * time.Minute)
+					continue
+				}
+
+				if !lastRun.IsZero() {
+					logger.Info("last member monitor run started", "time", lastRun.Format(time.RFC1123))
+				}
+
+				nextRun, err := j.NextRun()
+				if err != nil {
+					logger.Error("failed to get next member monitor run", "error", err)
+					time.Sleep(1 * time.Minute)
+					continue
+				}
+
+				logger.Info("next member monitor run scheduled", "time", nextRun.Format(time.RFC1123))
+				// sleep until the next run has started
+				time.Sleep(time.Until(nextRun))
+			}
+		}()
+	}
+
 	stopAttendanceMonitor := make(chan bool, 1)
 	if settings.GetBool("FEATURES.ATTENDANCE.MONITOR") { // only enable if attendance is enabled
-		go bot.MonitorAttendance(stopAttendanceMonitor)
+		go bot.MonitorAttendance(context.Background(), logger, stopAttendanceMonitor)
+	}
+
+	if _, err := s.NewJob(
+		gocron.DurationJob(10*time.Second),
+		gocron.NewTask(func() {
+			if err := b.UpdateCustomStatus(bot.NextStatusMessage()); err != nil {
+				logger.Error("failed to update status message", "error", err)
+			}
+		}),
+	); err != nil {
+		logger.Error("failed to schedule status message updater", "error", err)
+		return
 	}
 
 	// Optional: Start systemd watchdog if enabled
@@ -164,7 +260,7 @@ func main() {
 			select {
 			case <-ticker.C:
 				if err := systemd.Watchdog(); err != nil {
-					log.WithError(err).Debug("failed to send watchdog ping")
+					logger.Debug("failed to send watchdog ping", "error", err)
 				}
 			case <-watchdogStop:
 				return
@@ -173,15 +269,17 @@ func main() {
 	}()
 
 	defer func() {
-		log.Info("shutting down")
-		if err := b.Close(); err != nil {
-			log.WithError(err).Error("failed to close the bot")
+		logger.Info("shutting down")
+		if err := s.Shutdown(); err != nil {
+			logger.Error("failed to shutdown scheduler", "error", err)
 		}
-		stopMemberMonitor <- true
+		if err := b.Close(); err != nil {
+			logger.Error("failed to close the bot", "error", err)
+		}
 		stopAttendanceMonitor <- true
 		watchdogStop <- true
 		time.Sleep(20 * time.Second)
-		log.Info("shutdown complete")
+		logger.Info("shutdown complete")
 	}()
 
 	c := make(chan os.Signal, 1)

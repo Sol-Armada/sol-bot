@@ -1,18 +1,19 @@
 package bot
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/settings"
 )
 
-func MonitorAttendance(stop <-chan bool) {
-	logger := log.WithField("func", "monitorAttendance")
+func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan bool) {
+	logger = logger.With("func", "bot.MonitorAttendance")
 	logger.Info("monitoring attendance")
 
 	channel := settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
@@ -34,7 +35,7 @@ func MonitorAttendance(stop <-chan bool) {
 		logger.Debug("checking attendance messages")
 		msgs, err := bot.ChannelMessages(channel, 100, latestId, "", "")
 		if err != nil {
-			logger.WithError(err).Error("failed to get messages")
+			logger.Error("failed to get messages", "error", err)
 			continue
 		}
 

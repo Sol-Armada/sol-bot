@@ -2,9 +2,9 @@ package rafflehandler
 
 import (
 	"context"
+	"log/slog"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/utils"
@@ -50,7 +50,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 }
 
 func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle command handler")
 
 	if !utils.Allowed(i.Member, "RAFFLES") {
@@ -61,7 +61,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 }
 
 func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle autocomplete handler")
 
 	if !utils.Allowed(i.Member, "RAFFLES") {
@@ -70,9 +70,9 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 
 	data := i.ApplicationCommandData()
 	handler, ok := autoCompletes[data.Options[0].Name]
-	logger = logger.WithFields(log.Fields{
-		"subcommand": data.Options[0].Name,
-	})
+	logger = logger.With(
+		slog.String("subcommand", data.Options[0].Name),
+	)
 	ctx = utils.SetLoggerToContext(ctx, logger)
 	if !ok {
 		return customerrors.InvalidAutocomplete
@@ -84,7 +84,7 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 }
 
 func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle button handler")
 
 	data := i.Interaction.MessageComponentData()
@@ -98,7 +98,7 @@ func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inter
 }
 
 func ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle modal handler")
 
 	data := i.Interaction.ModalSubmitData()

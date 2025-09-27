@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/members"
@@ -13,7 +12,7 @@ import (
 )
 
 func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("rank ups command handler")
 
 	if !allowed(i.Member, "ATTENDANCE") {
@@ -45,7 +44,7 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 			continue
 		}
 
-		logger.WithField("member", member.Id).Debug("checking if member needs rank up")
+		logger.Debug("checking if member needs rank up", "member", member.Id)
 
 		count, err := attendance.GetMemberAttendanceCount(member.Id)
 		if err != nil {
@@ -77,7 +76,7 @@ func rankUpsCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	// output the list of members that need to be ranked up
-	logger.WithField("members", needsRankUp).Debug("need to rank up")
+	logger.Debug("need to rank up", "members", needsRankUp)
 
 	fields := []*discordgo.MessageEmbedField{
 		{

@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/settings"
@@ -35,7 +34,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 }
 
 func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("yourelate command handler")
 
 	if !utils.Allowed(i.Member, "TOKENS") {
@@ -72,12 +71,12 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 	isEventThread := false
 	ch, err := s.Channel(i.ChannelID)
 	if err != nil {
-		logger.WithError(err).Error("failed to get channel")
+		logger.Error("failed to get channel", "error", err)
 		return err
 	}
 	messages, err := s.ChannelMessages(ch.ID, 100, "", "", "")
 	if err != nil {
-		logger.WithError(err).Error("failed to get channel messages")
+		logger.Error("failed to get channel messages", "error", err)
 		return err
 	}
 	message := messages[len(messages)-1].ReferencedMessage

@@ -2,7 +2,7 @@ package utils
 
 import (
 	"context"
-	"log"
+	"log/slog"
 )
 
 type ContextKey string
@@ -20,14 +20,13 @@ func GetMemberFromContext(ctx context.Context) any {
 	return ctx.Value(MEMBER)
 }
 
-func SetLoggerToContext(ctx context.Context, logger any) context.Context {
+func SetLoggerToContext(ctx context.Context, logger *slog.Logger) context.Context {
 	return context.WithValue(ctx, LOGGER, logger)
 }
 
-func GetLoggerFromContext(ctx context.Context) any {
-	if ctx.Value(LOGGER) == nil {
-		return log.Default()
+func GetLoggerFromContext(ctx context.Context) *slog.Logger {
+	if logger := ctx.Value(LOGGER); logger != nil {
+		return logger.(*slog.Logger)
 	}
-
-	return ctx.Value(LOGGER)
+	return slog.Default()
 }

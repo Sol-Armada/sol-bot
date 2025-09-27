@@ -68,6 +68,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 	client.databases[SOS] = newSOSStore(ctx, client.Client, database)
 	client.databases[TOKENS] = newTokensStore(ctx, client.Client, database)
 	client.databases[RAFFLES] = newRafflesStore(ctx, client.Client, database)
+	client.databases[KANBAN] = newKanbanStore(ctx, client.Client, database)
 
 	return client, nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
@@ -12,7 +11,7 @@ import (
 )
 
 func recordButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("recording attendance button handler")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

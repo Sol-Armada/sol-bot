@@ -2,8 +2,8 @@ package customerrors
 
 import (
 	e "errors"
+	"log/slog"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 )
 
@@ -45,7 +45,7 @@ func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message strin
 			Content: message,
 			Flags:   discordgo.MessageFlagsEphemeral,
 		}); err != nil {
-			log.WithError(err).Error("responding to event command interaction")
+			slog.Error("responding to event command interaction", "error", err)
 		}
 	}
 }

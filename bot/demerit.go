@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/members"
@@ -12,7 +11,7 @@ import (
 )
 
 func giveDemeritCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("demerit command")
 
 	if !allowed(i.Member, "MERIT") {

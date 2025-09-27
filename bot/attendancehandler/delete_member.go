@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
@@ -13,7 +12,7 @@ import (
 )
 
 func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("deleting attendance button handler")
 
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
@@ -63,7 +62,7 @@ func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 }
 
 func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("deleting verify modal handler")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -101,7 +100,7 @@ func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 }
 
 func cancelDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("deleting cancel modal handler")
 
 	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

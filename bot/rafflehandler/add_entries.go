@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/raffles"
@@ -14,7 +13,7 @@ import (
 )
 
 func addEntries(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle buy in button")
 
 	data := i.MessageComponentData()

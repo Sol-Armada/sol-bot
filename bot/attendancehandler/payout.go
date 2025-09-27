@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/attendance"
@@ -14,7 +13,7 @@ import (
 )
 
 func addPayoutButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("add payout button handler")
 
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
@@ -72,7 +71,7 @@ func addPayoutButtonHandler(ctx context.Context, s *discordgo.Session, i *discor
 }
 
 func AddPayoutModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("add payout modal handler")
 
 	attendanceId := strings.Split(i.ModalSubmitData().CustomID, ":")[2]

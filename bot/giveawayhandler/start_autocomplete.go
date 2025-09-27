@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/sol-armada/sol-bot/attendance"
@@ -15,7 +14,7 @@ import (
 )
 
 func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("giveaway start autocomplete")
 
 	data := i.ApplicationCommandData()

@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/config"
@@ -226,7 +225,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 }
 
 func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance command handler")
 
 	if !utils.Allowed(i.Member, "ATTENDANCE") {
@@ -243,7 +242,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 }
 
 func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance autocomplete handler")
 
 	if !utils.Allowed(i.Member, "ATTENDANCE") {
@@ -252,9 +251,9 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 
 	data := i.ApplicationCommandData()
 	handler, ok := autoCompletes[data.Options[0].Name]
-	logger = logger.WithFields(log.Fields{
-		"subcommand": data.Options[0].Name,
-	})
+	logger = logger.With(
+		"subcommand", data.Options[0].Name,
+	)
 	ctx = utils.SetLoggerToContext(ctx, logger)
 	if !ok {
 		return customerrors.InvalidAutocomplete
@@ -266,7 +265,7 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 }
 
 func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance button handler")
 
 	if !utils.Allowed(i.Member, "ATTENDANCE") {

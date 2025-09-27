@@ -79,7 +79,7 @@ Select a reason you joined below. We will ask a few questions and someone will b
 }
 
 func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 
 	logger.Debug("onboarding button handler")
 
@@ -186,11 +186,11 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 }
 
 func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
-	logger = logger.WithField("member", member.Id)
+	logger = logger.With("member", member.Id)
 
 	logger.Info("onboarding modal handler")
 
@@ -272,7 +272,7 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 }
 
 func onboardingTryAgainHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 
 	logger.Debug("onboarding try again handler")
 
@@ -303,11 +303,11 @@ func onboardingTryAgainHandler(ctx context.Context, s *discordgo.Session, i *dis
 }
 
 func onboardingTryAgainModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
-	logger.WithField("member", member.Id)
+	logger.With("member", member.Id)
 
 	logger.Info("onboarding try again modal handler")
 
@@ -351,11 +351,11 @@ func onboardingTryAgainModalHandler(ctx context.Context, s *discordgo.Session, i
 }
 
 func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
-	logger.WithField("member", member.Id)
+	logger.With("member", member.Id)
 
 	logger.Info("finishing onboarding")
 

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/pkg/errors"
@@ -18,7 +17,7 @@ import (
 )
 
 func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("create attendance command")
 
 	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
@@ -113,7 +112,7 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 }
 
 func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance create autocomplete")
 
 	names, err := config.GetAttendanceNames()
@@ -146,7 +145,7 @@ func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 }
 
 func TagAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance tag autocomplete")
 
 	choices := []*discordgo.ApplicationCommandOptionChoice{}

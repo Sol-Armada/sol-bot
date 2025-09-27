@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"log/slog"
 	"time"
 
 	"github.com/apex/log"
@@ -10,7 +11,7 @@ import (
 )
 
 func onLeaveHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
-	log.Debug("member left")
+	slog.Debug("member left")
 
 	if m.User.Bot {
 		return
@@ -18,7 +19,7 @@ func onLeaveHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 
 	member, err := members.Get(m.User.ID)
 	if err != nil && !errors.Is(err, members.MemberNotFound) {
-		log.WithError(err).Error("getting member")
+		slog.Error("getting member", "error", err)
 		return
 	}
 

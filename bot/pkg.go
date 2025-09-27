@@ -7,7 +7,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
@@ -90,7 +89,7 @@ var validateButtonHandlers = map[string]Handler{
 }
 
 func New() (*Bot, error) {
-	log.Info("creating discord bot")
+	slog.Info("creating discord bot")
 	b, err := discordgo.New(fmt.Sprintf("Bot %s", settings.GetString("DISCORD.BOT_TOKEN")))
 	if err != nil {
 		return nil, err
@@ -101,7 +100,6 @@ func New() (*Bot, error) {
 	}
 
 	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions + discordgo.PermissionAdministrator
-	// b.Identify.Intents = discordgo.PermissionAdministrator
 	b.Client.Timeout = 5 * time.Second
 
 	bot = &Bot{
@@ -130,19 +128,19 @@ func GetBot() (*Bot, error) {
 func (b *Bot) Setup() error {
 	defer func() {
 		if err := b.UpdateCustomStatus("ready to serve"); err != nil {
-			log.WithError(err).Error("failed to update custom status")
+			b.logger.Error("failed to update custom status", "error", err)
 		}
 	}()
 
 	b.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.Ready) {
-		log.WithField("user", r.User.Username).Info("bot is ready")
+		b.logger.Info("bot is ready", "user", r.User.Username)
 	})
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		member, err := members.Get(i.Member.User.ID)
 		if err != nil {
 			if !errors.Is(err, members.MemberNotFound) {
-				log.WithError(err).Error("getting member for incomming interaction")
+				b.logger.Error("getting member for incoming interaction", "error", err)
 				_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -158,33 +156,33 @@ func (b *Bot) Setup() error {
 
 		ctx := utils.SetMemberToContext(b.ctx, member)
 
-		logger := log.WithFields(log.Fields{
-			"guild": b.GuildId,
-			"user":  i.Member.User.ID,
-		})
+		logger := b.logger.With(
+			"guild", b.GuildId,
+			"user", i.Member.User.ID,
+		)
 
 		switch i.Type {
 		case discordgo.InteractionApplicationCommand:
-			logger = logger.WithFields(log.Fields{
-				"interaction_type": "application command",
-				"name":             i.ApplicationCommandData().Name,
-			})
+			logger = logger.With(
+				"interaction_type", "application command",
+				"name", i.ApplicationCommandData().Name,
+			)
 			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-				ctx = utils.SetLoggerToContext(ctx, logger.WithField("interaction_type", "application command"))
+				ctx = utils.SetLoggerToContext(ctx, logger.With("interaction_type", "application command"))
 				err = h(ctx, s, i)
 			}
 		case discordgo.InteractionApplicationCommandAutocomplete:
 			parentCommandData := i.ApplicationCommandData()
 
-			logger = logger.WithFields(log.Fields{
-				"interaction_type": "application command autocomplete",
-				"command":          parentCommandData.Name,
-			})
+			logger = logger.With(
+				"interaction_type", "application command autocomplete",
+				"command", parentCommandData.Name,
+			)
 
 			if handler, ok := autocompleteHandlers[parentCommandData.Name]; ok {
-				ctx = utils.SetLoggerToContext(ctx, logger.WithFields(log.Fields{
-					"command": parentCommandData.Options[0].Name,
-				}))
+				ctx = utils.SetLoggerToContext(ctx, logger.With(
+					"command", parentCommandData.Options[0].Name,
+				))
 				err = handler(ctx, s, i)
 			}
 		case discordgo.InteractionMessageComponent:
@@ -192,11 +190,11 @@ func (b *Bot) Setup() error {
 			command := commandSplit[0]
 			subcommand := commandSplit[1]
 
-			logger = logger.WithFields(log.Fields{
-				"interaction_type": "message command",
-				"custom_id":        i.MessageComponentData().CustomID,
-				"button_command":   command,
-			})
+			logger = logger.With(
+				"interaction_type", "message command",
+				"custom_id", i.MessageComponentData().CustomID,
+				"button_command", command,
+			)
 
 			ctx = utils.SetLoggerToContext(ctx, logger)
 			switch command {
@@ -213,9 +211,9 @@ func (b *Bot) Setup() error {
 			}
 
 		case discordgo.InteractionModalSubmit:
-			logger = logger.WithFields(log.Fields{
-				"interaction_type": "modal submit",
-			})
+			logger = logger.With(
+				"interaction_type", "modal submit",
+			)
 			ctx = utils.SetLoggerToContext(ctx, logger)
 			command := strings.Split(i.ModalSubmitData().CustomID, ":")
 			subCommand := command[1]
@@ -265,9 +263,9 @@ func (b *Bot) Setup() error {
 
 			switch i.Interaction.Type {
 			case discordgo.InteractionApplicationCommand:
-				logger.WithFields(log.Fields{
-					"command_data": i.ApplicationCommandData(),
-				}).WithError(err).Error("running command")
+				logger.Error("running command",
+					"command_data", i.ApplicationCommandData(),
+					"error", err)
 				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -275,18 +273,18 @@ func (b *Bot) Setup() error {
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				}); err != nil {
-					logger.WithError(err).Warn("creating interaction response")
+					logger.Warn("creating interaction response", "error", err)
 					if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 						Content: msg,
 						Flags:   discordgo.MessageFlagsEphemeral,
 					}); err != nil {
-						logger.WithError(err).Error("creating followup message")
+						logger.Error("creating followup message", "error", err)
 					}
 				}
 			case discordgo.InteractionMessageComponent:
-				logger.WithFields(log.Fields{
-					"component_data": i.MessageComponentData(),
-				}).WithError(err).Error("running command")
+				logger.Error("running command",
+					"component_data", i.MessageComponentData(),
+					"error", err)
 				if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 					Type: discordgo.InteractionResponseChannelMessageWithSource,
 					Data: &discordgo.InteractionResponseData{
@@ -294,26 +292,26 @@ func (b *Bot) Setup() error {
 						Flags:   discordgo.MessageFlagsEphemeral,
 					},
 				}); err != nil {
-					logger.WithError(err).Warn("creating component interaction response")
+					logger.Warn("creating component interaction response", "error", err)
 					if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 						Content: msg,
 						Flags:   discordgo.MessageFlagsEphemeral,
 					}); err != nil {
-						logger.WithError(err).Error("creating component followup message")
+						logger.Error("creating component followup message", "error", err)
 					}
 				}
 			case discordgo.InteractionModalSubmit:
-				logger.WithFields(log.Fields{
-					"modal_data": i.ModalSubmitData(),
-				}).WithError(err).Error("running command")
+				logger.Error("running command",
+					"modal_data", i.ModalSubmitData(),
+					"error", err)
 				if _, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 					Content: msg,
 					Flags:   discordgo.MessageFlagsEphemeral,
 				}); err != nil {
-					logger.WithError(err).Error("creating component followup message")
+					logger.Error("creating component followup message", "error", err)
 				}
 			default:
-				logger.WithField("interaction_type", i.Interaction.Type).Error("unknown interaction type")
+				logger.Error("unknown interaction type", "interaction_type", i.Interaction.Type)
 			}
 		}
 	})
@@ -332,7 +330,7 @@ func (b *Bot) Setup() error {
 	// register commands
 
 	// misc commands
-	log.Debug("creating profile command")
+	slog.Debug("creating profile command")
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "profile",
 		Description: "View your profile",
@@ -354,7 +352,7 @@ func (b *Bot) Setup() error {
 		return errors.Wrap(err, "creating profile command")
 	}
 
-	log.Debug("creating help command")
+	slog.Debug("creating help command")
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "help",
 		Description: "View help",
@@ -363,7 +361,7 @@ func (b *Bot) Setup() error {
 	}
 
 	// rank up
-	log.Debug("creating rankup command")
+	slog.Debug("creating rankup command")
 	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "rankups",
 		Description: "Rank up your RSI profile",
@@ -373,7 +371,7 @@ func (b *Bot) Setup() error {
 
 	// attendance
 	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
-		log.Debug("using attendance feature")
+		slog.Debug("using attendance feature")
 
 		cmd, err := attendancehandler.Setup()
 		if err != nil {
@@ -387,7 +385,7 @@ func (b *Bot) Setup() error {
 
 	// merit
 	if settings.GetBool("FEATURES.MERIT.ENABLE") {
-		log.Debug("using merit feature")
+		slog.Debug("using merit feature")
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 			Name:        "merit",
 			Description: "give a merit to a member",
@@ -441,7 +439,7 @@ func (b *Bot) Setup() error {
 
 	// tokens
 	if settings.GetBool("FEATURES.TOKENS.ENABLE") {
-		log.Debug("using tokens feature")
+		slog.Debug("using tokens feature")
 		cmd, err := tokenshandler.Setup()
 		if err != nil {
 			return errors.Wrap(err, "setting tokens commands")
@@ -454,7 +452,7 @@ func (b *Bot) Setup() error {
 
 	// raffles
 	if settings.GetBool("FEATURES.RAFFLES.ENABLE") {
-		log.Debug("using raffles feature")
+		slog.Debug("using raffles feature")
 		cmd, err := rafflehandler.Setup()
 		if err != nil {
 			return errors.Wrap(err, "setting raffles commands")
@@ -467,7 +465,7 @@ func (b *Bot) Setup() error {
 
 	// giveaways
 	if settings.GetBool("FEATURES.GIVEAWAYS.ENABLE") {
-		log.Debug("using giveaways feature")
+		slog.Debug("using giveaways feature")
 		if err := giveaway.Load(b.Session); err != nil {
 			return errors.Wrap(err, "loading giveaways")
 		}
@@ -503,10 +501,11 @@ func (b *Bot) Setup() error {
 }
 
 func (b *Bot) Close() error {
-	log.Info("stopping bot")
+	b.logger.Info("stopping bot")
 
+	clearStatusMessages()
 	if err := b.UpdateCustomStatus("shutting down"); err != nil {
-		log.WithError(err).Error("failed to update custom status")
+		b.logger.Error("failed to update custom status", "error", err)
 	}
 
 	// clear commands
@@ -516,7 +515,7 @@ func (b *Bot) Close() error {
 	}
 
 	for _, cmd := range cmds {
-		log.WithField("command", cmd.Name).Debug("deleting command")
+		b.logger.Debug("deleting command", "command", cmd.Name)
 		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
 			return err
 		}

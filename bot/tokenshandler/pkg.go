@@ -4,7 +4,6 @@ import (
 	"context"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/utils"
@@ -94,7 +93,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 }
 
 func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("tokens command handler")
 
 	if !utils.Allowed(i.Member, "TOKENS") {
@@ -111,7 +110,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 }
 
 func AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("tokens autocomplete handler")
 
 	data := i.ApplicationCommandData()
@@ -124,7 +123,7 @@ func AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 }
 
 func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("tokens button handler")
 
 	command := strings.Split(i.MessageComponentData().CustomID, ":")[1]

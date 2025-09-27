@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/tokens"
@@ -13,7 +12,7 @@ import (
 )
 
 func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle end button")
 
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{

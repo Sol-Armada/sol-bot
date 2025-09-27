@@ -1,10 +1,9 @@
 package systemd
 
 import (
+	"log/slog"
 	"net"
 	"os"
-
-	"github.com/apex/log"
 )
 
 // Notify sends a notification to systemd
@@ -12,7 +11,7 @@ func Notify(state string) error {
 	socketPath := os.Getenv("NOTIFY_SOCKET")
 	if socketPath == "" {
 		// Not running under systemd, skip notification
-		log.Debug("NOTIFY_SOCKET not set, skipping systemd notification")
+		slog.Debug("NOTIFY_SOCKET not set, skipping systemd notification")
 		return nil
 	}
 
@@ -29,7 +28,7 @@ func Notify(state string) error {
 		return err
 	}
 
-	log.WithField("state", state).Debug("sent systemd notification")
+	slog.Debug("sent systemd notification", "state", state)
 	return nil
 }
 

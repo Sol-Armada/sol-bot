@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
@@ -19,7 +18,7 @@ import (
 )
 
 func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx).(*log.Entry)
+	logger := utils.GetLoggerFromContext(ctx)
 
 	if len(i.Member.Roles) == 0 {
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -96,7 +95,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 						return errors.Wrap(err, "getting rsi info")
 					}
 
-					logger.WithFields(log.Fields{"member": otherMember, "error": err.Error()}).Debug("rsi user not found")
+					logger.Debug("rsi user not found", "member", otherMember, "error", err.Error())
 					otherMember.RSIMember = false
 				}
 
@@ -208,7 +207,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 
 	balance, err := tokens.GetBalanceByMemberId(member.Id)
 	if err != nil {
-		logger.WithError(err).Error("getting balance")
+		logger.Error("getting balance", "error", err)
 		balance = 0
 	}
 
