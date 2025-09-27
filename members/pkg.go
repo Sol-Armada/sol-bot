@@ -235,6 +235,64 @@ func (m *Member) Save() error {
 	return membersStore.Upsert(m.Id, memberMap)
 }
 
+func BulkSave(members []Member) error {
+	if len(members) == 0 {
+		return nil
+	}
+
+	memberMaps := make([]interface{}, 0, len(members))
+	now := time.Now().UTC()
+
+	for _, member := range members {
+		member.Updated = now
+
+		memberMap := member.ToMap()
+		memberMap["_id"] = memberMap["id"]
+		delete(memberMap, "id")
+
+		if recruiter, ok := memberMap["recruiter"].(map[string]any); ok {
+			memberMap["recruiter"] = recruiter["id"]
+		}
+
+		if member.MemberSince.IsZero() {
+			memberMap["member_since"] = member.Joined.UTC()
+		}
+
+		// convert go datetimes to mongo datetimes
+		memberMap["joined"] = member.Joined.UTC()
+		memberMap["updated"] = member.Updated.UTC()
+
+		if member.ValidatedAt != nil {
+			memberMap["validated_at"] = member.ValidatedAt.UTC()
+		}
+
+		if member.OnboardedAt != nil {
+			memberMap["onboarded_at"] = member.OnboardedAt.UTC()
+		}
+
+		memberMaps = append(memberMaps, memberMap)
+	}
+
+	return membersStore.BulkUpsert(memberMaps)
+}
+
+func GetStoredMemberIDs() ([]string, error) {
+	return membersStore.GetIDsOnly()
+}
+
+func ValidateDiscordMembers(discordMembers []*discordgo.Member) []*discordgo.Member {
+	validMembers := make([]*discordgo.Member, 0, len(discordMembers))
+
+	for _, member := range discordMembers {
+		if member == nil || member.User == nil || member.User.Bot {
+			continue
+		}
+		validMembers = append(validMembers, member)
+	}
+
+	return validMembers
+}
+
 func (m *Member) IsAdmin() bool {
 	logger := slog.Default().With("id", m.Id)
 	logger.Debug("checking if admin")

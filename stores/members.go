@@ -109,3 +109,55 @@ func (s *MembersStore) Upsert(id string, member any) error {
 func (s *MembersStore) Delete(id string) error {
 	return s.FindOneAndDelete(s.ctx, bson.D{{Key: "_id", Value: id}}).Err()
 }
+
+func (s *MembersStore) BulkUpsert(members []interface{}) error {
+	if len(members) == 0 {
+		return nil
+	}
+
+	var operations []mongo.WriteModel
+
+	for _, member := range members {
+		memberMap, ok := member.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		id := memberMap["_id"]
+
+		operation := mongo.NewReplaceOneModel().
+			SetFilter(bson.D{{Key: "_id", Value: id}}).
+			SetReplacement(memberMap).
+			SetUpsert(true)
+
+		operations = append(operations, operation)
+	}
+
+	if len(operations) == 0 {
+		return nil
+	}
+
+	_, err := s.BulkWrite(s.ctx, operations)
+	return err
+}
+
+func (s *MembersStore) GetIDsOnly() ([]string, error) {
+	cursor, err := s.Find(s.ctx, bson.D{}, options.Find().SetProjection(bson.D{{Key: "_id", Value: 1}}))
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(s.ctx)
+
+	var ids []string
+	for cursor.Next(s.ctx) {
+		var result struct {
+			ID string `bson:"_id"`
+		}
+		if err := cursor.Decode(&result); err != nil {
+			continue
+		}
+		ids = append(ids, result.ID)
+	}
+
+	return ids, cursor.Err()
+}
