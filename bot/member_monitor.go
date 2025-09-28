@@ -172,13 +172,17 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 	// Track processing errors
 	var processingErrors []error
 
-	// Create RSI backoff for rate limiting
-	rsiBackoff := utils.NewExponentialBackoff(
+	// Create RSI backoff for rate limiting with skip condition for user not found errors
+	rsiBackoff := utils.NewExponentialBackoffWithSkipCondition(
 		1*time.Second,  // initial delay
 		rsiAPIMaxDelay, // max delay for RSI calls
 		2.0,            // multiplier
 		rsiAPIRetries,  // max retries for RSI
 		logger,
+		func(err error) bool {
+			// Skip retries for 404/user not found errors or 403/forbidden errors
+			return errors.Is(err, rsi.ErrUserNotFound) || errors.Is(err, rsi.ErrForbidden)
+		},
 	)
 
 	logger.Info(fmt.Sprintf("updating %d members", len(discordMembers)))

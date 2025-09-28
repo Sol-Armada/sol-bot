@@ -6,11 +6,12 @@ import (
 )
 
 type ExponentialBackoff struct {
-	InitialDelay time.Duration
-	MaxDelay     time.Duration
-	Multiplier   float64
-	MaxRetries   int
-	logger       *slog.Logger
+	InitialDelay    time.Duration
+	MaxDelay        time.Duration
+	Multiplier      float64
+	MaxRetries      int
+	logger          *slog.Logger
+	shouldSkipRetry func(error) bool
 }
 
 func NewExponentialBackoff(initialDelay, maxDelay time.Duration, multiplier float64, maxRetries int, logger *slog.Logger) *ExponentialBackoff {
@@ -23,6 +24,18 @@ func NewExponentialBackoff(initialDelay, maxDelay time.Duration, multiplier floa
 	}
 }
 
+// NewExponentialBackoffWithSkipCondition creates a new ExponentialBackoff with a custom skip condition
+func NewExponentialBackoffWithSkipCondition(initialDelay, maxDelay time.Duration, multiplier float64, maxRetries int, logger *slog.Logger, shouldSkipRetry func(error) bool) *ExponentialBackoff {
+	return &ExponentialBackoff{
+		InitialDelay:    initialDelay,
+		MaxDelay:        maxDelay,
+		Multiplier:      multiplier,
+		MaxRetries:      maxRetries,
+		logger:          logger,
+		shouldSkipRetry: shouldSkipRetry,
+	}
+}
+
 func (eb *ExponentialBackoff) Execute(operation func() error) error {
 	var err error
 	delay := eb.InitialDelay
@@ -31,6 +44,14 @@ func (eb *ExponentialBackoff) Execute(operation func() error) error {
 		err = operation()
 		if err == nil {
 			return nil
+		}
+
+		// Check if we should skip retries for this error
+		if eb.shouldSkipRetry != nil && eb.shouldSkipRetry(err) {
+			eb.logger.Debug("skipping retry due to error condition",
+				"error", err,
+				"attempt", attempt+1)
+			return err
 		}
 
 		if attempt == eb.MaxRetries {

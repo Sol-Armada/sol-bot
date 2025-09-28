@@ -229,9 +229,9 @@ func (app *Application) start() error {
 		}
 	}
 
-	// Initialize bot
-	if err := app.initializeBot(); err != nil {
-		return fmt.Errorf("failed to initialize bot: %w", err)
+	// Initialize bot with exponential backoff
+	if err := app.initializeBotWithBackoff(); err != nil {
+		return fmt.Errorf("failed to initialize bot after retries: %w", err)
 	}
 
 	// Initialize scheduler
@@ -273,6 +273,53 @@ func (app *Application) initializeBot() error {
 	}
 
 	return nil
+}
+
+// initializeBotWithBackoff initializes the bot with exponential backoff retry logic
+func (app *Application) initializeBotWithBackoff() error {
+	maxAttempts := 10
+	baseDelay := 30 * time.Second
+	maxDelay := 600 * time.Second
+
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		logger.Info("attempting to initialize bot", "attempt", attempt, "max_attempts", maxAttempts)
+
+		if app.cfg.Features.SystemdIntegration {
+			status := fmt.Sprintf("Initializing bot (attempt %d/%d)...", attempt, maxAttempts)
+			if err := systemd.Status(status); err != nil {
+				logger.Warn("failed to set systemd status", "error", err)
+			}
+		}
+
+		err := app.initializeBot()
+		if err == nil {
+			logger.Info("bot initialized successfully", "attempt", attempt)
+			return nil
+		}
+
+		logger.Error("bot initialization failed", "attempt", attempt, "error", err)
+
+		// Don't wait after the last attempt
+		if attempt == maxAttempts {
+			break
+		}
+
+		// Calculate exponential backoff delay: 2^(attempt-1) * baseDelay, capped at maxDelay
+		delay := min(time.Duration(1<<(attempt-1))*baseDelay, maxDelay)
+
+		logger.Info("retrying bot initialization", "delay", delay, "next_attempt", attempt+1)
+
+		if app.cfg.Features.SystemdIntegration {
+			status := fmt.Sprintf("Initialization failed, retrying in %v...", delay)
+			if err := systemd.Status(status); err != nil {
+				logger.Warn("failed to set systemd status", "error", err)
+			}
+		}
+
+		time.Sleep(delay)
+	}
+
+	return fmt.Errorf("failed to initialize bot after %d attempts", maxAttempts)
 }
 
 // initializeScheduler creates and configures the job scheduler

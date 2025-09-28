@@ -23,6 +23,8 @@ var (
 	ErrInvalidConfig = errors.New("invalid RSI configuration")
 	// ErrRequestFailed is returned when an RSI request fails
 	ErrRequestFailed = errors.New("rsi request failed")
+	// ErrForbidden is returned when access to RSI is forbidden
+	ErrForbidden = errors.New("access to rsi is forbidden")
 
 	// Deprecated: Use ErrUserNotFound instead
 	RsiUserNotFound = ErrUserNotFound
@@ -101,6 +103,8 @@ func (client *RSIClient) UpdateRsiInfo(ctx context.Context, member *members.Memb
 		switch r.StatusCode {
 		case 404:
 			err = ErrUserNotFound
+		case 403:
+			err = ErrForbidden
 		case 200:
 			// OK, do nothing
 		default:
@@ -239,10 +243,15 @@ func (client *RSIClient) GetBio(ctx context.Context, handle string) (string, err
 	bio := ""
 
 	c.OnResponse(func(r *colly.Response) {
-		if r.StatusCode == 404 {
+		switch r.StatusCode {
+		case 404:
 			err = ErrUserNotFound
-		} else if r.StatusCode != 200 {
-			err = fmt.Errorf("%w: status code %d", ErrRequestFailed, r.StatusCode)
+		case 403:
+			err = ErrForbidden
+		default:
+			if r.StatusCode != 200 {
+				err = fmt.Errorf("%w: status code %d", ErrRequestFailed, r.StatusCode)
+			}
 		}
 	})
 
