@@ -70,7 +70,7 @@ func MemberMonitor(ctx context.Context, logger *slog.Logger) error {
 	}
 
 	// Clean up members no longer in Discord
-	if err := cleanupRemovedMembers(logger, validDiscordMembers); err != nil {
+	if err := cleanupRemovedMembers(ctx, logger, validDiscordMembers); err != nil {
 		return errors.Wrap(err, "cleaning up removed members")
 	}
 
@@ -195,10 +195,7 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		default:
 		}
 
-		chunkEnd := chunkStart + memberProcessingChunkSize
-		if chunkEnd > len(discordMembers) {
-			chunkEnd = len(discordMembers)
-		}
+		chunkEnd := min(chunkStart+memberProcessingChunkSize, len(discordMembers))
 
 		chunk := discordMembers[chunkStart:chunkEnd]
 		chunkMembersToSave := make([]members.Member, 0, len(chunk))
@@ -207,7 +204,7 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		upsertStatusMessage("member_monitor", fmt.Sprintf("Updating members... (%d/%d)", chunkEnd, len(discordMembers)))
 
 		// Process each member in the chunk
-		processedMembers := processChunkMembers(chunk, chunkStart, recruitRoleID, allyRoleID, rsiBackoff, logger, &processingErrors)
+		processedMembers := processChunkMembers(ctx, chunk, chunkStart, recruitRoleID, allyRoleID, rsiBackoff, logger, &processingErrors)
 		chunkMembersToSave = append(chunkMembersToSave, processedMembers...)
 
 		// Save chunk in batch
@@ -330,7 +327,7 @@ func fetchDiscordMembersWithRateLimit(logger *slog.Logger, discordMembers *[]*di
 }
 
 // cleanupRemovedMembers removes stored members that are no longer in Discord
-func cleanupRemovedMembers(logger *slog.Logger, validDiscordMembers []*discordgo.Member) error {
+func cleanupRemovedMembers(ctx context.Context, logger *slog.Logger, validDiscordMembers []*discordgo.Member) error {
 	logger.Debug("getting stored member IDs for cleanup")
 	storedMemberIDs, err := members.GetStoredMemberIDs()
 	if err != nil {
@@ -346,6 +343,13 @@ func cleanupRemovedMembers(logger *slog.Logger, validDiscordMembers []*discordgo
 	deletedCount := 0
 
 	for _, storedMemberID := range storedMemberIDs {
+		select {
+		case <-ctx.Done():
+			logger.Info("member cleanup cancelled")
+			return nil
+		default:
+		}
+
 		if !discordMemberMap[storedMemberID] {
 			if deleted := deleteStoredMemberIfNeeded(logger, storedMemberID); deleted {
 				deletedCount++
@@ -399,6 +403,7 @@ func deleteStoredMemberIfNeeded(logger *slog.Logger, storedMemberID string) bool
 
 // processChunkMembers processes a chunk of Discord members and returns the updated members
 func processChunkMembers(
+	ctx context.Context,
 	chunk []*discordgo.Member,
 	chunkStart int,
 	recruitRoleID, allyRoleID string,
@@ -409,6 +414,13 @@ func processChunkMembers(
 	chunkMembers := make([]members.Member, 0, len(chunk))
 
 	for i, discordMember := range chunk {
+		select {
+		case <-ctx.Done():
+			logger.Info("member chunk processing cancelled")
+			return chunkMembers
+		default:
+		}
+
 		globalIndex := chunkStart + i
 		mlogger := logger.With(
 			"id", discordMember.User.ID,
