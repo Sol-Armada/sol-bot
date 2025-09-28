@@ -19,6 +19,21 @@ import (
 
 var logger *slog.Logger
 
+const (
+	// Processing constants
+	memberProcessingChunkSize = 50
+	discordAPIRetries         = 3
+	rsiAPIRetries             = 2
+
+	// Timeout constants
+	discordAPIMaxDelay = 5 * time.Minute
+	rsiAPIMaxDelay     = 30 * time.Second
+	healthCheckDelay   = 10 * time.Second
+)
+
+// MemberMonitor is the main function that orchestrates the member monitoring process.
+// It fetches Discord members, validates them, updates their information in the database,
+// and cleans up members who are no longer in the Discord server.
 func MemberMonitor(ctx context.Context, logger *slog.Logger) error {
 	defer func() {
 		if err := recover(); err != nil {
@@ -36,115 +51,28 @@ func MemberMonitor(ctx context.Context, logger *slog.Logger) error {
 
 	if !health.IsHealthy() {
 		logger.Debug("not healthy")
-		time.Sleep(10 * time.Second)
+		time.Sleep(healthCheckDelay)
 		return errors.New("not healthy")
 	}
 
 	start := time.Now().UTC()
 	logger.Info("scanning members")
 
-	// Create exponential backoff for Discord API calls
-	backoff := utils.NewExponentialBackoff(
-		1*time.Second, // initial delay
-		5*time.Minute, // max delay
-		2.0,           // multiplier
-		3,             // max retries
-		logger,
-	)
-
-	var discordMembers []*discordgo.Member
-	err := backoff.Execute(func() error {
-		// rate limit protection
-		if bot.Ratelimiter != nil {
-			rateBucket := bot.Ratelimiter.GetBucket("guild_member_check")
-			if rateBucket != nil && rateBucket.Remaining == 0 {
-				logger.Warn("hit a rate limit. waiting for rate limit to reset")
-				time.Sleep(bot.Ratelimiter.GetWaitTime(rateBucket, 0))
-			}
-		}
-
-		// Double-check bot is not nil before calling
-		if bot == nil {
-			return errors.New("bot instance is nil")
-		}
-
-		logger.Debug("calling bot.GetDiscordMembers()")
-		var fetchErr error
-		discordMembers, fetchErr = bot.GetDiscordMembers(logger)
-		if fetchErr != nil {
-			if strings.Contains(fetchErr.Error(), "Forbidden") {
-				logger.Warn("discord service issue - forbidden access")
-				return fetchErr
-			}
-			return errors.Wrap(fetchErr, "getting discord members")
-		}
-
-		return nil
-	})
-
+	// Fetch and validate Discord members
+	validDiscordMembers, err := fetchAndValidateDiscordMembers(logger)
 	if err != nil {
-		return errors.Wrap(err, "failed to get discord members after retries")
+		return errors.Wrap(err, "failed to fetch discord members")
 	}
 
-	logger.Info(fmt.Sprintf("got %d discord members", len(discordMembers)))
-
-	// Validate and filter discord members
-	validDiscordMembers := members.ValidateDiscordMembers(discordMembers)
-	logger.Info(fmt.Sprintf("filtered to %d valid discord members", len(validDiscordMembers)))
-
-	// actually do the members update
+	// Update members
 	if err := updateMembers(ctx, logger, validDiscordMembers); err != nil {
 		return errors.Wrap(err, "updating members")
 	}
 
-	logger.Debug("getting stored member IDs for cleanup")
-	storedMemberIDs, err := members.GetStoredMemberIDs()
-	if err != nil {
-		logger.Error("failed to get stored member IDs", "error", err)
-		return errors.Wrap(err, "getting stored member IDs")
+	// Clean up members no longer in Discord
+	if err := cleanupRemovedMembers(logger, validDiscordMembers); err != nil {
+		return errors.Wrap(err, "cleaning up removed members")
 	}
-	logger.Debug("retrieved stored member IDs", "count", len(storedMemberIDs))
-
-	// do some cleaning - create a map of Discord member IDs for efficient lookup
-	logger.Debug("creating discord member map", "member_count", len(validDiscordMembers))
-	discordMemberMap := make(map[string]bool, len(validDiscordMembers))
-	for _, discordMember := range validDiscordMembers {
-		discordMemberMap[discordMember.User.ID] = true
-	}
-
-	logger.Debug("cleaning up stored members")
-	deletedCount := 0
-	for _, storedMemberID := range storedMemberIDs {
-		if !discordMemberMap[storedMemberID] {
-			memberLogger := logger.With("stored_member_id", storedMemberID)
-			memberLogger.Debug("deleting stored member", "reason", "not_in_discord")
-
-			// Get the member to check if it's a bot before deleting
-			storedMember, getMemberErr := members.Get(storedMemberID)
-			if getMemberErr != nil && !errors.Is(getMemberErr, members.MemberNotFound) {
-				memberLogger.Error("getting member for deletion check", "error", getMemberErr)
-				continue
-			}
-
-			// Skip deletion if member is not found (already deleted) or if it's a bot that should be kept
-			if errors.Is(getMemberErr, members.MemberNotFound) {
-				continue
-			}
-
-			if storedMember.IsBot {
-				memberLogger.Debug("skipping bot member deletion")
-				continue
-			}
-
-			if err := storedMember.Delete(); err != nil {
-				memberLogger.Error("deleting member", "error", err)
-				continue
-			}
-			deletedCount++
-			memberLogger.Debug("member deleted successfully")
-		}
-	}
-	logger.Debug("cleanup completed", "deleted_count", deletedCount)
 
 	logger.Info("members updated", "count", len(validDiscordMembers), "duration", time.Since(start))
 	return nil
@@ -194,13 +122,6 @@ func (b *Bot) GetDiscordMembers(logger *slog.Logger) ([]*discordgo.Member, error
 	logger.Debug("guild lookup successful", "guild_name", guild.Name, "member_count", guild.MemberCount)
 
 	logger.Debug("about to call b.GuildMembers", "guild_id", b.GuildId)
-
-	// Add defer to catch any panic in the Discord API call
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Error("panic in GuildMembers call", "panic", r, "guild_id", b.GuildId)
-		}
-	}()
 
 	// Log the exact parameters being used
 	logger.Debug("GuildMembers parameters", "guild_id", b.GuildId, "after", "", "limit", 1000)
@@ -254,9 +175,9 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 	// Create RSI backoff for rate limiting
 	rsiBackoff := utils.NewExponentialBackoff(
 		1*time.Second,  // initial delay
-		30*time.Second, // max delay for RSI calls
+		rsiAPIMaxDelay, // max delay for RSI calls
 		2.0,            // multiplier
-		2,              // max retries for RSI
+		rsiAPIRetries,  // max retries for RSI
 		logger,
 	)
 
@@ -266,8 +187,7 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 	}
 
 	// Process members in chunks to reduce memory usage and improve performance
-	const chunkSize = 50
-	for chunkStart := 0; chunkStart < len(discordMembers); chunkStart += chunkSize {
+	for chunkStart := 0; chunkStart < len(discordMembers); chunkStart += memberProcessingChunkSize {
 		select {
 		case <-ctx.Done():
 			logger.Info("member update cancelled")
@@ -275,7 +195,7 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		default:
 		}
 
-		chunkEnd := chunkStart + chunkSize
+		chunkEnd := chunkStart + memberProcessingChunkSize
 		if chunkEnd > len(discordMembers) {
 			chunkEnd = len(discordMembers)
 		}
@@ -286,75 +206,9 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		logger.Debug("processing chunk", "start", chunkStart, "end", chunkEnd, "size", len(chunk))
 		upsertStatusMessage("member_monitor", fmt.Sprintf("Updating members... (%d/%d)", chunkEnd, len(discordMembers)))
 
-		for i, discordMember := range chunk {
-			globalIndex := chunkStart + i
-
-			mlogger := logger.With(
-				"id", discordMember.User.ID,
-				"name", discordMember.DisplayName(),
-				"index", globalIndex)
-
-			mlogger.Debug("updating member")
-
-			// get the stored user, if we have one
-			mlogger.Debug("getting stored member")
-			member, err := members.Get(discordMember.User.ID)
-			if err != nil {
-				if !errors.Is(err, members.MemberNotFound) {
-					mlogger.Error("getting member for update", "error", err)
-					processingErrors = append(processingErrors, err)
-					continue
-				}
-
-				mlogger.Debug("creating new member")
-				member = members.New(discordMember)
-				if member == nil {
-					mlogger.Error("members.New returned nil")
-					continue
-				}
-			}
-
-			mlogger.Debug("member retrieved/created", "member_nil", member == nil)
-
-			// Update basic member fields
-			mlogger.Debug("updating member fields", "current_name", member.Name)
-			truenick := member.GetTrueNick(discordMember)
-			mlogger.Debug("got true nick", "truenick", truenick)
-			member.Name = strings.ReplaceAll(truenick, ".", "")
-
-			if member.Joined.IsZero() {
-				mlogger.Debug("setting joined date", "joined_at", discordMember.JoinedAt)
-				member.Joined = discordMember.JoinedAt.UTC()
-			}
-
-			// Update avatar
-			member.Avatar = discordMember.User.Avatar
-
-			// Process roles efficiently - create role map once
-			roleMap := createRoleMap(discordMember.Roles, mlogger)
-			updateMemberRoles(member, roleMap, recruitRoleID, allyRoleID, mlogger)
-
-			// RSI related stuff with better error handling
-			mlogger.Debug("updating RSI info")
-			err = rsiBackoff.Execute(func() error {
-				return rsi.UpdateRsiInfo(member)
-			})
-
-			if err != nil {
-				if errors.Is(err, rsi.RsiUserNotFound) {
-					mlogger.Debug("rsi user not found", "error", err)
-					member.RSIMember = false
-				} else {
-					mlogger.Warn("failed to update RSI info after retries", "error", err)
-					// Don't fail the entire operation for RSI issues
-					member.RSIMember = false
-				}
-			}
-
-			// Add to chunk batch for saving
-			mlogger.Debug("adding member to chunk save batch")
-			chunkMembersToSave = append(chunkMembersToSave, *member)
-		}
+		// Process each member in the chunk
+		processedMembers := processChunkMembers(chunk, chunkStart, recruitRoleID, allyRoleID, rsiBackoff, logger, &processingErrors)
+		chunkMembersToSave = append(chunkMembersToSave, processedMembers...)
 
 		// Save chunk in batch
 		if len(chunkMembersToSave) > 0 {
@@ -362,9 +216,9 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 			if err := members.BulkSave(chunkMembersToSave); err != nil {
 				logger.Error("bulk saving chunk", "error", err)
 				processingErrors = append(processingErrors, err)
-			} else {
-				logger.Debug("chunk saved successfully", "count", len(chunkMembersToSave))
+				continue
 			}
+			logger.Debug("chunk saved successfully", "count", len(chunkMembersToSave))
 		}
 	}
 
@@ -401,13 +255,250 @@ func updateMemberRoles(member *members.Member, roleMap map[string]bool, recruitR
 		logger.Debug("is recruit")
 		member.Rank = ranks.Recruit
 		member.IsGuest = false
-	} else if roleMap[allyRoleID] {
+		return
+	}
+
+	if roleMap[allyRoleID] {
 		logger.Debug("is ally")
 		member.Rank = ranks.None
 		member.IsAlly = true
 		member.IsGuest = false
-	} else {
-		// Default to guest if no specific roles found
-		member.IsGuest = true
+		return
 	}
+
+	// Default to guest if no specific roles found
+	member.IsGuest = true
+}
+
+// fetchAndValidateDiscordMembers fetches Discord members with retry logic and validates them
+func fetchAndValidateDiscordMembers(logger *slog.Logger) ([]*discordgo.Member, error) {
+	// Create exponential backoff for Discord API calls
+	backoff := utils.NewExponentialBackoff(
+		1*time.Second,      // initial delay
+		discordAPIMaxDelay, // max delay
+		2.0,                // multiplier
+		discordAPIRetries,  // max retries
+		logger,
+	)
+
+	var discordMembers []*discordgo.Member
+	err := backoff.Execute(func() error {
+		return fetchDiscordMembersWithRateLimit(logger, &discordMembers)
+	})
+
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to get discord members after retries")
+	}
+
+	logger.Info("discord members fetched", "count", len(discordMembers))
+
+	// Validate and filter discord members
+	validMembers := members.ValidateDiscordMembers(discordMembers)
+	logger.Info("discord members validated", "valid_count", len(validMembers), "filtered_out", len(discordMembers)-len(validMembers))
+
+	return validMembers, nil
+}
+
+// fetchDiscordMembersWithRateLimit handles rate limiting and API calls
+func fetchDiscordMembersWithRateLimit(logger *slog.Logger, discordMembers *[]*discordgo.Member) error {
+	// Rate limit protection
+	if bot.Ratelimiter != nil {
+		rateBucket := bot.Ratelimiter.GetBucket("guild_member_check")
+		if rateBucket != nil && rateBucket.Remaining == 0 {
+			logger.Warn("hit a rate limit. waiting for rate limit to reset")
+			time.Sleep(bot.Ratelimiter.GetWaitTime(rateBucket, 0))
+		}
+	}
+
+	// Double-check bot is not nil before calling
+	if bot == nil {
+		return errors.New("bot instance is nil")
+	}
+
+	logger.Debug("calling bot.GetDiscordMembers()")
+	var fetchErr error
+	*discordMembers, fetchErr = bot.GetDiscordMembers(logger)
+	if fetchErr != nil {
+		if strings.Contains(fetchErr.Error(), "Forbidden") {
+			logger.Warn("discord service issue - forbidden access")
+			return fetchErr
+		}
+		return errors.Wrap(fetchErr, "getting discord members")
+	}
+
+	return nil
+}
+
+// cleanupRemovedMembers removes stored members that are no longer in Discord
+func cleanupRemovedMembers(logger *slog.Logger, validDiscordMembers []*discordgo.Member) error {
+	logger.Debug("getting stored member IDs for cleanup")
+	storedMemberIDs, err := members.GetStoredMemberIDs()
+	if err != nil {
+		logger.Error("failed to get stored member IDs", "error", err)
+		return errors.Wrap(err, "getting stored member IDs")
+	}
+	logger.Debug("retrieved stored member IDs", "count", len(storedMemberIDs))
+
+	// Create a map of Discord member IDs for efficient lookup
+	discordMemberMap := createDiscordMemberMap(validDiscordMembers)
+
+	logger.Debug("cleaning up stored members")
+	deletedCount := 0
+
+	for _, storedMemberID := range storedMemberIDs {
+		if !discordMemberMap[storedMemberID] {
+			if deleted := deleteStoredMemberIfNeeded(logger, storedMemberID); deleted {
+				deletedCount++
+			}
+		}
+	}
+
+	logger.Debug("cleanup completed", "deleted_count", deletedCount)
+	return nil
+}
+
+// createDiscordMemberMap creates a map for efficient Discord member ID lookups
+func createDiscordMemberMap(validDiscordMembers []*discordgo.Member) map[string]bool {
+	discordMemberMap := make(map[string]bool, len(validDiscordMembers))
+	for _, discordMember := range validDiscordMembers {
+		discordMemberMap[discordMember.User.ID] = true
+	}
+	return discordMemberMap
+}
+
+// deleteStoredMemberIfNeeded deletes a stored member if it's safe to do so
+func deleteStoredMemberIfNeeded(logger *slog.Logger, storedMemberID string) bool {
+	memberLogger := logger.With("stored_member_id", storedMemberID)
+	memberLogger.Debug("deleting stored member", "reason", "not_in_discord")
+
+	// Get the member to check if it's a bot before deleting
+	storedMember, getMemberErr := members.Get(storedMemberID)
+	if getMemberErr != nil && !errors.Is(getMemberErr, members.MemberNotFound) {
+		memberLogger.Error("getting member for deletion check", "error", getMemberErr)
+		return false
+	}
+
+	// Skip deletion if member is not found (already deleted) or if it's a bot that should be kept
+	if errors.Is(getMemberErr, members.MemberNotFound) {
+		return false
+	}
+
+	if storedMember.IsBot {
+		memberLogger.Debug("skipping bot member deletion")
+		return false
+	}
+
+	if err := storedMember.Delete(); err != nil {
+		memberLogger.Error("deleting member", "error", err)
+		return false
+	}
+
+	memberLogger.Debug("member deleted successfully")
+	return true
+}
+
+// processChunkMembers processes a chunk of Discord members and returns the updated members
+func processChunkMembers(
+	chunk []*discordgo.Member,
+	chunkStart int,
+	recruitRoleID, allyRoleID string,
+	rsiBackoff *utils.ExponentialBackoff,
+	logger *slog.Logger,
+	processingErrors *[]error,
+) []members.Member {
+	chunkMembers := make([]members.Member, 0, len(chunk))
+
+	for i, discordMember := range chunk {
+		globalIndex := chunkStart + i
+		mlogger := logger.With(
+			"id", discordMember.User.ID,
+			"name", discordMember.DisplayName(),
+			"index", globalIndex)
+
+		mlogger.Debug("updating member")
+
+		// Get or create member
+		member, _ := getOrCreateMember(discordMember, mlogger, processingErrors)
+		if member == nil {
+			continue // Error already logged and added to processingErrors
+		}
+
+		// Update member data
+		updateMemberData(member, discordMember, recruitRoleID, allyRoleID, mlogger)
+
+		// Update RSI info with retry logic
+		updateMemberRSIInfo(member, rsiBackoff, mlogger)
+
+		// Add to chunk batch for saving
+		mlogger.Debug("adding member to chunk save batch")
+		chunkMembers = append(chunkMembers, *member)
+	}
+
+	return chunkMembers
+}
+
+// getOrCreateMember retrieves an existing member or creates a new one
+func getOrCreateMember(discordMember *discordgo.Member, logger *slog.Logger, processingErrors *[]error) (*members.Member, error) {
+	logger.Debug("getting stored member")
+	member, err := members.Get(discordMember.User.ID)
+	if err != nil {
+		if !errors.Is(err, members.MemberNotFound) {
+			logger.Error("getting member for update", "error", err)
+			*processingErrors = append(*processingErrors, err)
+			return nil, err
+		}
+
+		logger.Debug("creating new member")
+		member = members.New(discordMember)
+		if member == nil {
+			logger.Error("members.New returned nil")
+			return nil, errors.New("failed to create new member")
+		}
+	}
+
+	logger.Debug("member retrieved/created", "member_nil", member == nil)
+	return member, nil
+}
+
+// updateMemberData updates basic member information from Discord
+func updateMemberData(member *members.Member, discordMember *discordgo.Member, recruitRoleID, allyRoleID string, logger *slog.Logger) {
+	// Update basic member fields
+	logger.Debug("updating member fields", "current_name", member.Name)
+	truenick := member.GetTrueNick(discordMember)
+	logger.Debug("got true nick", "truenick", truenick)
+	member.Name = strings.ReplaceAll(truenick, ".", "")
+
+	if member.Joined.IsZero() {
+		logger.Debug("setting joined date", "joined_at", discordMember.JoinedAt)
+		member.Joined = discordMember.JoinedAt.UTC()
+	}
+
+	// Update avatar
+	member.Avatar = discordMember.User.Avatar
+
+	// Process roles efficiently
+	roleMap := createRoleMap(discordMember.Roles, logger)
+	updateMemberRoles(member, roleMap, recruitRoleID, allyRoleID, logger)
+}
+
+// updateMemberRSIInfo updates RSI information with retry logic
+func updateMemberRSIInfo(member *members.Member, rsiBackoff *utils.ExponentialBackoff, logger *slog.Logger) {
+	logger.Debug("updating RSI info")
+	err := rsiBackoff.Execute(func() error {
+		return rsi.UpdateRsiInfo(member)
+	})
+
+	if err == nil {
+		return
+	}
+
+	if errors.Is(err, rsi.RsiUserNotFound) {
+		logger.Debug("rsi user not found", "error", err)
+		member.RSIMember = false
+		return
+	}
+
+	logger.Warn("failed to update RSI info after retries", "error", err)
+	// Don't fail the entire operation for RSI issues
+	member.RSIMember = false
 }

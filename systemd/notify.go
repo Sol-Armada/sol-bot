@@ -28,7 +28,6 @@ func Notify(state string) error {
 		return err
 	}
 
-	slog.Debug("sent systemd notification", "state", state)
 	return nil
 }
 

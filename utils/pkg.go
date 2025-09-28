@@ -7,7 +7,7 @@ import (
 
 func StringSliceContains(s []string, e string) bool {
 	for _, a := range s {
-		if strings.ToUpper(a) == strings.ToUpper(e) {
+		if strings.EqualFold(a, e) {
 			return true
 		}
 	}

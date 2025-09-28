@@ -25,68 +25,142 @@ import (
 	"github.com/sol-armada/sol-bot/tokens"
 )
 
-var environment string = ""
+var (
+	environment string = ""
+	logger      *slog.Logger
+)
 
-var logger *slog.Logger
+// Config holds all application configuration
+type Config struct {
+	Environment          string
+	Debug                bool
+	CLI                  bool
+	LogFile              string
+	MemberMonitorLogFile string
+	MongoConfig          MongoConfig
+	Features             FeatureConfig
+}
+
+type MongoConfig struct {
+	Host           string
+	Port           int
+	Username       string
+	Password       string
+	Database       string
+	ReplicaSetName string
+}
+
+type FeatureConfig struct {
+	MonitorEnable      bool
+	AttendanceMonitor  bool
+	SystemdIntegration bool
+}
 
 func init() {
-	if environment == "staging" {
-		settings.SetConfigName("settings.staging")
-	} else {
-		settings.SetConfigName("settings")
+	cfg := loadConfig()
+	logger = setupLogger(cfg)
+
+	if err := initializeServices(cfg); err != nil {
+		logger.Error("failed to initialize services", "error", err)
+		os.Exit(1)
 	}
 
-	// setup settings
+	go health.Monitor()
+}
+
+// loadConfig initializes and loads application configuration
+func loadConfig() *Config {
+	configName := "settings"
+	if environment == "staging" {
+		configName = "settings.staging"
+	}
+	settings.SetConfigName(configName)
+
+	// Setup settings paths
 	settings.AddConfigPath(".")
 	settings.AddConfigPath("../")
 	settings.AddConfigPath("/etc/solbot/")
+
 	if err := settings.ReadInConfig(); err != nil {
 		fmt.Printf("could not parse configuration: %v\n", err)
 		os.Exit(1)
 	}
 
-	// setup the logger
+	return &Config{
+		Environment:          environment,
+		Debug:                settings.GetBool("LOG.DEBUG"),
+		CLI:                  settings.GetBool("LOG.CLI"),
+		LogFile:              settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"),
+		MemberMonitorLogFile: settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
+		MongoConfig: MongoConfig{
+			Host:           settings.GetStringWithDefault("mongo.host", "localhost"),
+			Port:           settings.GetIntWithDefault("mongo.port", 27017),
+			Username:       settings.GetString("MONGO.USERNAME"),
+			Password:       strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`),
+			Database:       settings.GetStringWithDefault("MONGO.DATABASE", "org"),
+			ReplicaSetName: settings.GetString("MONGO.REPLICA_SET_NAME"),
+		},
+		Features: FeatureConfig{
+			MonitorEnable:      settings.GetBool("FEATURES.MONITOR.ENABLE"),
+			AttendanceMonitor:  settings.GetBool("FEATURES.ATTENDANCE.MONITOR"),
+			SystemdIntegration: settings.GetBoolWithDefault("FEATURES.SYSTEMD.ENABLE", true),
+		},
+	}
+}
+
+// setupLogger creates and configures the application logger
+func setupLogger(cfg *Config) *slog.Logger {
 	opts := &slog.HandlerOptions{
 		AddSource: true,
 	}
 
-	if settings.GetBool("LOG.DEBUG") {
+	if cfg.Debug {
 		opts.Level = slog.LevelDebug
 	}
 
-	if settings.GetBool("LOG.CLI") {
-		logger = slog.New(slog.NewTextHandler(os.Stdout, opts))
-	} else {
-		f, err := os.OpenFile(settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			fmt.Printf("Failed to open log file: %v\n", err)
-			os.Exit(1)
-		}
-		logger = slog.New(slog.NewJSONHandler(f, opts))
+	// Create CLI logger if configured for CLI output
+	if cfg.CLI {
+		log := slog.New(slog.NewTextHandler(os.Stdout, opts))
+		slog.SetDefault(log)
+		return log
 	}
 
-	// Set as default logger
-	slog.SetDefault(logger)
-
-	if settings.GetBool("LOG.DEBUG") {
-		logger.Debug("debug mode on")
-	}
-
-	// setup storage
-	host := settings.GetStringWithDefault("mongo.host", "localhost")
-	port := settings.GetIntWithDefault("mongo.port", 27017)
-	username := settings.GetString("MONGO.USERNAME")
-	pswd := strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`)
-	database := settings.GetStringWithDefault("MONGO.DATABASE", "org")
-	replicaSetName := settings.GetString("MONGO.REPLICA_SET_NAME")
-	ctx := context.Background()
-
-	if _, err := stores.New(ctx, host, port, username, pswd, database, replicaSetName); err != nil {
-		logger.Error("failed to create storage client", "error", err)
+	// Create file logger for non-CLI output
+	f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		fmt.Printf("Failed to open log file: %v\n", err)
 		os.Exit(1)
 	}
 
-	setups := map[string]func() error{
+	log := slog.New(slog.NewJSONHandler(f, opts))
+	slog.SetDefault(log)
+
+	if cfg.Debug {
+		log.Debug("debug mode enabled")
+	}
+
+	return log
+}
+
+// initializeServices sets up database connection and initializes all services
+func initializeServices(cfg *Config) error {
+	ctx := context.Background()
+
+	// Initialize database connection
+	if _, err := stores.New(
+		ctx,
+		cfg.MongoConfig.Host,
+		cfg.MongoConfig.Port,
+		cfg.MongoConfig.Username,
+		cfg.MongoConfig.Password,
+		cfg.MongoConfig.Database,
+		cfg.MongoConfig.ReplicaSetName,
+	); err != nil {
+		return fmt.Errorf("failed to create storage client: %w", err)
+	}
+
+	// Initialize all services
+	services := map[string]func() error{
 		"members":    members.Setup,
 		"attendance": attendance.Setup,
 		"activity":   activity.Setup,
@@ -95,196 +169,303 @@ func init() {
 		"raffles":    raffles.Setup,
 	}
 
-	for name, setup := range setups {
-		logger.Debug("setting up store", "name", name)
-
+	for name, setup := range services {
 		if err := setup(); err != nil {
-			logger.Error("failed to setup store", "name", name, "error", err)
-			os.Exit(1)
+			return fmt.Errorf("failed to setup %s service: %w", name, err)
 		}
 	}
 
-	// monitor health of the server
-	go health.Monitor()
+	return nil
+}
+
+// Application represents the main application structure
+type Application struct {
+	cfg       *Config
+	bot       *bot.Bot
+	scheduler gocron.Scheduler
+	logger    *slog.Logger
+
+	// Channels for graceful shutdown
+	stopAttendanceMonitor chan bool
+	stopWatchdog          chan bool
 }
 
 func main() {
 	defer func() {
-		// Notify systemd we're stopping
-		if err := systemd.Stopping(); err != nil {
-			logger.Error("failed to notify systemd of stopping", "error", err)
+		if r := recover(); r != nil {
+			if logger != nil {
+				logger.Error("panic in main", "panic", r)
+			} else {
+				fmt.Printf("panic in main: %v\n", r)
+			}
 		}
-		logger.Info("gracefully shutdown")
 	}()
 
-	// Notify systemd of our status during startup
-	if err := systemd.Status("Starting up..."); err != nil {
-		logger.Warn("failed to set systemd status", "error", err)
+	cfg := loadConfig()
+	app := &Application{
+		cfg:                   cfg,
+		logger:                logger,
+		stopAttendanceMonitor: make(chan bool, 1),
+		stopWatchdog:          make(chan bool, 1),
 	}
 
-	// start up the bot
-	b, err := bot.New()
+	defer app.shutdown()
+
+	if err := app.start(); err != nil {
+		logger.Error("failed to start application", "error", err)
+		os.Exit(1)
+	}
+
+	// Wait for shutdown signal
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt)
+	signal.Notify(c, syscall.SIGTERM)
+	<-c
+}
+
+// start initializes and starts all application components
+func (app *Application) start() error {
+	if app.cfg.Features.SystemdIntegration {
+		if err := systemd.Status("Starting up..."); err != nil {
+			logger.Warn("failed to set systemd status", "error", err)
+		}
+	}
+
+	// Initialize bot
+	if err := app.initializeBot(); err != nil {
+		return fmt.Errorf("failed to initialize bot: %w", err)
+	}
+
+	// Initialize scheduler
+	if err := app.initializeScheduler(); err != nil {
+		return fmt.Errorf("failed to initialize scheduler: %w", err)
+	}
+
+	// Start monitoring services
+	app.startMonitoringServices()
+
+	if app.cfg.Features.SystemdIntegration {
+		if err := systemd.Ready(); err != nil {
+			logger.Warn("failed to notify systemd ready", "error", err)
+		}
+		if err := systemd.Status("Bot ready and serving"); err != nil {
+			logger.Warn("failed to set systemd status", "error", err)
+		}
+	}
+
+	return nil
+}
+
+// initializeBot creates and sets up the Discord bot
+func (app *Application) initializeBot() error {
+	var err error
+	app.bot, err = bot.New()
 	if err != nil {
-		logger.Error("failed to create the bot", "error", err)
-		return
+		return fmt.Errorf("failed to create bot: %w", err)
 	}
 
-	if err := systemd.Status("Setting up bot..."); err != nil {
-		logger.Warn("failed to set systemd status", "error", err)
+	if app.cfg.Features.SystemdIntegration {
+		if err := systemd.Status("Setting up bot..."); err != nil {
+			logger.Warn("failed to set systemd status", "error", err)
+		}
 	}
 
-	if err := b.Setup(); err != nil {
-		logger.Error("failed to start the bot", "error", err)
-		return
+	if err := app.bot.Setup(); err != nil {
+		return fmt.Errorf("failed to setup bot: %w", err)
 	}
 
-	// Notify systemd that we're ready
-	if err := systemd.Ready(); err != nil {
-		logger.Warn("failed to notify systemd ready", "error", err)
-	}
+	return nil
+}
 
-	if err := systemd.Status("Bot ready and serving"); err != nil {
-		logger.Warn("failed to set systemd status", "error", err)
-	}
-
-	s, err := gocron.NewScheduler()
+// initializeScheduler creates and configures the job scheduler
+func (app *Application) initializeScheduler() error {
+	var err error
+	app.scheduler, err = gocron.NewScheduler()
 	if err != nil {
-		logger.Error("failed to create scheduler", "error", err)
-		return
+		return fmt.Errorf("failed to create scheduler: %w", err)
 	}
 
-	// Start the scheduler
-	s.Start()
+	app.scheduler.Start()
 
+	// Schedule member monitoring if enabled
+	if app.cfg.Features.MonitorEnable {
+		if err := app.scheduleMemberMonitor(); err != nil {
+			return fmt.Errorf("failed to schedule member monitor: %w", err)
+		}
+	}
+
+	// Schedule status message updates
+	if err := app.scheduleStatusUpdates(); err != nil {
+		return fmt.Errorf("failed to schedule status updates: %w", err)
+	}
+
+	return nil
+}
+
+// createMonitorLogger creates a dedicated logger for monitoring tasks
+func (app *Application) createMonitorLogger() *slog.Logger {
 	opts := &slog.HandlerOptions{
 		AddSource: true,
-		Level:     slog.LevelDebug,
 	}
 
-	if settings.GetBool("LOG.DEBUG") {
+	if app.cfg.Debug {
 		opts.Level = slog.LevelDebug
-		slog.Debug("debug mode on")
 	}
 
-	monitorLogger := slog.New(slog.NewTextHandler(os.Stdout, opts))
-
-	if !settings.GetBool("LOG.CLI") {
-		f, err := os.OpenFile(settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-		if err != nil {
-			logger.Error("failed to open member monitor log file", "error", err)
-			os.Exit(1)
-		}
-		monitorLogger = slog.New(slog.NewJSONHandler(f, opts))
+	if app.cfg.CLI {
+		return slog.New(slog.NewTextHandler(os.Stdout, opts))
 	}
 
-	if settings.GetBool("FEATURES.MONITOR.ENABLE") {
-		slog.Info("scheduling member monitor")
-		j, err := s.NewJob(
-			gocron.CronJob("*/30 * * * *", false),
-			gocron.NewTask(func(ctx context.Context) error {
-				return bot.MemberMonitor(ctx, monitorLogger)
+	f, err := os.OpenFile(app.cfg.MemberMonitorLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		logger.Error("failed to open member monitor log file", "error", err)
+		os.Exit(1)
+	}
+
+	return slog.New(slog.NewJSONHandler(f, opts))
+}
+
+// scheduleMemberMonitor sets up the member monitoring job
+func (app *Application) scheduleMemberMonitor() error {
+	monitorLogger := app.createMonitorLogger()
+
+	logger.Info("scheduling member monitor")
+	j, err := app.scheduler.NewJob(
+		gocron.CronJob("*/30 * * * *", false),
+		gocron.NewTask(func(ctx context.Context) error {
+			return bot.MemberMonitor(ctx, monitorLogger)
+		}),
+		gocron.WithSingletonMode(gocron.LimitModeReschedule),
+		gocron.WithEventListeners(
+			gocron.BeforeJobRuns(func(jobID uuid.UUID, jobName string) {
+				monitorLogger.Info("starting member monitor", "job_id", jobID, "job_name", jobName)
 			}),
-			gocron.WithSingletonMode(gocron.LimitModeReschedule),
-			gocron.WithEventListeners(
-				gocron.BeforeJobRuns(
-					func(jobID uuid.UUID, jobName string) {
-						monitorLogger.Info("starting member monitor", "job_id", jobID, "job_name", jobName)
-					},
-				),
-				gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, jobErr error) {
-					if jobErr != nil {
-						monitorLogger.Error("member monitor failed", "job_id", jobID, "job_name", jobName, "error", jobErr)
-					}
-				}),
-				gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
-					monitorLogger.Info("completed member monitor", "job_id", jobID, "job_name", jobName)
-				}),
-			),
-		)
+			gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, jobErr error) {
+				if jobErr == nil {
+					return
+				}
+				monitorLogger.Error("member monitor failed", "job_id", jobID, "job_name", jobName, "error", jobErr)
+			}),
+			gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
+				monitorLogger.Info("completed member monitor", "job_id", jobID, "job_name", jobName)
+			}),
+		),
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create member monitor job: %w", err)
+	}
+
+	// Start monitoring job status in background
+	go app.monitorJobStatus(j)
+	return nil
+}
+
+// monitorJobStatus monitors and logs job execution status
+func (app *Application) monitorJobStatus(j gocron.Job) {
+	for {
+		lastRun, err := j.LastRun()
 		if err != nil {
-			logger.Error("failed to schedule member monitor", "error", err)
-			return
+			logger.Error("failed to get last member monitor run", "error", err)
+			time.Sleep(1 * time.Minute)
+			continue
 		}
 
-		go func() {
-			for {
-				lastRun, err := j.LastRun()
-				if err != nil {
-					logger.Error("failed to get last member monitor run", "error", err)
-					time.Sleep(1 * time.Minute)
-					continue
-				}
+		if !lastRun.IsZero() {
+			logger.Info("last member monitor run started", "time", lastRun.Format(time.RFC1123))
+		}
 
-				if !lastRun.IsZero() {
-					logger.Info("last member monitor run started", "time", lastRun.Format(time.RFC1123))
-				}
+		nextRun, err := j.NextRun()
+		if err != nil {
+			logger.Error("failed to get next member monitor run", "error", err)
+			time.Sleep(1 * time.Minute)
+			continue
+		}
 
-				nextRun, err := j.NextRun()
-				if err != nil {
-					logger.Error("failed to get next member monitor run", "error", err)
-					time.Sleep(1 * time.Minute)
-					continue
-				}
-
-				logger.Info("next member monitor run scheduled", "time", nextRun.Format(time.RFC1123))
-				// sleep until the next run has started
-				time.Sleep(time.Until(nextRun))
-			}
-		}()
+		logger.Info("next member monitor run scheduled", "time", nextRun.Format(time.RFC1123))
+		// Sleep until the next run has started
+		time.Sleep(time.Until(nextRun))
 	}
+}
 
-	stopAttendanceMonitor := make(chan bool, 1)
-	if settings.GetBool("FEATURES.ATTENDANCE.MONITOR") { // only enable if attendance is enabled
-		go bot.MonitorAttendance(context.Background(), logger, stopAttendanceMonitor)
-	}
-
-	if _, err := s.NewJob(
+// scheduleStatusUpdates sets up regular status message updates
+func (app *Application) scheduleStatusUpdates() error {
+	_, err := app.scheduler.NewJob(
 		gocron.DurationJob(10*time.Second),
 		gocron.NewTask(func() {
-			if err := b.UpdateCustomStatus(bot.NextStatusMessage()); err != nil {
+			if err := app.bot.UpdateCustomStatus(bot.NextStatusMessage()); err != nil {
 				logger.Error("failed to update status message", "error", err)
 			}
 		}),
-	); err != nil {
-		logger.Error("failed to schedule status message updater", "error", err)
+	)
+	return err
+}
+
+// startMonitoringServices starts attendance monitoring and systemd watchdog
+func (app *Application) startMonitoringServices() {
+	// Start attendance monitoring if enabled
+	if app.cfg.Features.AttendanceMonitor {
+		go bot.MonitorAttendance(context.Background(), logger, app.stopAttendanceMonitor)
+	}
+
+	// Start systemd watchdog
+	if app.cfg.Features.SystemdIntegration {
+		go app.startSystemdWatchdog()
+	}
+}
+
+// startSystemdWatchdog starts the systemd watchdog service
+func (app *Application) startSystemdWatchdog() {
+	if os.Getenv("NOTIFY_SOCKET") == "" {
 		return
 	}
 
-	// Optional: Start systemd watchdog if enabled
-	watchdogStop := make(chan bool, 1)
-	go func() {
-		ticker := time.NewTicker(15 * time.Second) // Send watchdog every 15 seconds
-		defer ticker.Stop()
+	ticker := time.NewTicker(15 * time.Second)
+	defer ticker.Stop()
 
-		for {
-			select {
-			case <-ticker.C:
-				if err := systemd.Watchdog(); err != nil {
-					logger.Debug("failed to send watchdog ping", "error", err)
-				}
-			case <-watchdogStop:
-				return
+	for {
+		select {
+		case <-ticker.C:
+			if err := systemd.Watchdog(); err != nil {
+				logger.Warn("failed to send watchdog ping", "error", err)
 			}
+		case <-app.stopWatchdog:
+			return
 		}
-	}()
+	}
+}
 
-	defer func() {
-		logger.Info("shutting down")
-		if err := s.Shutdown(); err != nil {
+// shutdown gracefully shuts down all application components
+func (app *Application) shutdown() {
+	if app.cfg.Features.SystemdIntegration {
+		if err := systemd.Stopping(); err != nil {
+			logger.Error("failed to notify systemd of stopping", "error", err)
+		}
+	}
+
+	// Stop monitoring services
+	select {
+	case app.stopAttendanceMonitor <- true:
+	default:
+	}
+
+	select {
+	case app.stopWatchdog <- true:
+	default:
+	}
+
+	// Shutdown scheduler
+	if app.scheduler != nil {
+		if err := app.scheduler.Shutdown(); err != nil {
 			logger.Error("failed to shutdown scheduler", "error", err)
 		}
-		if err := b.Close(); err != nil {
+	}
+
+	// Close bot connection
+	if app.bot != nil {
+		if err := app.bot.Close(); err != nil {
 			logger.Error("failed to close the bot", "error", err)
 		}
-		stopAttendanceMonitor <- true
-		watchdogStop <- true
-		time.Sleep(20 * time.Second)
-		logger.Info("shutdown complete")
-	}()
+	}
 
-	c := make(chan os.Signal, 1)
-	signal.Notify(c, os.Interrupt)
-	// capture signal from supervisord
-	signal.Notify(c, syscall.SIGTERM)
-	<-c
+	time.Sleep(5 * time.Second)
 }
