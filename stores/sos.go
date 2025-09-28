@@ -14,13 +14,13 @@ type SOSStore struct {
 
 const SOS Collection = "sos"
 
-func newSOSStore(ctx context.Context, client *mongo.Client, database string) *MembersStore {
+func newSOSStore(ctx context.Context, client *mongo.Client, database string) *SOSStore {
 	_ = client.Database(database).CreateCollection(ctx, string(SOS))
 	s := &store{
 		Collection: client.Database(database).Collection(string(SOS)),
 		ctx:        ctx,
 	}
-	return &MembersStore{s}
+	return &SOSStore{s}
 }
 
 func (s *SOSStore) Upsert(id string, ticket any) error {
@@ -42,9 +42,8 @@ func (s *SOSStore) GetSOSTickets() (*mongo.Cursor, error) {
 }
 
 func (c *Client) GetSOSStore() (*SOSStore, bool) {
-	storeInterface, ok := c.GetCollection(SOS)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*SOSStore), ok
+	return c.stores.sos, true
 }

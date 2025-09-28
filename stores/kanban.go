@@ -24,11 +24,10 @@ func newKanbanStore(ctx context.Context, client *mongo.Client, database string) 
 }
 
 func (c *Client) GetKanbanStore() (*KanbanStore, bool) {
-	storeInterface, ok := c.GetCollection(KANBAN)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*KanbanStore), ok
+	return c.stores.kanban, true
 }
 
 func (k *KanbanStore) Get(id string) ([]byte, error) {

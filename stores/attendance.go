@@ -26,11 +26,10 @@ func newAttendanceStore(ctx context.Context, client *mongo.Client, database stri
 }
 
 func (c *Client) GetAttendanceStore() (*AttendanceStore, bool) {
-	storeInterface, ok := c.GetCollection(ATTENDANCE)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*AttendanceStore), ok
+	return c.stores.attendance, true
 }
 
 func (s *AttendanceStore) Create(attendance any) error {

@@ -24,11 +24,10 @@ func newRafflesStore(ctx context.Context, client *mongo.Client, database string)
 }
 
 func (c *Client) GetRafflesStore() (*RaffleStore, bool) {
-	storeInterface, ok := c.GetCollection(RAFFLES)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*RaffleStore), ok
+	return c.stores.raffles, true
 }
 
 func (s *RaffleStore) Get(id string) *mongo.SingleResult {

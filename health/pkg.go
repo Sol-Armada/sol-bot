@@ -1,6 +1,7 @@
 package health
 
 import (
+	"context"
 	"log/slog"
 	"time"
 
@@ -13,7 +14,8 @@ func Monitor() {
 	logger := slog.Default().With("func", "health.Monitor")
 	for {
 		s := stores.Get()
-		if !s.Connected() {
+		ctx := context.Background()
+		if !s.Connected(ctx) {
 			logger.Warn("not connected to storage")
 			healthy = false
 			goto WAIT

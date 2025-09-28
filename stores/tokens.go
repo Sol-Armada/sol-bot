@@ -30,11 +30,10 @@ func newTokensStore(ctx context.Context, client *mongo.Client, database string) 
 }
 
 func (c *Client) GetTokensStore() (*TokenStore, bool) {
-	storeInterface, ok := c.GetCollection(TOKENS)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*TokenStore), ok
+	return c.stores.tokens, true
 }
 
 func (s *TokenStore) Insert(tokenRecord any) error {

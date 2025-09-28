@@ -12,22 +12,57 @@ import (
 
 type Collection string
 
-const ()
-
 type store struct {
 	*mongo.Collection
 	ctx context.Context
 }
 
-type Client struct {
-	*mongo.Client
-
-	databases map[Collection]interface{}
-
-	ctx context.Context
+// Config holds the database connection configuration
+type Config struct {
+	Host           string
+	Port           int
+	Username       string
+	Password       string
+	Database       string
+	ReplicaSetName string
+	ConnectTimeout time.Duration
 }
 
+// StoreRegistry provides type-safe access to all stores
+type StoreRegistry struct {
+	members    *MembersStore
+	attendance *AttendanceStore
+	configs    *ConfigsStore
+	activity   *ActivityStore
+	sos        *SOSStore
+	tokens     *TokenStore
+	raffles    *RaffleStore
+	kanban     *KanbanStore
+}
+
+// Store accessor methods
+func (s *StoreRegistry) Members() *MembersStore       { return s.members }
+func (s *StoreRegistry) Attendance() *AttendanceStore { return s.attendance }
+func (s *StoreRegistry) Configs() *ConfigsStore       { return s.configs }
+func (s *StoreRegistry) Activity() *ActivityStore     { return s.activity }
+func (s *StoreRegistry) SOS() *SOSStore               { return s.sos }
+func (s *StoreRegistry) Tokens() *TokenStore          { return s.tokens }
+func (s *StoreRegistry) Raffles() *RaffleStore        { return s.raffles }
+func (s *StoreRegistry) Kanban() *KanbanStore         { return s.kanban }
+
+type Client struct {
+	*mongo.Client
+	stores   *StoreRegistry
+	database *mongo.Database
+}
+
+// Global client for backward compatibility (will be deprecated)
 var client *Client
+
+// NewWithConfig creates a new database client with configuration struct
+func NewWithConfig(ctx context.Context, config Config) (*Client, error) {
+	return New(ctx, config.Host, config.Port, config.Username, config.Password, config.Database, config.ReplicaSetName)
+}
 
 func New(ctx context.Context, host string, port int, username, password, database, replicaSetName string) (*Client, error) {
 	usernamePassword := username + ":" + password + "@"
@@ -51,45 +86,84 @@ func New(ctx context.Context, host string, port int, username, password, databas
 		return nil, errors.Wrap(err, "creating new store")
 	}
 
-	client = &Client{
-		Client:    mongoClient,
-		databases: map[Collection]interface{}{},
-		ctx:       ctx,
+	db := mongoClient.Database(database)
+
+	// Initialize stores
+	membersStore := newMembersStore(ctx, mongoClient, database)
+	configsStore := newConfigsStore(ctx, mongoClient, database)
+	attendanceStore := newAttendanceStore(ctx, mongoClient, database)
+	activityStore := newActivityStore(ctx, mongoClient, database)
+	sosStore := newSOSStore(ctx, mongoClient, database)
+	tokensStore := newTokensStore(ctx, mongoClient, database)
+	rafflesStore := newRafflesStore(ctx, mongoClient, database)
+	kanbanStore := newKanbanStore(ctx, mongoClient, database)
+
+	storeRegistry := &StoreRegistry{
+		members:    membersStore,
+		configs:    configsStore,
+		attendance: attendanceStore,
+		activity:   activityStore,
+		sos:        sosStore,
+		tokens:     tokensStore,
+		raffles:    rafflesStore,
+		kanban:     kanbanStore,
 	}
 
-	if ok := client.Connected(); !ok {
+	newClient := &Client{
+		Client:   mongoClient,
+		stores:   storeRegistry,
+		database: db,
+	}
+
+	if ok := newClient.Connected(ctx); !ok {
 		return nil, errors.New("unable to connect to store")
 	}
 
-	client.databases[MEMBERS] = newMembersStore(ctx, client.Client, database)
-	client.databases[CONFIGS] = newConfigsStore(ctx, client.Client, database)
-	client.databases[ATTENDANCE] = newAttendanceStore(ctx, client.Client, database)
-	client.databases[ACTIVITY] = newActivityStore(ctx, client.Client, database)
-	client.databases[SOS] = newSOSStore(ctx, client.Client, database)
-	client.databases[TOKENS] = newTokensStore(ctx, client.Client, database)
-	client.databases[RAFFLES] = newRafflesStore(ctx, client.Client, database)
-	client.databases[KANBAN] = newKanbanStore(ctx, client.Client, database)
+	// Set global client for backward compatibility
+	client = newClient
 
-	return client, nil
+	return newClient, nil
 }
 
 func Get() *Client {
 	return client
 }
 
+// Stores returns the store registry for type-safe access
+func (c *Client) Stores() *StoreRegistry {
+	return c.stores
+}
+
+// GetCollection is deprecated, use Stores() instead
 func (c *Client) GetCollection(collection Collection) (interface{}, bool) {
-	if c.databases[collection] == nil {
+	switch collection {
+	case MEMBERS:
+		return c.stores.members, true
+	case CONFIGS:
+		return c.stores.configs, true
+	case ATTENDANCE:
+		return c.stores.attendance, true
+	case ACTIVITY:
+		return c.stores.activity, true
+	case SOS:
+		return c.stores.sos, true
+	case TOKENS:
+		return c.stores.tokens, true
+	case RAFFLES:
+		return c.stores.raffles, true
+	case KANBAN:
+		return c.stores.kanban, true
+	default:
 		return nil, false
 	}
-	return c.databases[collection], true
 }
 
-func (c *Client) Disconnect() {
-	_ = c.Client.Disconnect(c.ctx)
+func (c *Client) Disconnect(ctx context.Context) error {
+	return c.Client.Disconnect(ctx)
 }
 
-func (c *Client) Connected() bool {
-	if err := c.Ping(c.ctx, nil); err != nil {
+func (c *Client) Connected(ctx context.Context) bool {
+	if err := c.Ping(ctx, nil); err != nil {
 		return false
 	}
 	return true

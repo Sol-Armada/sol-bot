@@ -24,11 +24,10 @@ func newConfigsStore(ctx context.Context, client *mongo.Client, database string)
 }
 
 func (c *Client) GetConfigsStore() (*ConfigsStore, bool) {
-	storeInterface, ok := c.GetCollection(CONFIGS)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*ConfigsStore), ok
+	return c.stores.configs, true
 }
 
 func (s *ConfigsStore) Get(name string) *mongo.SingleResult {

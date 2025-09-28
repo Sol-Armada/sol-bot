@@ -15,6 +15,7 @@ type MembersStore struct {
 const MEMBERS Collection = "members"
 
 func newMembersStore(ctx context.Context, client *mongo.Client, database string) *MembersStore {
+	// Note: CreateCollection ignores "collection already exists" errors
 	_ = client.Database(database).CreateCollection(ctx, string(MEMBERS))
 	s := &store{
 		Collection: client.Database(database).Collection(string(MEMBERS)),
@@ -24,11 +25,10 @@ func newMembersStore(ctx context.Context, client *mongo.Client, database string)
 }
 
 func (c *Client) GetMembersStore() (*MembersStore, bool) {
-	storeInterface, ok := c.GetCollection(MEMBERS)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*MembersStore), ok
+	return c.stores.members, true
 }
 
 func (s *MembersStore) Get(id string) (*mongo.Cursor, error) {

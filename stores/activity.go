@@ -29,11 +29,10 @@ func newActivityStore(ctx context.Context, client *mongo.Client, database string
 }
 
 func (c *Client) GetActivityStore() (*ActivityStore, bool) {
-	storeInterface, ok := c.GetCollection(ACTIVITY)
-	if !ok {
+	if c.stores == nil {
 		return nil, false
 	}
-	return storeInterface.(*ActivityStore), ok
+	return c.stores.activity, true
 }
 
 func (s *ActivityStore) Create(activity any) error {
