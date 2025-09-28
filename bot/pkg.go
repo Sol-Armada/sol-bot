@@ -126,15 +126,21 @@ func GetBot() (*Bot, error) {
 }
 
 func (b *Bot) Setup() error {
+	b.logger.Debug("setting up handlers and commands")
+
 	defer func() {
+		b.logger.Debug("updating custom status")
 		if err := b.UpdateCustomStatus("ready to serve"); err != nil {
 			b.logger.Error("failed to update custom status", "error", err)
 		}
 	}()
 
+	b.logger.Debug("adding ready handler")
 	b.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.Ready) {
 		b.logger.Info("bot is ready", "user", r.User.Username)
 	})
+
+	b.logger.Debug("adding interaction handler")
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		member, err := members.Get(i.Member.User.ID)
@@ -353,21 +359,29 @@ func (b *Bot) Setup() error {
 	}
 
 	slog.Debug("creating help command")
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+
+	helpCmd, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "help",
 		Description: "View help",
-	}); err != nil {
+	})
+	if err != nil {
+		slog.Error("failed to create help command", "error", err)
 		return errors.Wrap(err, "creating help command")
 	}
+	slog.Debug("help command created successfully", "command_id", helpCmd.ID)
 
 	// rank up
 	slog.Debug("creating rankup command")
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
+
+	rankupCmd, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
 		Name:        "rankups",
 		Description: "Rank up your RSI profile",
-	}); err != nil {
+	})
+	if err != nil {
+		slog.Error("failed to create rankup command", "error", err)
 		return errors.Wrap(err, "creating rankup command")
 	}
+	slog.Debug("rankup command created successfully", "command_id", rankupCmd.ID)
 
 	// attendance
 	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
@@ -497,7 +511,15 @@ func (b *Bot) Setup() error {
 		return errors.Wrap(err, "creating yourelatehandler command")
 	}
 
-	return b.Open()
+	b.logger.Debug("all handlers and commands registered - opening Discord connection")
+
+	if err := b.Open(); err != nil {
+		b.logger.Error("failed to open Discord connection", "error", err)
+		return errors.Wrap(err, "opening Discord connection")
+	}
+
+	b.logger.Debug("Discord connection opened successfully")
+	return nil
 }
 
 func (b *Bot) Close() error {

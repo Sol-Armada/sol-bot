@@ -188,7 +188,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		rsiFields := []*discordgo.MessageEmbedField{
 			{
 				Name:   "RSI Profile URL",
-				Value:  fmt.Sprintf("https://robertsspaceindustries.com/citizens/%s", member.Name),
+				Value:  rsi.UserProfileURL(member.Name),
 				Inline: false,
 			},
 			{

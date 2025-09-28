@@ -40,7 +40,7 @@ func (eb *ExponentialBackoff) Execute(operation func() error) error {
 		eb.logger.Warn("operation failed, retrying with backoff",
 			"attempt", attempt+1,
 			"max_retries", eb.MaxRetries,
-			"delay", delay,
+			"delay_seconds", delay.Seconds(),
 			"error", err)
 
 		time.Sleep(delay)

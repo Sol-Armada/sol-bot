@@ -297,6 +297,12 @@ func (app *Application) initializeScheduler() error {
 		return fmt.Errorf("failed to schedule status updates: %w", err)
 	}
 
+	if app.cfg.Features.SystemdIntegration {
+		if err := app.scheduleSystemdWatchdog(); err != nil {
+			return fmt.Errorf("failed to schedule systemd watchdog: %w", err)
+		}
+	}
+
 	return nil
 }
 
@@ -404,33 +410,25 @@ func (app *Application) startMonitoringServices() {
 	if app.cfg.Features.AttendanceMonitor {
 		go bot.MonitorAttendance(context.Background(), logger, app.stopCh)
 	}
-
-	// Start systemd watchdog
-	if app.cfg.Features.SystemdIntegration {
-		go app.startSystemdWatchdog()
-	}
 }
 
-// startSystemdWatchdog starts the systemd watchdog service
-func (app *Application) startSystemdWatchdog() {
+// scheduleSystemdWatchdog sets up periodic systemd watchdog notifications
+func (app *Application) scheduleSystemdWatchdog() error {
 	if os.Getenv("NOTIFY_SOCKET") == "" {
-		return
+		return nil
 	}
 
-	ticker := time.NewTicker(15 * time.Second)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ticker.C:
+	_, err := app.scheduler.NewJob(
+		gocron.DurationJob(15*time.Second),
+		gocron.NewTask(func() {
 			logger.Debug("sending systemd watchdog ping")
 			if err := systemd.Watchdog(); err != nil {
 				logger.Warn("failed to send watchdog ping", "error", err)
 			}
-		case <-app.stopCh:
-			return
-		}
-	}
+		}),
+	)
+
+	return err
 }
 
 // shutdown gracefully shuts down all application components
