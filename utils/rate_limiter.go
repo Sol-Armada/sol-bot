@@ -2,7 +2,6 @@ package utils
 
 import (
 	"log/slog"
-	"math"
 	"time"
 )
 
@@ -47,19 +46,8 @@ func (eb *ExponentialBackoff) Execute(operation func() error) error {
 		time.Sleep(delay)
 
 		// Calculate next delay with exponential backoff
-		delay = time.Duration(float64(delay) * eb.Multiplier)
-		if delay > eb.MaxDelay {
-			delay = eb.MaxDelay
-		}
+		delay = min(time.Duration(float64(delay)*eb.Multiplier), eb.MaxDelay)
 	}
 
 	return err
-}
-
-func (eb *ExponentialBackoff) CalculateDelay(attempt int) time.Duration {
-	delay := time.Duration(float64(eb.InitialDelay) * math.Pow(eb.Multiplier, float64(attempt)))
-	if delay > eb.MaxDelay {
-		delay = eb.MaxDelay
-	}
-	return delay
 }
