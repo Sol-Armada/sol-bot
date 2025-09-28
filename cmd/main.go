@@ -425,6 +425,7 @@ func (app *Application) startSystemdWatchdog() {
 	for {
 		select {
 		case <-ticker.C:
+			logger.Debug("sending systemd watchdog ping")
 			if err := systemd.Watchdog(); err != nil {
 				logger.Warn("failed to send watchdog ping", "error", err)
 			}
