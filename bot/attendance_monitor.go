@@ -12,7 +12,7 @@ import (
 	"github.com/sol-armada/sol-bot/settings"
 )
 
-func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan bool) {
+func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan struct{}) {
 	logger = logger.With("func", "bot.MonitorAttendance")
 	logger.Info("monitoring attendance")
 

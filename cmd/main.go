@@ -185,9 +185,8 @@ type Application struct {
 	scheduler gocron.Scheduler
 	logger    *slog.Logger
 
-	// Channels for graceful shutdown
-	stopAttendanceMonitor chan bool
-	stopWatchdog          chan bool
+	// Channel for graceful shutdown
+	stopCh chan struct{}
 }
 
 func main() {
@@ -203,10 +202,9 @@ func main() {
 
 	cfg := loadConfig()
 	app := &Application{
-		cfg:                   cfg,
-		logger:                logger,
-		stopAttendanceMonitor: make(chan bool, 1),
-		stopWatchdog:          make(chan bool, 1),
+		cfg:    cfg,
+		logger: logger,
+		stopCh: make(chan struct{}),
 	}
 
 	defer app.shutdown()
@@ -404,7 +402,7 @@ func (app *Application) scheduleStatusUpdates() error {
 func (app *Application) startMonitoringServices() {
 	// Start attendance monitoring if enabled
 	if app.cfg.Features.AttendanceMonitor {
-		go bot.MonitorAttendance(context.Background(), logger, app.stopAttendanceMonitor)
+		go bot.MonitorAttendance(context.Background(), logger, app.stopCh)
 	}
 
 	// Start systemd watchdog
@@ -429,7 +427,7 @@ func (app *Application) startSystemdWatchdog() {
 			if err := systemd.Watchdog(); err != nil {
 				logger.Warn("failed to send watchdog ping", "error", err)
 			}
-		case <-app.stopWatchdog:
+		case <-app.stopCh:
 			return
 		}
 	}
@@ -444,15 +442,7 @@ func (app *Application) shutdown() {
 	}
 
 	// Stop monitoring services
-	select {
-	case app.stopAttendanceMonitor <- true:
-	default:
-	}
-
-	select {
-	case app.stopWatchdog <- true:
-	default:
-	}
+	close(app.stopCh)
 
 	// Shutdown scheduler
 	if app.scheduler != nil {
