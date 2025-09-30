@@ -21,13 +21,13 @@ var logger *slog.Logger
 
 const (
 	// Processing constants
-	memberProcessingChunkSize = 50
+	memberProcessingChunkSize = 10
 	discordAPIRetries         = 3
-	rsiAPIRetries             = 2
+	rsiAPIRetries             = 10
 
 	// Timeout constants
 	discordAPIMaxDelay = 5 * time.Minute
-	rsiAPIMaxDelay     = 30 * time.Second
+	rsiAPIMaxDelay     = 60 * time.Second
 	healthCheckDelay   = 10 * time.Second
 )
 
@@ -434,9 +434,15 @@ func processChunkMembers(
 		mlogger.Debug("updating member")
 
 		// Get or create member
-		member, _ := getOrCreateMember(discordMember, mlogger, processingErrors)
+		member, err := getOrCreateMember(discordMember, mlogger)
+		if err != nil {
+			mlogger.Error("getting or creating member", "error", err)
+			*processingErrors = append(*processingErrors, err)
+			continue
+		}
+
 		if member == nil {
-			continue // Error already logged and added to processingErrors
+			continue
 		}
 
 		// Update member data
@@ -448,27 +454,26 @@ func processChunkMembers(
 		// Add to chunk batch for saving
 		mlogger.Debug("adding member to chunk save batch")
 		chunkMembers = append(chunkMembers, *member)
+
+		time.Sleep(500 * time.Millisecond) // Small delay to avoid hitting rate limits
 	}
 
 	return chunkMembers
 }
 
 // getOrCreateMember retrieves an existing member or creates a new one
-func getOrCreateMember(discordMember *discordgo.Member, logger *slog.Logger, processingErrors *[]error) (*members.Member, error) {
+func getOrCreateMember(discordMember *discordgo.Member, logger *slog.Logger) (*members.Member, error) {
 	logger.Debug("getting stored member")
 	member, err := members.Get(discordMember.User.ID)
 	if err != nil {
 		if !errors.Is(err, members.MemberNotFound) {
-			logger.Error("getting member for update", "error", err)
-			*processingErrors = append(*processingErrors, err)
 			return nil, err
 		}
 
 		logger.Debug("creating new member")
 		member = members.New(discordMember)
 		if member == nil {
-			logger.Error("members.New returned nil")
-			return nil, errors.New("failed to create new member")
+			return nil, err
 		}
 	}
 
