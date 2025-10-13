@@ -2,6 +2,7 @@ package stores
 
 import (
 	"context"
+	"strings"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -31,7 +32,7 @@ func (c *Client) GetConfigsStore() (*ConfigsStore, bool) {
 }
 
 func (s *ConfigsStore) Get(name string) *mongo.SingleResult {
-	filter := bson.D{{Key: "name", Value: name}}
+	filter := bson.D{{Key: "name", Value: strings.ToLower(name)}}
 	return s.FindOne(s.ctx, filter)
 }
 

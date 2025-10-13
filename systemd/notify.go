@@ -1,7 +1,6 @@
 package systemd
 
 import (
-	"log/slog"
 	"net"
 	"os"
 )
@@ -10,8 +9,6 @@ import (
 func Notify(state string) error {
 	socketPath := os.Getenv("NOTIFY_SOCKET")
 	if socketPath == "" {
-		// Not running under systemd, skip notification
-		slog.Debug("NOTIFY_SOCKET not set, skipping systemd notification")
 		return nil
 	}
 

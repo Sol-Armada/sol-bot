@@ -22,7 +22,7 @@ func Group(key string) *Setting {
 	return &Setting{setting.Sub(key)}
 }
 
-func Set(key string, value interface{}) {
+func Set(key string, value any) {
 	setting.Set(key, value)
 }
 
@@ -43,7 +43,7 @@ func IsSet(key string) bool {
 	return setting.IsSet(key)
 }
 
-func AllSettings() map[string]interface{} {
+func AllSettings() map[string]any {
 	return setting.AllSettings()
 }
 

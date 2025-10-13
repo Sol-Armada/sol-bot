@@ -2,10 +2,11 @@ package bot
 
 import (
 	"context"
+	"log/slog"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/members"
@@ -15,18 +16,57 @@ import (
 )
 
 func setupOnboarding() error {
-	logger := log.WithField("func", "setupOnboarding")
+	logger := slog.Default()
 
 	logger.Debug("setting up onboarding")
 
-	msgs, err := bot.ChannelMessages(settings.GetString("FEATURES.ONBOARDING.INPUT_CHANNEL_ID"), 1, "", "", "")
-	if err != nil {
-		return err
+	logo := &discordgo.File{
+		Name:        "logo.png",
+		ContentType: "image/png",
 	}
 
-	content := `Welcome to Sol Armada!
+	logoPath := settings.GetStringWithDefault("LOGO", "")
 
-Select a reason you joined below. We will ask a few questions and someone will be available in the <#223290459726807040> to verbally onboard you!`
+	var file []byte
+	var files []*discordgo.File
+	var err error
+
+	if logoPath != "" {
+		file, err = os.ReadFile(logoPath)
+		if err != nil {
+			logoPath = ""
+			logger.Warn("failed to read logo file, continuing without logo", "error", err)
+			goto CONTINUE
+		}
+
+		// create reader from bytes
+		logo.Reader = strings.NewReader(string(file))
+		if logoPath != "" {
+			files = []*discordgo.File{logo}
+		}
+	} else {
+		logger.Debug("no logo found")
+	}
+
+CONTINUE:
+
+	content := `# Welcome to Sol Armada!
+
+Let us know how you found us by clicking one of the buttons below. This will help us improve our recruitment efforts and better understand our community.
+If you run into any issues, please reach out in <#223290459726807040> for assistance.
+
+## If you are here to join Sol Armada
+After applying to the Org on RSI and paticipating in a brief verbal onboarding, with an <@&398414253171671041> or <@&1109958022362562672>, we will mark you as a Recruit, granting access to more channels here on Discord. We don't accept applications until you attend 3 official Org events.
+
+## If you are an ambassador or content creator
+Let's chat! Message <@91622043040124928>, Sol Armada's Diplomat and Admiral.
+
+— Sol Armada Org Administration
+
+### [Sol Armada Handbook - Please read!](https://www.solarmada.space/fullhandbook)
+
+### [Join the Org!](https://www.solarmada.space/new-recruits)
+`
 
 	components := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -53,12 +93,24 @@ Select a reason you joined below. We will ask a few questions and someone will b
 		},
 	}
 
+	msg := &discordgo.MessageSend{
+		Content:    content,
+		Components: components,
+		Flags:      discordgo.MessageFlagsSuppressEmbeds,
+	}
+
+	if logoPath != "" {
+		msg.Files = files
+	}
+
+	msgs, err := bot.ChannelMessages(settings.GetString("FEATURES.ONBOARDING.INPUT_CHANNEL_ID"), 1, "", "", "")
+	if err != nil {
+		return err
+	}
+
 	if len(msgs) == 0 {
 		logger.Debug("no onboarding message found")
-		if _, err := bot.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.INPUT_CHANNEL_ID"), &discordgo.MessageSend{
-			Content:    content,
-			Components: components,
-		}); err != nil {
+		if _, err := bot.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.INPUT_CHANNEL_ID"), msg); err != nil {
 			return err
 		}
 
@@ -66,12 +118,16 @@ Select a reason you joined below. We will ask a few questions and someone will b
 	}
 
 	logger.Debug("onboarding message found")
-	if _, err := bot.ChannelMessageEditComplex(&discordgo.MessageEdit{
+
+	msgEdit := &discordgo.MessageEdit{
 		Channel:    msgs[0].ChannelID,
 		ID:         msgs[0].ID,
-		Content:    &content,
-		Components: &components,
-	}); err != nil {
+		Content:    &msg.Content,
+		Components: &msg.Components,
+		Flags:      discordgo.MessageFlagsSuppressEmbeds,
+	}
+
+	if _, err := bot.ChannelMessageEditComplex(msgEdit); err != nil {
 		return err
 	}
 

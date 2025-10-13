@@ -327,7 +327,6 @@ func (app *Application) initializeBot() error {
 	var err error
 	app.bot, err = bot.New()
 	if err != nil {
-		logger.Error("failed to create bot instance", "error", err)
 		return fmt.Errorf("failed to create bot: %w", err)
 	}
 	logger.Info("bot instance created successfully")

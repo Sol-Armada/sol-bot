@@ -11,8 +11,6 @@
             "mode": "auto",
             "cwd": "${workspaceFolder}",
             "program": "./cmd/",
-            // "preLaunchTask": "db - up",
-            // "postDebugTask": "db - down"
         },
     ],
 }
