@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"os"
+	"path/filepath"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -29,13 +30,22 @@ type Giveaway struct {
 }
 
 var giveaways = map[string]*Giveaway{}
-var fName = "giveaways.json"
+var fName = "data/giveaways.json"
 
 func Load(s *discordgo.Session) error {
 	fName = settings.GetString("FEATURES.GIVEAWAY.FILE")
 	if fName == "" {
 		fName = "giveaways.json"
 	}
+
+	// Ensure the directory exists before trying to read/write the file
+	dir := filepath.Dir(fName)
+	if dir != "." && dir != "" {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return errors.Join(err, errors.New("failed to create directory for giveaways file"))
+		}
+	}
+
 	b, err := os.ReadFile(fName)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -66,18 +76,25 @@ func Load(s *discordgo.Session) error {
 	return nil
 }
 
-func NewGiveaway(s *discordgo.Session, attendanceId string, items []*Item) (*Giveaway, error) {
-	attendance, err := attendance.Get(attendanceId)
-	if err != nil {
-		return nil, err
+func NewGiveaway(s *discordgo.Session, name, attendanceId string, items []*Item) (*Giveaway, error) {
+	g := &Giveaway{
+		Id:    xid.New().String(),
+		Name:  name,
+		Items: make(map[string]*Item),
+		sess:  s,
 	}
 
-	g := &Giveaway{
-		Id:           xid.New().String(),
-		Items:        make(map[string]*Item),
-		AttendanceId: attendance.Id,
+	var a *attendance.Attendance
+	if attendanceId != "" {
+		var err error
+		a, err = attendance.Get(attendanceId)
+		if err != nil {
+			return nil, err
+		}
+	}
 
-		sess: s,
+	if a != nil {
+		g.AttendanceId = a.Id
 	}
 
 	if len(items) == 0 {
@@ -113,6 +130,20 @@ func SaveGiveaways() {
 		return
 	}
 	slog.Debug("giveaways saved to giveaways.json")
+}
+
+func (g *Giveaway) CanParticipate(memberId string) bool {
+	if g.AttendanceId == "" {
+		return true
+	}
+
+	a, err := attendance.Get(g.AttendanceId)
+	if err != nil {
+		slog.Error("failed to get attendance for giveaway", "error", err)
+		return false
+	}
+
+	return a.HasMember(memberId, true)
 }
 
 func (g *Giveaway) SetEndTime(time_m int) *Giveaway {

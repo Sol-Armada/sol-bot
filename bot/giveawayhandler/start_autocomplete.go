@@ -23,7 +23,7 @@ func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.I
 
 	items := utils.GetItemNames()
 	for _, option := range data.Options {
-		if option.Name == "event" && option.Focused {
+		if option.Name == "name" && option.Focused {
 			attendanceRecords, err := attendance.List(bson.D{}, 10, 0)
 			if err != nil {
 				return errors.Join(err, errors.New("getting active attendance records"))

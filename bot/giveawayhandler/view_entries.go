@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
@@ -23,14 +22,7 @@ func viewEntries(ctx context.Context, s *discordgo.Session, i *discordgo.Interac
 		return customerrors.InvalidGiveaway
 	}
 
-	a, err := attendance.Get(g.AttendanceId)
-	if err != nil {
-		a = &attendance.Attendance{
-			Name: "",
-		}
-	}
-
-	if !a.HasMember(member.Id, true) {
+	if !g.CanParticipate(member.Id) {
 		customerrors.ErrorResponse(s, i.Interaction, "You did not attend this event! You don't qualify for this giveaway.", nil)
 		return nil
 	}

@@ -8,19 +8,11 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
 func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 	feilds := []*discordgo.MessageEmbedField{}
-
-	a, err := attendance.Get(g.AttendanceId)
-	if err != nil {
-		a = &attendance.Attendance{
-			Name: "",
-		}
-	}
 
 	if g.Ended {
 		for _, item := range g.Items {
@@ -45,7 +37,7 @@ func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 		feilds = sortFieldsByName(feilds)
 
 		return &discordgo.MessageEmbed{
-			Title:       a.Name,
+			Title:       g.Name,
 			Description: "### 🎊 Giveaway Winners 🎊\nCongrats on your winnings! Please meet at the OIC's hanger to collect your prizes, if your name is shown below.",
 			Fields:      feilds,
 			Color:       0x000000 + rand.Intn(0xffffff),
@@ -121,9 +113,8 @@ func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 		// Text: fmt.Sprintf("Time Remaining: %s", timeRemaining),
 		Text: fmt.Sprintf("Giveaway ends in %s", timeRemaining),
 	}
-
 	return &discordgo.MessageEmbed{
-		Title:       a.Name,
+		Title:       g.Name,
 		Description: "### 🎁  Ongoing Giveaways  🎁\nLooking to earn yourself something nice? Select the items you want from the dropdown below for a chance to win!\n\n_Tokens not required. Must be part of the associated event._",
 		Fields:      feilds,
 		Color:       0x000000 + rand.Intn(0xffffff),

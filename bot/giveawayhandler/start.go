@@ -7,6 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
+	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/utils"
@@ -32,11 +33,11 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	data := i.ApplicationCommandData()
 
 	items := make([]*giveaway.Item, 0)
-	attendanceId := ""
+	name := ""
 	timer := 0
 	for _, opt := range data.Options {
-		if opt.Name == "event" {
-			attendanceId = opt.StringValue()
+		if opt.Name == "name" {
+			name = opt.StringValue()
 			continue
 		}
 
@@ -81,7 +82,14 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		items = append(items, item)
 	}
 
-	g, err := giveaway.NewGiveaway(s, attendanceId, items)
+	attendanceId := ""
+	a, err := attendance.Get(name)
+	if err == nil {
+		attendanceId = a.Id
+		name = a.Name
+	}
+
+	g, err := giveaway.NewGiveaway(s, name, attendanceId, items)
 	if err != nil {
 		return err
 	}

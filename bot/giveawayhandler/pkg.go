@@ -13,7 +13,7 @@ import (
 )
 
 var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"event": startAutocomplete,
+	"name": startAutocomplete,
 }
 
 var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
@@ -29,8 +29,8 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 	options := []*discordgo.ApplicationCommandOption{
 		{
 			Type:         discordgo.ApplicationCommandOptionString,
-			Name:         "event",
-			Description:  "The event to associate",
+			Name:         "name",
+			Description:  "The name of the giveaway. If you associate with an event, it will use the event name.",
 			Required:     true,
 			Autocomplete: true,
 		},
