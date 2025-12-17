@@ -122,6 +122,10 @@ func (r *Raffle) PickWinner() ([]*members.Member, error) {
 	winners := []*members.Member{}
 	potentialWinners := slices.Clone(memberIds)
 	for range r.Quantity {
+		if len(potentialWinners) == 0 {
+			break
+		}
+
 		selected, err := rand.Int(rand.Reader, big.NewInt(int64(len(potentialWinners))))
 		if err != nil {
 			return nil, err
