@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -21,8 +22,9 @@ type Raffle struct {
 	Name        string         `json:"name"`
 	AttedanceId string         `json:"attendance_id"`
 	Prize       string         `json:"prize"`
+	Quantity    int            `json:"quantity"`
 	Tickets     map[string]int `json:"tickets"`
-	WinnerId    string         `json:"winner_id"`
+	Winners     []string       `json:"winners"`
 	Ended       bool           `json:"ended"`
 	ChannelId   string         `json:"channel_id"`
 	MessageId   string         `json:"message_id"`
@@ -49,11 +51,20 @@ func Setup() error {
 
 func New(name, attendanceId, prize string) *Raffle {
 	n := time.Now().UTC()
+
+	prizeQtyStr := strings.Split(prize, ":")[1]
+	prizeName := strings.Split(prize, ":")[0]
+	quantity := 1
+	if prizeQtyStr != "" {
+		fmt.Sscanf(prizeQtyStr, "%d", &quantity)
+	}
+
 	return &Raffle{
 		Id:          xid.New().String(),
 		Name:        name,
 		AttedanceId: attendanceId,
-		Prize:       prize,
+		Prize:       prizeName,
+		Quantity:    quantity,
 		Tickets:     map[string]int{},
 		CreatedAt:   n,
 		UpdatedAt:   n,
@@ -91,7 +102,7 @@ func (r *Raffle) RemoveTicket(memberId string) *Raffle {
 	return r
 }
 
-func (r *Raffle) PickWinner() (*members.Member, error) {
+func (r *Raffle) PickWinner() ([]*members.Member, error) {
 	if r.Ended {
 		return nil, errors.New("raffle has ended")
 	}
@@ -108,20 +119,31 @@ func (r *Raffle) PickWinner() (*members.Member, error) {
 		return nil, ErrNoEntries
 	}
 
-	selected, err := rand.Int(rand.Reader, big.NewInt(int64(len(memberIds))))
-	if err != nil {
-		return nil, err
-	}
+	winners := []*members.Member{}
+	potentialWinners := slices.Clone(memberIds)
+	for range r.Quantity {
+		selected, err := rand.Int(rand.Reader, big.NewInt(int64(len(potentialWinners))))
+		if err != nil {
+			return nil, err
+		}
 
-	winner, err := members.Get(memberIds[selected.Int64()])
-	if err != nil {
-		return nil, err
-	}
+		winner, err := members.Get(potentialWinners[selected.Int64()])
+		if err != nil {
+			return nil, err
+		}
 
-	r.WinnerId = winner.Id
+		winners = append(winners, winner)
+		r.Winners = append(r.Winners, winner.Id)
+
+		// remove all entries of the winner from potentialWinners
+		newPotentialWinners := slices.DeleteFunc(potentialWinners, func(id string) bool {
+			return id == winner.Id
+		})
+		potentialWinners = newPotentialWinners
+	}
 	r.Ended = true
 
-	return winner, r.Save()
+	return winners, r.Save()
 }
 
 func (r *Raffle) GetTickets() string {
@@ -151,7 +173,7 @@ func (r *Raffle) GetTickets() string {
 	tickets := ""
 	for _, ticket := range sorted {
 		tickets += fmt.Sprintf("<@%s>", ticket.MemberId)
-		if r.WinnerId != "" {
+		if len(r.Winners) != 0 {
 			tickets += fmt.Sprintf(" | %d", ticket.Amount)
 		}
 		tickets += "\n"
@@ -187,13 +209,18 @@ func (r *Raffle) MemberWonLast(id string) (bool, error) {
 		return false, nil
 	}
 
-	if latestRaffle.WinnerId == "" {
+	if len(latestRaffle.Winners) == 0 {
 		return false, nil
 	}
 
-	return latestRaffle.WinnerId == id, nil
-}
+	for _, winnerId := range latestRaffle.Winners {
+		if winnerId == id {
+			return true, nil
+		}
+	}
 
+	return false, nil
+}
 func (r *Raffle) Delete() error {
 	return rafflesStore.Delete(r.Id)
 }

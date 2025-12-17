@@ -41,7 +41,7 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 		return err
 	}
 
-	winner, err := raffle.PickWinner()
+	winners, err := raffle.PickWinner()
 	if err != nil {
 		if err == raffles.ErrNoEntries {
 			raffle.Ended = true
@@ -50,17 +50,29 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 			}
 		}
 
-		goto END
+		return raffle.UpdateMessage(s)
 	}
 
-	if _, err := s.ChannelMessageSend(i.Interaction.ChannelID, fmt.Sprintf("🎊 Congratulations to <@%s>! They have won the raffle! 🎊", winner.Id)); err != nil {
+	var winnerNames strings.Builder
+	for j, winner := range winners {
+		winnerNames.WriteString("<@")
+		winnerNames.WriteString(winner.Id)
+		winnerNames.WriteString(">")
+		if j < len(winners)-1 {
+			if j == len(winners)-2 {
+				winnerNames.WriteString(" and ")
+			}
+			winnerNames.WriteString(", ")
+		}
+
+		if err := tokens.New(winner.Id, raffle.Tickets[winner.Id]*-1, tokens.ReasonWonRaffle, nil, &raffle.AttedanceId, nil).Save(); err != nil {
+			return err
+		}
+	}
+
+	if _, err := s.ChannelMessageSend(i.Interaction.ChannelID, fmt.Sprintf("🎊 Congratulations to %s! They have won the raffle! 🎊", winnerNames.String())); err != nil {
 		return err
 	}
 
-	if err := tokens.New(winner.Id, raffle.Tickets[winner.Id]*-1, tokens.ReasonWonRaffle, nil, &raffle.AttedanceId, nil).Save(); err != nil {
-		return err
-	}
-
-END:
 	return raffle.UpdateMessage(s)
 }

@@ -2,9 +2,9 @@ package raffles
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/tokens"
 )
 
@@ -20,6 +20,14 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 			Value:  r.Prize,
 			Inline: true,
 		},
+	}
+
+	if r.Quantity > 1 {
+		feilds = append(feilds, &discordgo.MessageEmbedField{
+			Name:   "Quantity",
+			Value:  fmt.Sprintf("%d", r.Quantity),
+			Inline: true,
+		})
 	}
 
 	tokenFields := []*discordgo.MessageEmbedField{
@@ -64,7 +72,7 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 		ticketField := ticketFields[len(ticketFields)-1]
 		ticketField.Value += fmt.Sprintf("<@%s>", memberId)
 
-		if r.WinnerId != "" {
+		if len(r.Winners) != 0 {
 			ticketField.Value += " | " + fmt.Sprintf("%d", ticketAmount)
 		}
 
@@ -82,15 +90,23 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 
 	feilds = append(feilds, ticketFields...)
 
-	if r.Ended && r.WinnerId != "" {
-		winner, err := members.Get(r.WinnerId)
-		if err != nil {
-			return nil, err
+	if r.Ended && len(r.Winners) > 0 {
+		name := "🥳 Winner 🎉"
+		if r.Quantity > 1 {
+			name = "🥳 Winners 🎉"
 		}
-
+		var winnerIds strings.Builder
+		for i, winnerId := range r.Winners {
+			winnerIds.WriteString("<@")
+			winnerIds.WriteString(winnerId)
+			winnerIds.WriteString("> ")
+			if i < len(r.Winners)-1 {
+				winnerIds.WriteString(", ")
+			}
+		}
 		feilds = append(feilds, &discordgo.MessageEmbedField{
-			Name:   "🥳 Winner 🎉",
-			Value:  fmt.Sprintf("<@%s>", winner.Id),
+			Name:   name,
+			Value:  winnerIds.String(),
 			Inline: false,
 		})
 	}

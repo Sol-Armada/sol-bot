@@ -41,9 +41,9 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
 				Name:         "prize",
-				Description:  "The prize",
+				Description:  "The prize. To add quantity, use 'item:qty'. E.g. 'Pickles:2'",
 				Required:     true,
-				Autocomplete: true,
+				Autocomplete: false,
 			},
 		},
 	}, nil
