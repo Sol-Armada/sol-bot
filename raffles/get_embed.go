@@ -4,21 +4,15 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/tokens"
 )
 
 func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
-	attendanceRecord, err := attendance.Get(r.AttedanceId)
-	if err != nil {
-		return nil, err
-	}
-
 	feilds := []*discordgo.MessageEmbedField{
 		{
-			Name:   "Event",
-			Value:  attendanceRecord.Name,
+			Name:   "Name",
+			Value:  r.Name,
 			Inline: true,
 		},
 		{
@@ -44,7 +38,6 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 
 	i := 0
 	for memberId, ticketAmount := range r.Tickets {
-
 		// for every 10 members, make a new field
 		if i%10 == 0 && i != 0 {
 			tokenFields = append(tokenFields, &discordgo.MessageEmbedField{
@@ -89,7 +82,7 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 
 	feilds = append(feilds, ticketFields...)
 
-	if r.Ended {
+	if r.Ended && r.WinnerId != "" {
 		winner, err := members.Get(r.WinnerId)
 		if err != nil {
 			return nil, err
@@ -102,8 +95,16 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 		})
 	}
 
-	return &discordgo.MessageEmbed{
+	embed := &discordgo.MessageEmbed{
 		Title:  "Raffle",
 		Fields: feilds,
-	}, nil
+	}
+
+	if r.AttedanceId != "" {
+		embed.Footer = &discordgo.MessageEmbedFooter{
+			Text: "Attendance ID: " + r.AttedanceId,
+		}
+	}
+
+	return embed, nil
 }

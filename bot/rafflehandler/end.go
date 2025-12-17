@@ -43,7 +43,14 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 
 	winner, err := raffle.PickWinner()
 	if err != nil {
-		return err
+		if err == raffles.ErrNoEntries {
+			raffle.Ended = true
+			if err := raffle.Save(); err != nil {
+				return err
+			}
+		}
+
+		goto END
 	}
 
 	if _, err := s.ChannelMessageSend(i.Interaction.ChannelID, fmt.Sprintf("🎊 Congratulations to <@%s>! They have won the raffle! 🎊", winner.Id)); err != nil {
@@ -54,12 +61,6 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 		return err
 	}
 
-	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
-		Content: "The raffle has ended.",
-		Flags:   discordgo.MessageFlagsEphemeral,
-	}); err != nil {
-		return err
-	}
-
+END:
 	return raffle.UpdateMessage(s)
 }

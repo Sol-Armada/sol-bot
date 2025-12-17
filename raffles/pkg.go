@@ -18,6 +18,7 @@ import (
 
 type Raffle struct {
 	Id          string         `json:"id" bson:"_id"`
+	Name        string         `json:"name"`
 	AttedanceId string         `json:"attendance_id"`
 	Prize       string         `json:"prize"`
 	Tickets     map[string]int `json:"tickets"`
@@ -31,6 +32,10 @@ type Raffle struct {
 
 var rafflesStore *stores.RaffleStore
 
+var (
+	ErrNoEntries error = errors.New("no entries in raffle")
+)
+
 func Setup() error {
 	storesClient := stores.Get()
 	rs, ok := storesClient.GetRafflesStore()
@@ -42,10 +47,11 @@ func Setup() error {
 	return nil
 }
 
-func New(attendanceId, prize string) *Raffle {
+func New(name, attendanceId, prize string) *Raffle {
 	n := time.Now().UTC()
 	return &Raffle{
 		Id:          xid.New().String(),
+		Name:        name,
 		AttedanceId: attendanceId,
 		Prize:       prize,
 		Tickets:     map[string]int{},
@@ -99,7 +105,7 @@ func (r *Raffle) PickWinner() (*members.Member, error) {
 	}
 
 	if len(memberIds) == 0 {
-		return nil, errors.New("no tickets")
+		return nil, ErrNoEntries
 	}
 
 	selected, err := rand.Int(rand.Reader, big.NewInt(int64(len(memberIds))))

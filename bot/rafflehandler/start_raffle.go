@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/utils"
 )
@@ -26,7 +27,15 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	attendanceRecordId := data.Options[0].Value.(string)
 	prize := data.Options[1].Value.(string)
 
-	raffle := raffles.New(attendanceRecordId, prize)
+	name := attendanceRecordId
+	a, _ := attendance.Get(attendanceRecordId)
+	if a != nil {
+		name = a.Name + " Raffle"
+	} else {
+		attendanceRecordId = ""
+	}
+
+	raffle := raffles.New(name, attendanceRecordId, prize)
 
 	embed, err := raffle.GetEmbed()
 	if err != nil {

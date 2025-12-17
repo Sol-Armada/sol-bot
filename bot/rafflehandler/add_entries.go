@@ -25,19 +25,21 @@ func addEntries(ctx context.Context, s *discordgo.Session, i *discordgo.Interact
 		return err
 	}
 
-	attendanceRecord, err := attendance.Get(raffle.AttedanceId)
-	if err != nil {
-		return err
-	}
+	if raffle.AttedanceId != "" {
+		attendanceRecord, err := attendance.Get(raffle.AttedanceId)
+		if err != nil {
+			return err
+		}
 
-	if _, ok := attendanceRecord.GetMember(i.Member.User.ID); !ok {
-		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Content: "You did not attend this event and cannot enter the raffle.",
-				Flags:   discordgo.MessageFlagsEphemeral,
-			},
-		})
+		if _, ok := attendanceRecord.GetMember(i.Member.User.ID); !ok {
+			return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Content: "You did not attend this event and cannot enter the raffle.",
+					Flags:   discordgo.MessageFlagsEphemeral,
+				},
+			})
+		}
 	}
 
 	won, err := raffle.MemberWonLast(i.Member.User.ID)

@@ -248,31 +248,31 @@ func (b *Bot) Setup() error {
 			case InvalidAttendanceRecord:
 				msg = "That is not a valid attendance record"
 			default:
-				if settings.GetString("DISCORD.ERROR_CHANNEL_ID") != "" {
-					inputValues := ""
-					if len(i.ApplicationCommandData().Options) > 0 {
-						for _, option := range i.ApplicationCommandData().Options {
-							inputValues += fmt.Sprintf("%s: %v\n", option.Name, option.Value)
-						}
-					}
+				// if settings.GetString("DISCORD.ERROR_CHANNEL_ID") != "" {
+				// 	var inputValues strings.Builder
+				// 	if len(i.ApplicationCommandData().Options) > 0 {
+				// 		for _, option := range i.ApplicationCommandData().Options {
+				// 			fmt.Fprintf(&inputValues, "%s: %v\n", option.Name, option.Value)
+				// 		}
+				// 	}
 
-					_, _ = b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
-						Content: "Ran into an error",
-						Embeds: []*discordgo.MessageEmbed{
-							{
-								Title:       "Error",
-								Description: err.Error(),
-								Fields: []*discordgo.MessageEmbedField{
-									{Name: "Who ran the command", Value: i.Member.User.Mention(), Inline: false},
-									{Name: "Command", Value: i.ApplicationCommandData().Name, Inline: true},
-									{Name: "Values", Value: inputValues, Inline: true},
-									{Name: "Error", Value: err.Error(), Inline: false},
-								},
-								Timestamp: time.Now().Format("2006-01-02 15:04:05 -0700 MST"),
-							},
-						},
-					})
-				}
+				// 	_, _ = b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
+				// 		Content: "Ran into an error",
+				// 		Embeds: []*discordgo.MessageEmbed{
+				// 			{
+				// 				Title:       "Error",
+				// 				Description: err.Error(),
+				// 				Fields: []*discordgo.MessageEmbedField{
+				// 					{Name: "Who ran the command", Value: i.Member.User.Mention(), Inline: false},
+				// 					{Name: "Command", Value: i.ApplicationCommandData().Name, Inline: true},
+				// 					{Name: "Values", Value: inputValues.String(), Inline: true},
+				// 					{Name: "Error", Value: err.Error(), Inline: false},
+				// 				},
+				// 				Timestamp: time.Now().Format("2006-01-02 15:04:05 -0700 MST"),
+				// 			},
+				// 		},
+				// 	})
+				// }
 			}
 
 			switch i.Interaction.Type {

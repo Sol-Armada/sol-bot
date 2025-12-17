@@ -11,7 +11,7 @@ import (
 )
 
 var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"event": startAutocomplete,
+	"name": startAutocomplete,
 }
 
 var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
@@ -33,8 +33,8 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Type:         discordgo.ApplicationCommandOptionString,
-				Name:         "event",
-				Description:  "The event to associate",
+				Name:         "name",
+				Description:  "The name of the raffle. If linked to an attendance record, use the attendance record Name",
 				Required:     true,
 				Autocomplete: true,
 			},
@@ -53,9 +53,9 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle command handler")
 
-	if !utils.Allowed(i.Member, "RAFFLES") {
-		return customerrors.InvalidPermissions
-	}
+	// if !utils.Allowed(i.Member, "RAFFLES") {
+	// 	return customerrors.InvalidPermissions
+	// }
 
 	return start(ctx, s, i)
 }
@@ -64,19 +64,22 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle autocomplete handler")
 
-	if !utils.Allowed(i.Member, "RAFFLES") {
-		return customerrors.InvalidPermissions
-	}
+	// if !utils.Allowed(i.Member, "RAFFLES") {
+	// 	return customerrors.InvalidPermissions
+	// }
 
 	data := i.ApplicationCommandData()
-	handler, ok := autoCompletes[data.Options[0].Name]
-	logger = logger.With(
-		slog.String("subcommand", data.Options[0].Name),
-	)
-	ctx = utils.SetLoggerToContext(ctx, logger)
+	optionName := data.Options[0].Name
+
+	handler, ok := autoCompletes[optionName]
 	if !ok {
 		return customerrors.InvalidAutocomplete
 	}
+
+	logger = logger.With(
+		slog.String("subcommand", optionName),
+	)
+	ctx = utils.SetLoggerToContext(ctx, logger)
 
 	logger.Debug("calling autocomplete handler")
 

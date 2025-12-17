@@ -3,6 +3,7 @@ package rafflehandler
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
@@ -19,7 +20,7 @@ func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.I
 
 	for _, option := range data.Options {
 		switch option.Name {
-		case "event":
+		case "name":
 			if option.Focused {
 				attendanceRecords, err := attendance.ListActive(5)
 				if err != nil {
@@ -28,7 +29,7 @@ func startAutocomplete(ctx context.Context, s *discordgo.Session, i *discordgo.I
 
 				for _, record := range attendanceRecords {
 					choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-						Name:  record.Name,
+						Name:  record.Name + " - " + record.DateCreated.Format(time.RFC822),
 						Value: record.Id,
 					})
 				}
