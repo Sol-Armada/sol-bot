@@ -26,6 +26,7 @@ type Raffle struct {
 	Tickets     map[string]int `json:"tickets"`
 	Winners     []string       `json:"winners"`
 	Ended       bool           `json:"ended"`
+	Test        bool           `json:"test"`
 	ChannelId   string         `json:"channel_id"`
 	MessageId   string         `json:"message_id"`
 	CreatedAt   time.Time      `json:"created_at"`
@@ -49,7 +50,7 @@ func Setup() error {
 	return nil
 }
 
-func New(name, attendanceId, prize string) *Raffle {
+func New(name, attendanceId, prize string, test bool) *Raffle {
 	n := time.Now().UTC()
 
 	prizeQtyStr := strings.Split(prize, ":")[1]
@@ -68,6 +69,8 @@ func New(name, attendanceId, prize string) *Raffle {
 		Tickets:     map[string]int{},
 		CreatedAt:   n,
 		UpdatedAt:   n,
+
+		Test: test,
 	}
 }
 

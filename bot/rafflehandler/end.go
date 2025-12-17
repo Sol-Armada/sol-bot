@@ -65,8 +65,10 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 			winnerNames.WriteString(", ")
 		}
 
-		if err := tokens.New(winner.Id, raffle.Tickets[winner.Id]*-1, tokens.ReasonWonRaffle, nil, &raffle.AttedanceId, nil).Save(); err != nil {
-			return err
+		if !raffle.Test {
+			if err := tokens.New(winner.Id, raffle.Tickets[winner.Id]*-1, tokens.ReasonWonRaffle, nil, &raffle.AttedanceId, nil).Save(); err != nil {
+				return err
+			}
 		}
 	}
 

@@ -45,6 +45,12 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 				Required:     true,
 				Autocomplete: false,
 			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "test",
+				Description: "Whether this is a test raffle (won't be logged)",
+				Required:    false,
+			},
 		},
 	}, nil
 }

@@ -26,6 +26,10 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 
 	attendanceRecordId := data.Options[0].Value.(string)
 	prize := data.Options[1].Value.(string)
+	test := false
+	if len(data.Options) > 2 {
+		test = data.Options[2].Value.(bool)
+	}
 
 	name := attendanceRecordId
 	a, _ := attendance.Get(attendanceRecordId)
@@ -35,7 +39,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		attendanceRecordId = ""
 	}
 
-	raffle := raffles.New(name, attendanceRecordId, prize)
+	raffle := raffles.New(name, attendanceRecordId, prize, test)
 
 	embed, err := raffle.GetEmbed()
 	if err != nil {
