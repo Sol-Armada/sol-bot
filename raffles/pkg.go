@@ -53,11 +53,16 @@ func Setup() error {
 func New(name, attendanceId, prize string, test bool) *Raffle {
 	n := time.Now().UTC()
 
-	prizeQtyStr := strings.Split(prize, ":")[1]
+	prizeSplit := strings.Split(prize, ":")
 	prizeName := strings.Split(prize, ":")[0]
+	var prizeQtyStr string
+	if len(prizeSplit) > 1 {
+		prizeQtyStr = strings.Split(prize, ":")[1]
+	}
+
 	quantity := 1
 	if prizeQtyStr != "" {
-		fmt.Sscanf(prizeQtyStr, "%d", &quantity)
+		_, _ = fmt.Sscanf(prizeQtyStr, "%d", &quantity)
 	}
 
 	return &Raffle{

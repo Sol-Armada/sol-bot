@@ -19,6 +19,7 @@ var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *disc
 	"add_entries": addEntries,
 	"end":         end,
 	"cancel":      cancel,
+	"entries":     entries,
 }
 
 var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{

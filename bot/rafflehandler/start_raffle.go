@@ -34,7 +34,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	name := attendanceRecordId
 	a, _ := attendance.Get(attendanceRecordId)
 	if a != nil {
-		name = a.Name + " Raffle"
+		name = a.Name
 	} else {
 		attendanceRecordId = ""
 	}
@@ -59,6 +59,11 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 					discordgo.Button{
 						CustomID: "raffle:back_out:" + raffle.Id,
 						Label:    "Back Out",
+						Style:    discordgo.SecondaryButton,
+					},
+					discordgo.Button{
+						CustomID: "raffle:entries:" + raffle.Id,
+						Label:    "Entries",
 						Style:    discordgo.SecondaryButton,
 					},
 					discordgo.Button{

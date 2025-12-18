@@ -11,11 +11,6 @@ import (
 func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 	feilds := []*discordgo.MessageEmbedField{
 		{
-			Name:   "Name",
-			Value:  r.Name,
-			Inline: true,
-		},
-		{
 			Name:   "Prize",
 			Value:  r.Prize,
 			Inline: true,
@@ -100,7 +95,7 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 			winnerIds.WriteString("<@")
 			winnerIds.WriteString(winnerId)
 			winnerIds.WriteString("> ")
-			if i < len(r.Winners)-1 {
+			if i < len(r.Winners)-2 {
 				winnerIds.WriteString(", ")
 			}
 		}
@@ -111,8 +106,13 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 		})
 	}
 
+	title := r.Name + " Raffle"
+	if r.Test {
+		title = "[TEST] " + title
+	}
+
 	embed := &discordgo.MessageEmbed{
-		Title:  "Raffle",
+		Title:  title,
 		Fields: feilds,
 	}
 
