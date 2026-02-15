@@ -91,11 +91,3 @@ func GenerateRandomAlphaNumeric(size int) string {
 	}
 	return string(b)
 }
-
-// ToPointer converts a value of type T to a pointer of type *T.
-//
-// Parameters:
-// - v: the value to convert
-func ToPointer[T any](v T) *T {
-	return &v
-}

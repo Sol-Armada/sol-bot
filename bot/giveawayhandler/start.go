@@ -123,7 +123,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	g.Save()
 
 	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: utils.ToPointer("Giveaway started!"),
+		Content:new("Giveaway started!"),
 	}); err != nil {
 		return err
 	}

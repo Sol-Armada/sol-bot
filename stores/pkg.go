@@ -38,6 +38,7 @@ type StoreRegistry struct {
 	tokens     *TokenStore
 	raffles    *RaffleStore
 	kanban     *KanbanStore
+	commands   *CommandsStore
 }
 
 // Store accessor methods
@@ -49,6 +50,7 @@ func (s *StoreRegistry) SOS() *SOSStore               { return s.sos }
 func (s *StoreRegistry) Tokens() *TokenStore          { return s.tokens }
 func (s *StoreRegistry) Raffles() *RaffleStore        { return s.raffles }
 func (s *StoreRegistry) Kanban() *KanbanStore         { return s.kanban }
+func (s *StoreRegistry) Commands() *CommandsStore     { return s.commands }
 
 type Client struct {
 	*mongo.Client
@@ -97,6 +99,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 	tokensStore := newTokensStore(ctx, mongoClient, database)
 	rafflesStore := newRafflesStore(ctx, mongoClient, database)
 	kanbanStore := newKanbanStore(ctx, mongoClient, database)
+	commandsStore := newCommandsStore(ctx, mongoClient, database)
 
 	storeRegistry := &StoreRegistry{
 		members:    membersStore,
@@ -107,6 +110,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 		tokens:     tokensStore,
 		raffles:    rafflesStore,
 		kanban:     kanbanStore,
+		commands:   commandsStore,
 	}
 
 	newClient := &Client{
@@ -135,7 +139,7 @@ func (c *Client) Stores() *StoreRegistry {
 }
 
 // GetCollection is deprecated, use Stores() instead
-func (c *Client) GetCollection(collection Collection) (interface{}, bool) {
+func (c *Client) GetCollection(collection Collection) (any, bool) {
 	switch collection {
 	case MEMBERS:
 		return c.stores.members, true
@@ -153,6 +157,8 @@ func (c *Client) GetCollection(collection Collection) (interface{}, bool) {
 		return c.stores.raffles, true
 	case KANBAN:
 		return c.stores.kanban, true
+	case COMMANDS:
+		return c.stores.commands, true
 	default:
 		return nil, false
 	}

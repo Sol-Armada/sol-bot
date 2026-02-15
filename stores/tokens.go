@@ -3,7 +3,6 @@ package stores
 import (
 	"context"
 
-	"github.com/sol-armada/sol-bot/utils"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -19,7 +18,7 @@ func newTokensStore(ctx context.Context, client *mongo.Client, database string) 
 	_ = client.Database(database).CreateCollection(ctx, string(TOKENS), &options.CreateCollectionOptions{
 		TimeSeriesOptions: &options.TimeSeriesOptions{
 			TimeField: "created_at",
-			MetaField: utils.ToPointer("member_id"),
+			MetaField: new("member_id"),
 		},
 	})
 	s := &store{
@@ -96,6 +95,19 @@ func (s *TokenStore) GetAllBalances() (*mongo.Cursor, error) {
 	}
 
 	cursor, err := s.Aggregate(s.ctx, aggregate)
+	if err != nil {
+		return nil, err
+	}
+	return cursor, nil
+}
+
+func (s *TokenStore) GetByMemberIdAndAttendanceId(memberId, attendanceId string) (*mongo.Cursor, error) {
+	filter := bson.D{
+		{Key: "member_id", Value: memberId},
+		{Key: "attendance_id", Value: attendanceId},
+	}
+
+	cursor, err := s.Find(s.ctx, filter)
 	if err != nil {
 		return nil, err
 	}

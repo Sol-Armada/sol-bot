@@ -159,8 +159,8 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			CustomID: "attendance:start:" + a.Id,
 		}
 
-		if a.Active {
-			startButton.Label = "End Event"
+		if a.Active || !a.Tokenable {
+			startButton.Label = "Finish Event"
 			startButton.Emoji.Name = "🛑"
 			startButton.CustomID = "attendance:end:" + a.Id
 		}
@@ -207,20 +207,20 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			},
 		)
 
-		payoutButton := discordgo.Button{
-			Label:    "Add Payout",
-			Style:    discordgo.PrimaryButton,
-			Disabled: a.Recorded,
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "💰",
-			},
-			CustomID: "attendance:payout:" + a.Id,
-		}
-		if a.Payouts != nil {
-			payoutButton.Label = "Edit Payout"
-			payoutButton.CustomID = "attendance:payout:" + a.Id
-		}
-		buttons = append(buttons, payoutButton)
+		// payoutButton := discordgo.Button{
+		// 	Label:    "Add Payout",
+		// 	Style:    discordgo.PrimaryButton,
+		// 	Disabled: a.Recorded,
+		// 	Emoji: &discordgo.ComponentEmoji{
+		// 		Name: "💰",
+		// 	},
+		// 	CustomID: "attendance:payout:" + a.Id,
+		// }
+		// if a.Payouts != nil {
+		// 	payoutButton.Label = "Edit Payout"
+		// 	payoutButton.CustomID = "attendance:payout:" + a.Id
+		// }
+		// buttons = append(buttons, payoutButton)
 	}
 
 	components := []discordgo.MessageComponent{}
@@ -231,17 +231,31 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		})
 	}
 
-	components = append(components, discordgo.ActionsRow{
-		Components: []discordgo.MessageComponent{
+	lastComponents := []discordgo.MessageComponent{
+		discordgo.Button{
+			Label: "Export",
+			Style: discordgo.PrimaryButton,
+			Emoji: &discordgo.ComponentEmoji{
+				Name: "📥",
+			},
+			CustomID: "attendance:export:" + a.Id,
+		},
+	}
+
+	if a.Recorded {
+		lastComponents = append(lastComponents,
 			discordgo.Button{
-				Label: "Export",
+				Label: "Revert",
 				Style: discordgo.PrimaryButton,
 				Emoji: &discordgo.ComponentEmoji{
-					Name: "📥",
+					Name: "↩️",
 				},
-				CustomID: "attendance:export:" + a.Id,
-			},
-		},
+				CustomID: "attendance:revert:" + a.Id,
+			})
+	}
+
+	components = append(components, discordgo.ActionsRow{
+		Components: lastComponents,
 	})
 
 	return &discordgo.MessageSend{

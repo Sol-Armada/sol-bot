@@ -5,35 +5,32 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func Setup() (*discordgo.ApplicationCommand, error) {
-	return &discordgo.ApplicationCommand{
-		Name:        "you_are_late",
-		Description: "Let a member know what to do when they are late",
-		Type:        discordgo.ChatApplicationCommand,
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Name:         "member",
-				Description:  "The member to notify",
-				Type:         discordgo.ApplicationCommandOptionUser,
-				Required:     true,
-				Autocomplete: true,
-			},
-			{
-				Name:        "poc",
-				Description: "The point of contect to use in the message",
-				Type:        discordgo.ApplicationCommandOptionUser,
-				Required:    false,
-			},
-		},
-	}, nil
+type YoureLateCommand struct{}
+
+var _ command.ApplicationCommand = (*YoureLateCommand)(nil)
+
+func New() command.ApplicationCommand {
+	return &YoureLateCommand{}
 }
 
-func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+// AutocompleteHandler implements [command.ApplicationCommand].
+func (y *YoureLateCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// ButtonHandler implements [command.ApplicationCommand].
+func (y *YoureLateCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// CommandHandler implements [command.ApplicationCommand].
+func (y *YoureLateCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("yourelate command handler")
 
@@ -100,4 +97,57 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 			Content: sb.String(),
 		},
 	})
+}
+
+// ModalHandler implements [command.ApplicationCommand].
+func (y *YoureLateCommand) ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Name implements [command.ApplicationCommand].
+func (y *YoureLateCommand) Name() string {
+	return "you_are_late"
+}
+
+// OnAfter implements [command.ApplicationCommand].
+func (y *YoureLateCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnBefore implements [command.ApplicationCommand].
+func (y *YoureLateCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnError implements [command.ApplicationCommand].
+func (y *YoureLateCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+}
+
+// SelectMenuHandler implements [command.ApplicationCommand].
+func (y *YoureLateCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Setup implements [command.ApplicationCommand].
+func (y *YoureLateCommand) Setup() (*discordgo.ApplicationCommand, error) {
+	return &discordgo.ApplicationCommand{
+		Name:        "you_are_late",
+		Description: "Let a member know what to do when they are late",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Name:         "member",
+				Description:  "The member to notify",
+				Type:         discordgo.ApplicationCommandOptionUser,
+				Required:     true,
+				Autocomplete: true,
+			},
+			{
+				Name:        "poc",
+				Description: "The point of contect to use in the message",
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Required:    false,
+			},
+		},
+	}, nil
 }

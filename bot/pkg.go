@@ -10,15 +10,21 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
+	"github.com/sol-armada/sol-bot/bot/demerithandler"
 	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
+	helphandler "github.com/sol-armada/sol-bot/bot/helpHandler"
+	"github.com/sol-armada/sol-bot/bot/internal/command"
+	"github.com/sol-armada/sol-bot/bot/merithandler"
+	"github.com/sol-armada/sol-bot/bot/profilehandler"
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
+	"github.com/sol-armada/sol-bot/bot/rankupshandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/bot/wikelohandler"
 	"github.com/sol-armada/sol-bot/bot/yourelatehandler"
 	"github.com/sol-armada/sol-bot/customerrors"
-	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/stores"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -26,6 +32,7 @@ type Bot struct {
 	GuildId  string
 	ClientId string
 
+	store  *stores.CommandsStore
 	logger *slog.Logger
 	ctx    context.Context
 
@@ -36,37 +43,18 @@ type Handler func(ctx context.Context, s *discordgo.Session, i *discordgo.Intera
 
 var bot *Bot
 
-// command handlers
-var commandHandlers = map[string]Handler{
-	"help":         helpCommandHandler,
-	"attendance":   attendancehandler.CommandHandler,
-	"profile":      profileCommandHandler,
-	"merit":        giveMeritCommandHandler,
-	"demerit":      giveDemeritCommandHandler,
-	"rankups":      rankUpsCommandHandler,
-	"tokens":       tokenshandler.CommandHandler,
-	"raffle":       rafflehandler.CommandHandler,
-	"giveaway":     giveawayhandler.CommandHandler,
-	"wikelo":       wikelohandler.CommandHandler,
-	"you_are_late": yourelatehandler.CommandHandler,
-}
-
-var autocompleteHandlers = map[string]Handler{
-	"attendance": attendancehandler.AutocompleteHander,
-	"tokens":     tokenshandler.AutocompleteHandler,
-	"raffle":     rafflehandler.AutocompleteHander,
-	"giveaway":   giveawayhandler.AutocompleteHander,
-}
-
-var buttonHandlers = map[string]Handler{
-	"attendance": attendancehandler.ButtonHandler,
-	"tokens":     tokenshandler.ButtonHandler,
-	"raffle":     rafflehandler.ButtonHandler,
-	"giveaway":   giveawayhandler.ButtonHandler,
-}
-
-var modalHandlers = map[string]Handler{
-	"raffle": rafflehandler.ModalHandler,
+var commands = map[string]command.ApplicationCommand{
+	"attendance": attendancehandler.New(),
+	"profile":    profilehandler.New(),
+	"raffle":     rafflehandler.New(),
+	"giveaway":   giveawayhandler.New(),
+	"tokens":     tokenshandler.New(),
+	"help":       helphandler.New(),
+	"merit":      merithandler.New(),
+	"demerit":    demerithandler.New(),
+	"rankups":    rankupshandler.New(),
+	"wikelo":     wikelohandler.New(),
+	"yourelate":  yourelatehandler.New(),
 }
 
 var onboardingButtonHanlders = map[string]Handler{
@@ -126,6 +114,12 @@ func GetBot() (*Bot, error) {
 }
 
 func (b *Bot) Setup() error {
+	var ok bool
+	b.store, ok = stores.Get().GetCommandsStore()
+	if !ok {
+		return errors.New("failed to get commands store")
+	}
+
 	b.logger.Debug("setting up handlers and commands")
 
 	defer func() {
@@ -139,6 +133,24 @@ func (b *Bot) Setup() error {
 	b.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.Ready) {
 		b.logger.Info("bot is ready", "user", r.User.Username)
 	})
+
+	for _, cmd := range commands {
+		cmdData, err := cmd.Setup()
+		if err != nil {
+			return errors.Wrap(err, "setting up command")
+		}
+
+		b.logger.Debug("setting up command", "command", cmd.Name())
+
+		if cmdData == nil {
+			b.logger.Warn("command setup returned nil", "command", cmd.Name())
+			continue
+		}
+
+		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmdData); err != nil {
+			return errors.Wrap(err, "creating command")
+		}
+	}
 
 	b.logger.Debug("adding interaction handler")
 
@@ -165,32 +177,86 @@ func (b *Bot) Setup() error {
 		logger := b.logger.With(
 			"guild", b.GuildId,
 			"user", i.Member.User.ID,
+			"interaction_type", i.Type,
 		)
 
+		logger.Debug("received interaction", "interaction_type", i.Type)
+
+		ctx = utils.SetLoggerToContext(ctx, logger)
+
+		var commandName string
 		switch i.Type {
-		case discordgo.InteractionApplicationCommand:
-			logger = logger.With(
-				"interaction_type", "application command",
-				"name", i.ApplicationCommandData().Name,
-			)
-			if h, ok := commandHandlers[i.ApplicationCommandData().Name]; ok {
-				ctx = utils.SetLoggerToContext(ctx, logger.With("interaction_type", "application command"))
-				err = h(ctx, s, i)
-			}
-		case discordgo.InteractionApplicationCommandAutocomplete:
-			parentCommandData := i.ApplicationCommandData()
+		case discordgo.InteractionApplicationCommand, discordgo.InteractionApplicationCommandAutocomplete:
+			commandName = i.ApplicationCommandData().Name
+		case discordgo.InteractionMessageComponent:
+			commandSplit := strings.Split(i.MessageComponentData().CustomID, ":")
+			commandName = commandSplit[0]
+		case discordgo.InteractionModalSubmit:
+			commandSplit := strings.Split(i.ModalSubmitData().CustomID, ":")
+			commandName = commandSplit[0]
+		default:
+			logger.Error("unknown interaction type", "interaction_type", i.Type)
+			return
+		}
 
-			logger = logger.With(
-				"interaction_type", "application command autocomplete",
-				"command", parentCommandData.Name,
-			)
-
-			if handler, ok := autocompleteHandlers[parentCommandData.Name]; ok {
-				ctx = utils.SetLoggerToContext(ctx, logger.With(
-					"command", parentCommandData.Options[0].Name,
-				))
-				err = handler(ctx, s, i)
+		if cmd, ok := commands[commandName]; ok {
+			cmdToStore := command.Command{
+				Name: commandName,
+				User: i.Member.User.ID,
+				When: time.Now(),
+				Type: i.Type,
 			}
+
+			if i.Type == discordgo.InteractionApplicationCommand {
+				cmdToStore.Options = i.ApplicationCommandData().Options
+			}
+
+			if i.Type == discordgo.InteractionMessageComponent {
+				cmdToStore.ButtonId = i.MessageComponentData().CustomID
+			}
+
+			if err := command.RunCommand(ctx, cmd, s, i); err != nil {
+				logger.Error("running command", "command", commandName, "error", err)
+				cmdToStore.Error = err.Error()
+
+				if _, err := b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title:       "Error",
+							Description: err.Error(),
+							Fields: []*discordgo.MessageEmbedField{
+								{Name: "Who ran the command", Value: i.Member.User.Mention(), Inline: false},
+								{Name: "Command", Value: commandName, Inline: true},
+							},
+						},
+					},
+				}); err != nil {
+					logger.Error("sending error message", "error", err)
+					return
+				}
+
+				msg, err := s.InteractionResponse(i.Interaction)
+				if err != nil {
+					logger.Error("getting interaction response", "error", err)
+					return
+				}
+
+				if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
+					Content: new("I ran into an error! You didn't do anything wrong. I have notified the right people and hopfully this gets fixed."),
+				}); err != nil {
+					logger.Error("editing followup message", "error", err)
+				}
+			}
+			if i.Type != discordgo.InteractionApplicationCommandAutocomplete {
+				if err := b.store.Create(cmdToStore); err != nil {
+					logger.Error("creating command record", "command", commandName, "error", err)
+				}
+			}
+
+			return
+		}
+
+		switch i.Type {
 		case discordgo.InteractionMessageComponent:
 			commandSplit := strings.Split(i.MessageComponentData().CustomID, ":")
 			command := commandSplit[0]
@@ -213,7 +279,6 @@ func (b *Bot) Setup() error {
 					err = h(ctx, s, i)
 				}
 			default:
-				err = buttonHandlers[command](ctx, s, i)
 			}
 
 		case discordgo.InteractionModalSubmit:
@@ -233,7 +298,6 @@ func (b *Bot) Setup() error {
 					err = h(ctx, s, i)
 				}
 			default:
-				err = modalHandlers[command[0]](ctx, s, i)
 			}
 		}
 
@@ -248,31 +312,6 @@ func (b *Bot) Setup() error {
 			case InvalidAttendanceRecord:
 				msg = "That is not a valid attendance record"
 			default:
-				// if settings.GetString("DISCORD.ERROR_CHANNEL_ID") != "" {
-				// 	var inputValues strings.Builder
-				// 	if len(i.ApplicationCommandData().Options) > 0 {
-				// 		for _, option := range i.ApplicationCommandData().Options {
-				// 			fmt.Fprintf(&inputValues, "%s: %v\n", option.Name, option.Value)
-				// 		}
-				// 	}
-
-				// 	_, _ = b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
-				// 		Content: "Ran into an error",
-				// 		Embeds: []*discordgo.MessageEmbed{
-				// 			{
-				// 				Title:       "Error",
-				// 				Description: err.Error(),
-				// 				Fields: []*discordgo.MessageEmbedField{
-				// 					{Name: "Who ran the command", Value: i.Member.User.Mention(), Inline: false},
-				// 					{Name: "Command", Value: i.ApplicationCommandData().Name, Inline: true},
-				// 					{Name: "Values", Value: inputValues.String(), Inline: true},
-				// 					{Name: "Error", Value: err.Error(), Inline: false},
-				// 				},
-				// 				Timestamp: time.Now().Format("2006-01-02 15:04:05 -0700 MST"),
-				// 			},
-				// 		},
-				// 	})
-				// }
 			}
 
 			switch i.Interaction.Type {
@@ -341,185 +380,12 @@ func (b *Bot) Setup() error {
 		}
 	}
 
-	// register commands
-
-	// misc commands
-	slog.Debug("creating profile command")
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "profile",
-		Description: "View your profile",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Type:        discordgo.ApplicationCommandOptionUser,
-				Name:        "member",
-				Description: "View a member's profile (Officer only)",
-				Required:    false,
-			},
-			{
-				Type:        discordgo.ApplicationCommandOptionBoolean,
-				Name:        "force_update",
-				Description: "Force update profile",
-				Required:    false,
-			},
-		},
-	}); err != nil {
-		return errors.Wrap(err, "creating profile command")
-	}
-
-	slog.Debug("creating help command")
-
-	helpCmd, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "help",
-		Description: "View help",
-	})
-	if err != nil {
-		slog.Error("failed to create help command", "error", err)
-		return errors.Wrap(err, "creating help command")
-	}
-	slog.Debug("help command created successfully", "command_id", helpCmd.ID)
-
-	// rank up
-	slog.Debug("creating rankup command")
-
-	rankupCmd, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-		Name:        "rankups",
-		Description: "Rank up your RSI profile",
-	})
-	if err != nil {
-		slog.Error("failed to create rankup command", "error", err)
-		return errors.Wrap(err, "creating rankup command")
-	}
-	slog.Debug("rankup command created successfully", "command_id", rankupCmd.ID)
-
-	// attendance
-	if settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
-		slog.Debug("using attendance feature")
-
-		cmd, err := attendancehandler.Setup()
-		if err != nil {
-			return errors.Wrap(err, "setting attendance commands")
-		}
-
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
-			return errors.Wrap(err, "creating attendance command")
-		}
-	}
-
-	// merit
-	if settings.GetBool("FEATURES.MERIT.ENABLE") {
-		slog.Debug("using merit feature")
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-			Name:        "merit",
-			Description: "give a merit to a member",
-			Type:        discordgo.ChatApplicationCommand,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:         "member",
-					Description:  "who to give the merit to",
-					Type:         discordgo.ApplicationCommandOptionUser,
-					Required:     true,
-					Autocomplete: true,
-				},
-				{
-					Name:        "reason",
-					Description: "why are you giving this member a merit",
-					Type:        discordgo.ApplicationCommandOptionString,
-					Required:    true,
-				},
-			},
-		}); err != nil {
-			return errors.Wrap(err, "failed creating merit command")
-		}
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, &discordgo.ApplicationCommand{
-			Name:        "demerit",
-			Description: "give a demerit to a member",
-			Type:        discordgo.ChatApplicationCommand,
-			Options: []*discordgo.ApplicationCommandOption{
-				{
-					Name:         "member",
-					Description:  "who to give the merit to",
-					Type:         discordgo.ApplicationCommandOptionUser,
-					Required:     true,
-					Autocomplete: true,
-				},
-				{
-					Name:        "reason",
-					Description: "why are you giving this member a demerit",
-					Type:        discordgo.ApplicationCommandOptionString,
-					Required:    true,
-				},
-			},
-		}); err != nil {
-			return errors.Wrap(err, "failed creating demerit command")
-		}
-	}
-
 	// activity tracking
 	if settings.GetBool("FEATURES.ACTIVITY_TRACKING.ENABLE") {
 		b.AddHandler(onVoiceUpdate)
 	}
 
-	// tokens
-	if settings.GetBool("FEATURES.TOKENS.ENABLE") {
-		slog.Debug("using tokens feature")
-		cmd, err := tokenshandler.Setup()
-		if err != nil {
-			return errors.Wrap(err, "setting tokens commands")
-		}
-
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
-			return errors.Wrap(err, "creating tokens command")
-		}
-	}
-
-	// raffles
-	if settings.GetBool("FEATURES.RAFFLES.ENABLE") {
-		slog.Debug("using raffles feature")
-		cmd, err := rafflehandler.Setup()
-		if err != nil {
-			return errors.Wrap(err, "setting raffles commands")
-		}
-
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
-			return errors.Wrap(err, "creating raffles command")
-		}
-	}
-
-	// giveaways
-	if settings.GetBool("FEATURES.GIVEAWAYS.ENABLE") {
-		slog.Debug("using giveaways feature")
-		if err := giveaway.Load(b.Session); err != nil {
-			return errors.Wrap(err, "loading giveaways")
-		}
-
-		cmd, err := giveawayhandler.Setup()
-		if err != nil {
-			return errors.Wrap(err, "setting giveaways commands")
-		}
-		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
-			return errors.Wrap(err, "creating giveaways command")
-		}
-	}
-
-	// b.AddHandler(OnRoleChange)
-
-	cmd, err := wikelohandler.Setup()
-	if err != nil {
-		return errors.Wrap(err, "setting up wikelohandler")
-	}
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
-		return errors.Wrap(err, "creating wikelohandler command")
-	}
-
-	cmd, err = yourelatehandler.Setup()
-	if err != nil {
-		return errors.Wrap(err, "setting up yourelatehandler")
-	}
-	if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmd); err != nil {
-		return errors.Wrap(err, "creating yourelatehandler command")
-	}
-
-	b.logger.Debug("all handlers and commands registered - opening Discord connection")
+	b.logger.Debug("opening Discord connection")
 
 	if err := b.Open(); err != nil {
 		b.logger.Error("failed to open Discord connection", "error", err)
@@ -559,8 +425,4 @@ func (b *Bot) UpdateCustomStatus(status string) error {
 		status = "ready to serve"
 	}
 	return b.Session.UpdateCustomStatus(status)
-}
-
-func allowed(discordMember *discordgo.Member, feature string) bool {
-	return utils.StringSliceContainsOneOf(discordMember.Roles, settings.GetStringSlice("FEATURES."+feature+".ALLOWED_ROLES"))
 }

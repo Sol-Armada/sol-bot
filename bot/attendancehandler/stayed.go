@@ -33,8 +33,5 @@ func stayedSelectHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		return err
 	}
 
-	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{},
-	})
+	return s.InteractionResponseDelete(i.Interaction)
 }

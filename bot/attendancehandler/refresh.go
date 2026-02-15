@@ -3,6 +3,7 @@ package attendancehandler
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -15,13 +16,6 @@ import (
 func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("refreshing attendance command handler")
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
 
 	if lastRefreshTime.After(time.Now().Add(-1 * time.Minute)) {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
@@ -36,10 +30,10 @@ func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		return errors.Wrap(err, "getting attendance records")
 	}
 
-	m, _ := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Attendance refreshing...",
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
+	m, err := s.InteractionResponse(i.Interaction)
+	if err != nil {
+		return errors.Wrap(err, "responding to attendance command interaction")
+	}
 
 	for idx, a := range attendance {
 		msg := a.ToDiscordMessage()
@@ -48,19 +42,19 @@ func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 			ID:         a.MessageId,
 			Embeds:     &msg.Embeds,
 			Components: &msg.Components,
-		}); err != nil {
+		}); err != nil && !strings.Contains(err.Error(), "Unknown Message") {
 			return err
 		}
 
 		_, _ = s.FollowupMessageEdit(i.Interaction, m.ID, &discordgo.WebhookEdit{
-			Content: utils.ToPointer(fmt.Sprintf("Attendance refreshing... (%d/%d)", idx+1, len(attendance))),
+			Content: new(fmt.Sprintf("Attendance refreshing... (%d/%d)", idx+1, len(attendance))),
 		})
 
 		time.Sleep(250 * time.Millisecond)
 	}
 
 	_, _ = s.FollowupMessageEdit(i.Interaction, m.ID, &discordgo.WebhookEdit{
-		Content: utils.ToPointer("Attendance refreshed!"),
+		Content: new("Attendance refreshed!"),
 	})
 
 	lastRefreshTime = time.Now()

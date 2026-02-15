@@ -1,4 +1,4 @@
-package bot
+package profilehandler
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
@@ -17,33 +18,40 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+type ProfileCommand struct{}
+
+var _ command.ApplicationCommand = (*ProfileCommand)(nil)
+
+func New() command.ApplicationCommand {
+	return &ProfileCommand{}
+}
+
+// AutocompleteHandler implements [command.ApplicationCommand].
+func (c *ProfileCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// ButtonHandler implements [command.ApplicationCommand].
+func (c *ProfileCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// CommandHandler implements [command.ApplicationCommand].
+func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 
-	if len(i.Member.Roles) == 0 {
-		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "You are a guest! This command is not available to you",
-			},
-		})
-	}
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
+
+	msg, err := s.InteractionResponse(i.Interaction)
+	if err != nil {
+		return err
+	}
 
 	if member.Name == "" {
 		logger.Debug("no member found")
 
-		if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "You have not been onboarded yet! Contact an @Officer for some help!",
+		if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
+			Content: new("You have not been onboarded yet! Contact an @Officer for some help!"),
 		}); err != nil {
 			return errors.Wrap(err, "responding to attendance command interaction: no member found")
 		}
@@ -91,7 +99,7 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 						return context.DeadlineExceeded
 					}
 
-					if !errors.Is(err, rsi.RsiUserNotFound) {
+					if !errors.Is(err, rsi.ErrUserNotFound) {
 						return errors.Wrap(err, "getting rsi info")
 					}
 
@@ -236,13 +244,13 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		},
 	}
 
-	params := &discordgo.WebhookParams{
-		Content: "",
-		Embeds:  []*discordgo.MessageEmbed{em},
+	params := &discordgo.WebhookEdit{
+		Content: new(""),
+		Embeds:  new([]*discordgo.MessageEmbed{em}),
 	}
 
 	if !member.Validated && member.Id == i.Member.User.ID {
-		params.Components = []discordgo.MessageComponent{
+		params.Components = new([]discordgo.MessageComponent{
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
 					discordgo.Button{
@@ -251,12 +259,66 @@ func profileCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 					},
 				},
 			},
-		}
+		})
 	}
 
-	if _, err := s.FollowupMessageCreate(i.Interaction, true, params); err != nil {
-		return errors.Wrap(err, "responding to attendance command interaction")
+	if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, params); err != nil {
+		return errors.Wrap(err, "editing followup message")
 	}
 
 	return nil
+}
+
+// ModalHandler implements [command.ApplicationCommand].
+func (c *ProfileCommand) ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Name implements [command.ApplicationCommand].
+func (c *ProfileCommand) Name() string {
+	return "profile"
+}
+
+// OnAfter implements [command.ApplicationCommand].
+func (c *ProfileCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnBefore implements [command.ApplicationCommand].
+func (c *ProfileCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnError implements [command.ApplicationCommand].
+func (c *ProfileCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+	logger := utils.GetLoggerFromContext(ctx)
+	logger.Error("handling profile command", "error", err)
+}
+
+// SelectMenuHandler implements [command.ApplicationCommand].
+func (c *ProfileCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Setup implements [command.ApplicationCommand].
+func (c *ProfileCommand) Setup() (*discordgo.ApplicationCommand, error) {
+	return &discordgo.ApplicationCommand{
+		Name:        "profile",
+		Description: "View your profile in Sol Armada",
+		Type:        discordgo.ChatApplicationCommand,
+		Options: []*discordgo.ApplicationCommandOption{
+			{
+				Type:        discordgo.ApplicationCommandOptionUser,
+				Name:        "member",
+				Description: "The member to view the profile of (officers only)",
+				Required:    false,
+			},
+			{
+				Type:        discordgo.ApplicationCommandOptionBoolean,
+				Name:        "force_update",
+				Description: "Whether to force update the member's information before viewing the profile (officers only)",
+				Required:    false,
+			},
+		},
+	}, nil
 }

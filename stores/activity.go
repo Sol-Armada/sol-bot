@@ -3,7 +3,6 @@ package stores
 import (
 	"context"
 
-	"github.com/sol-armada/sol-bot/utils"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -18,7 +17,7 @@ func newActivityStore(ctx context.Context, client *mongo.Client, database string
 	_ = client.Database(database).CreateCollection(ctx, string(ACTIVITY), &options.CreateCollectionOptions{
 		TimeSeriesOptions: &options.TimeSeriesOptions{
 			TimeField: "when",
-			MetaField: utils.ToPointer("meta"),
+			MetaField: new("meta"),
 		},
 	})
 	s := &store{

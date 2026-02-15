@@ -8,10 +8,16 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/customerrors"
+	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
+
+type AttendanceCommand struct{}
+
+var _ command.ApplicationCommand = (*AttendanceCommand)(nil)
 
 var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
 	"create":            createCommandHandler,
@@ -45,11 +51,24 @@ var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *disc
 	"successful":    successfulButtonHandler,
 	"unsuccessful":  unsuccessfulButtonHandler,
 	"export":        exportButtonHandler,
+	"revert":        revertButtonHandler,
 }
 
 var lastRefreshTime time.Time
 
-func Setup() (*discordgo.ApplicationCommand, error) {
+func New() command.ApplicationCommand {
+	return &AttendanceCommand{}
+}
+
+func (c *AttendanceCommand) Name() string {
+	return "attendance"
+}
+
+func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
+	if !settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
+		return nil, nil
+	}
+
 	tags := []string{
 		"FPS",
 		"SALVAGE",
@@ -86,7 +105,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 			Required:    false,
 		},
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		o := &discordgo.ApplicationCommandOption{
 			Name:         fmt.Sprintf("member-%d", i+1),
 			Description:  "The member to take attendance for",
@@ -114,7 +133,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 			Autocomplete: true,
 		},
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		o := &discordgo.ApplicationCommandOption{
 			Name:         fmt.Sprintf("member-%d", i+1),
 			Description:  "The member to take attendance for",
@@ -141,7 +160,7 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 			Autocomplete: true,
 		},
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		o := &discordgo.ApplicationCommandOption{
 			Name:         fmt.Sprintf("member-%d", i+1),
 			Description:  "The member to remove from attendance",
@@ -224,7 +243,25 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 	}, nil
 }
 
-func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *AttendanceCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
+}
+
+func (c *AttendanceCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+func (c *AttendanceCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+	logger := utils.GetLoggerFromContext(ctx)
+	logger.Error("handling attendance command", "error", err)
+}
+
+func (c *AttendanceCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance command handler")
 
@@ -241,7 +278,7 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 	return handler(ctx, s, i)
 }
 
-func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *AttendanceCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance autocomplete handler")
 
@@ -264,7 +301,7 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 	return handler(ctx, s, i)
 }
 
-func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func (c *AttendanceCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance button handler")
 
@@ -280,4 +317,12 @@ func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inter
 	}
 
 	return handler(ctx, s, i)
+}
+
+func (c *AttendanceCommand) ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+func (c *AttendanceCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
 }

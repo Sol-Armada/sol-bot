@@ -513,8 +513,8 @@ func updateMemberRSIInfo(member *members.Member, rsiBackoff *utils.ExponentialBa
 		return
 	}
 
-	if errors.Is(err, rsi.RsiUserNotFound) {
-		logger.Debug("rsi user not found", "error", err)
+	if errors.Is(err, rsi.ErrUserNotFound) || errors.Is(err, rsi.ErrForbidden) {
+		logger.Debug("rsi user not found or forbidden", "error", err)
 		member.RSIMember = false
 		return
 	}

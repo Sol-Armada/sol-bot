@@ -6,9 +6,14 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/utils"
 )
+
+type RaffleCommand struct{}
+
+var _ command.ApplicationCommand = (*RaffleCommand)(nil)
 
 var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
 	"name": startAutocomplete,
@@ -26,7 +31,12 @@ var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *disco
 	"add_entries": addEntriesModal,
 }
 
-func Setup() (*discordgo.ApplicationCommand, error) {
+func New() command.ApplicationCommand {
+	return &RaffleCommand{}
+}
+
+// Setup implements [command.ApplicationCommand].
+func (r *RaffleCommand) Setup() (*discordgo.ApplicationCommand, error) {
 	return &discordgo.ApplicationCommand{
 		Name:        "raffle",
 		Description: "Start a raffle",
@@ -56,18 +66,8 @@ func Setup() (*discordgo.ApplicationCommand, error) {
 	}, nil
 }
 
-func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx)
-	logger.Debug("raffle command handler")
-
-	// if !utils.Allowed(i.Member, "RAFFLES") {
-	// 	return customerrors.InvalidPermissions
-	// }
-
-	return start(ctx, s, i)
-}
-
-func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+// AutocompleteHandler implements [command.ApplicationCommand].
+func (r *RaffleCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle autocomplete handler")
 
@@ -93,7 +93,9 @@ func AutocompleteHander(ctx context.Context, s *discordgo.Session, i *discordgo.
 	return handler(ctx, s, i)
 }
 
-func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+// ButtonHandler implements [command.ApplicationCommand].
+func (r *RaffleCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle button handler")
 
@@ -107,7 +109,20 @@ func ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inter
 	return handler(ctx, s, i)
 }
 
-func ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+// CommandHandler implements [command.ApplicationCommand].
+func (r *RaffleCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx)
+	logger.Debug("raffle command handler")
+
+	// if !utils.Allowed(i.Member, "RAFFLES") {
+	// 	return customerrors.InvalidPermissions
+	// }
+
+	return start(ctx, s, i)
+}
+
+// ModalHandler implements [command.ApplicationCommand].
+func (r *RaffleCommand) ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle modal handler")
 
@@ -119,4 +134,28 @@ func ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Intera
 	}
 
 	return handler(ctx, s, i)
+}
+
+// Name implements [command.ApplicationCommand].
+func (r *RaffleCommand) Name() string {
+	return "raffle"
+}
+
+// OnAfter implements [command.ApplicationCommand].
+func (r *RaffleCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnBefore implements [command.ApplicationCommand].
+func (r *RaffleCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnError implements [command.ApplicationCommand].
+func (r *RaffleCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+}
+
+// SelectMenuHandler implements [command.ApplicationCommand].
+func (r *RaffleCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
 }

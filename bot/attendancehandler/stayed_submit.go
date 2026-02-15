@@ -23,9 +23,19 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 		return err
 	}
 
-	content := "Tokens has been distributed"
+	var content strings.Builder
+	content.WriteString("Tokens has been distributed")
 
 	for _, member := range attendance.Members {
+		t, err := tokens.GetByMemberIdAndAttendanceId(member.Id, attendanceId)
+		if err != nil {
+			return err
+		}
+		if len(t) > 0 {
+			fmt.Fprintf(&content, "\n<@%s> already received tokens for this event", member.Id)
+			continue
+		}
+
 		amount := 10
 		if err := tokens.New(member.Id, 10, tokens.ReasonAttendance, nil, &attendanceId, nil).Save(); err != nil {
 			return err
@@ -45,7 +55,7 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 			amount += 10
 		}
 
-		content += fmt.Sprintf("\n<@%s> has received %d Tokens", member.Id, amount)
+		fmt.Fprintf(&content, "\n<@%s> has received %d Tokens", member.Id, amount)
 	}
 
 	attendanceMessage := attendance.ToDiscordMessage()
@@ -59,10 +69,9 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 		return err
 	}
 
-	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: content,
-		},
+	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
+		Content: new(content.String()),
 	})
+
+	return err
 }

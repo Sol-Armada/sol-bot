@@ -1,14 +1,34 @@
-package bot
+package helphandler
 
 import (
 	"context"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func helpCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+type HelpCommand struct{}
+
+var _ command.ApplicationCommand = (*HelpCommand)(nil)
+
+func New() command.ApplicationCommand {
+	return &HelpCommand{}
+}
+
+// AutocompleteHandler implements [command.ApplicationCommand].
+func (h *HelpCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// ButtonHandler implements [command.ApplicationCommand].
+func (h *HelpCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// CommandHandler implements [command.ApplicationCommand].
+func (h *HelpCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
 	memberComamnds := `# Member Commands
@@ -77,4 +97,42 @@ Adds a demerit to a member.
 			Embeds: embeds,
 		},
 	})
+}
+
+// ModalHandler implements [command.ApplicationCommand].
+func (h *HelpCommand) ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Name implements [command.ApplicationCommand].
+func (h *HelpCommand) Name() string {
+	return "help"
+}
+
+// OnAfter implements [command.ApplicationCommand].
+func (h *HelpCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnBefore implements [command.ApplicationCommand].
+func (h *HelpCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnError implements [command.ApplicationCommand].
+func (h *HelpCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+}
+
+// SelectMenuHandler implements [command.ApplicationCommand].
+func (h *HelpCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Setup implements [command.ApplicationCommand].
+func (h *HelpCommand) Setup() (*discordgo.ApplicationCommand, error) {
+	return &discordgo.ApplicationCommand{
+		Name:        "help",
+		Description: "View help",
+		Type:        discordgo.ChatApplicationCommand,
+	}, nil
 }

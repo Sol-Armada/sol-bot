@@ -203,7 +203,6 @@ func (a *Attendance) Record() error {
 }
 
 func (a *Attendance) Revert() error {
-	a.Active = false
 	a.Recorded = false
 	a.Status = AttendanceStatusReverted
 	return a.Save()

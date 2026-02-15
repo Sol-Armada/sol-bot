@@ -7,11 +7,16 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 	"google.golang.org/api/option"
 	"google.golang.org/api/sheets/v4"
 )
+
+type WikeloCommand struct{}
+
+var _ command.ApplicationCommand = (*WikeloCommand)(nil)
 
 type itemProgress struct {
 	name      string
@@ -20,19 +25,26 @@ type itemProgress struct {
 	progress  string
 }
 
-func Setup() (*discordgo.ApplicationCommand, error) {
-	return &discordgo.ApplicationCommand{
-		Name:        "wikelo",
-		Description: "See Wikelo progress",
-		Type:        discordgo.ChatApplicationCommand,
-	}, nil
-}
-
 var (
 	sheetId = "16mFI4wZc6FOmz08JiCkiK69Rx6mg87Aodq-dsfcgZ-8"
 )
 
-func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func New() command.ApplicationCommand {
+	return &WikeloCommand{}
+}
+
+// AutocompleteHandler implements [command.ApplicationCommand].
+func (w *WikeloCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// ButtonHandler implements [command.ApplicationCommand].
+func (w *WikeloCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// CommandHandler implements [command.ApplicationCommand].
+func (w *WikeloCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("wikelo command handler")
 
@@ -210,4 +222,42 @@ func CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.Inte
 			Flags:  discordgo.MessageFlagsEphemeral,
 		},
 	})
+}
+
+// ModalHandler implements [command.ApplicationCommand].
+func (w *WikeloCommand) ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Name implements [command.ApplicationCommand].
+func (w *WikeloCommand) Name() string {
+	return "wikelo"
+}
+
+// OnAfter implements [command.ApplicationCommand].
+func (w *WikeloCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnBefore implements [command.ApplicationCommand].
+func (w *WikeloCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// OnError implements [command.ApplicationCommand].
+func (w *WikeloCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+}
+
+// SelectMenuHandler implements [command.ApplicationCommand].
+func (w *WikeloCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	return nil
+}
+
+// Setup implements [command.ApplicationCommand].
+func (w *WikeloCommand) Setup() (*discordgo.ApplicationCommand, error) {
+	return &discordgo.ApplicationCommand{
+		Name:        "wikelo",
+		Description: "See Wikelo progress",
+		Type:        discordgo.ChatApplicationCommand,
+	}, nil
 }

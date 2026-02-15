@@ -6,7 +6,6 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/utils"
 )
 
 func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -102,7 +101,7 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	_, err = s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content: utils.ToPointer("Event ended!"),
+		Content: new("Event ended!"),
 	})
 	return err
 }
