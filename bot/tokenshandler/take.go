@@ -14,13 +14,6 @@ func takeCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("take command handler")
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-
 	var member *members.Member
 	var amount int = 0
 	var comment string

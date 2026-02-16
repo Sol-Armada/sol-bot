@@ -45,72 +45,72 @@ func revertAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 	return nil
 }
 
-func revertCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx)
-	logger.Debug("reverting attendance command handler")
+// func revertCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+// 	logger := utils.GetLoggerFromContext(ctx)
+// 	logger.Debug("reverting attendance command handler")
 
-	// _ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-	// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-	// 	Data: &discordgo.InteractionResponseData{
-	// 		Flags: discordgo.MessageFlagsEphemeral,
-	// 	},
-	// })
+// 	// _ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+// 	// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+// 	// 	Data: &discordgo.InteractionResponseData{
+// 	// 		Flags: discordgo.MessageFlagsEphemeral,
+// 	// 	},
+// 	// })
 
-	data := i.Interaction.ApplicationCommandData()
-	id := data.Options[0].Options[0].StringValue()
+// 	data := i.Interaction.ApplicationCommandData()
+// 	id := data.Options[0].Options[0].StringValue()
 
-	attendance, err := attdnc.Get(id)
-	if err != nil {
-		return errors.Wrap(err, "getting attendance record")
-	}
+// 	attendance, err := attdnc.Get(id)
+// 	if err != nil {
+// 		return errors.Wrap(err, "getting attendance record")
+// 	}
 
-	msg, _ := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Reverting attendance...",
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
+// 	msg, _ := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+// 		Content: "Reverting attendance...",
+// 		Flags:   discordgo.MessageFlagsEphemeral,
+// 	})
 
-	if err := attendance.Revert(); err != nil {
-		return errors.Wrap(err, "reverting attendance")
-	}
+// 	if err := attendance.Revert(); err != nil {
+// 		return errors.Wrap(err, "reverting attendance")
+// 	}
 
-	attendanceMessage, err := s.ChannelMessage(attendance.ChannelId, attendance.MessageId)
-	if err != nil {
-		if derr, ok := err.(*discordgo.RESTError); ok {
-			if derr.Response.StatusCode == 404 {
-				_, _ = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-					Content: new("It looks like that attendance record message is missing! Creating it again..."),
-				})
+// 	attendanceMessage, err := s.ChannelMessage(attendance.ChannelId, attendance.MessageId)
+// 	if err != nil {
+// 		if derr, ok := err.(*discordgo.RESTError); ok {
+// 			if derr.Response.StatusCode == 404 {
+// 				_, _ = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
+// 					Content: new("It looks like that attendance record message is missing! Creating it again..."),
+// 				})
 
-				if _, err := s.ChannelMessageSendComplex(attendance.ChannelId, &discordgo.MessageSend{
-					Content:    "Recreated because message was missing!",
-					Embeds:     attendance.ToDiscordMessage().Embeds,
-					Components: attendance.ToDiscordMessage().Components,
-				}); err != nil {
-					return err
-				}
+// 				if _, err := s.ChannelMessageSendComplex(attendance.ChannelId, &discordgo.MessageSend{
+// 					Content:    "Recreated because message was missing!",
+// 					Embeds:     attendance.ToDiscordMessage().Embeds,
+// 					Components: attendance.ToDiscordMessage().Components,
+// 				}); err != nil {
+// 					return err
+// 				}
 
-				return nil
-			}
-		}
+// 				return nil
+// 			}
+// 		}
 
-		return errors.Wrap(err, "getting attendance message")
-	}
+// 		return errors.Wrap(err, "getting attendance message")
+// 	}
 
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    attendanceMessage.ChannelID,
-		ID:         attendanceMessage.ID,
-		Embeds:     &attendance.ToDiscordMessage().Embeds,
-		Components: &attendance.ToDiscordMessage().Components,
-	}); err != nil {
-		return err
-	}
+// 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+// 		Channel:    attendanceMessage.ChannelID,
+// 		ID:         attendanceMessage.ID,
+// 		Embeds:     &attendance.ToDiscordMessage().Embeds,
+// 		Components: &attendance.ToDiscordMessage().Components,
+// 	}); err != nil {
+// 		return err
+// 	}
 
-	_, err = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-		Content: new("Attendance reverted!"),
-	})
+// 	_, err = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
+// 		Content: new("Attendance reverted!"),
+// 	})
 
-	return err
-}
+// 	return err
+// }
 
 func revertButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
@@ -123,11 +123,6 @@ func revertButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		return errors.Wrap(err, "getting attendance record")
 	}
 
-	msg, _ := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "Reverting attendance...",
-		Flags:   discordgo.MessageFlagsEphemeral,
-	})
-
 	if err := attendance.Revert(); err != nil {
 		return errors.Wrap(err, "reverting attendance")
 	}
@@ -136,22 +131,12 @@ func revertButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 	if err != nil {
 		if derr, ok := err.(*discordgo.RESTError); ok {
 			if derr.Response.StatusCode == 404 {
-				_, _ = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-					Content: new("It looks like that attendance record message is missing! Creating it again..."),
+				_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: "Somehow you tried to revert an attendance record that doesn't exist. Impressive.",
 				})
-
-				if _, err := s.ChannelMessageSendComplex(attendance.ChannelId, &discordgo.MessageSend{
-					Content:    "Recreated because message was missing!",
-					Embeds:     attendance.ToDiscordMessage().Embeds,
-					Components: attendance.ToDiscordMessage().Components,
-				}); err != nil {
-					return err
-				}
-
-				return nil
+				return err
 			}
 		}
-
 		return errors.Wrap(err, "getting attendance message")
 	}
 
@@ -164,9 +149,7 @@ func revertButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		return err
 	}
 
-	_, err = s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-		Content: new("Attendance reverted!"),
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
 	})
-
-	return err
 }

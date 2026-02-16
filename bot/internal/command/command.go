@@ -34,7 +34,7 @@ type ApplicationCommand interface {
 
 func RunCommand(ctx context.Context, cmd ApplicationCommand, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	switch i.Type {
-	case discordgo.InteractionApplicationCommandAutocomplete:
+	case discordgo.InteractionApplicationCommandAutocomplete, discordgo.InteractionMessageComponent, discordgo.InteractionModalSubmit:
 	default:
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,

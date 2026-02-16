@@ -1,17 +1,16 @@
 package giveaway
 
 import (
-	"encoding/json"
+	"context"
 	"errors"
 	"log/slog"
-	"os"
-	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/stores"
 )
 
 type Giveaway struct {
@@ -30,45 +29,45 @@ type Giveaway struct {
 }
 
 var giveaways = map[string]*Giveaway{}
-var fName = "data/giveaways.json"
+
+var giveawayStore *stores.GiveawaysStore
+
+func Setup() error {
+	storesClient := stores.Get()
+	gs, ok := storesClient.GetGiveawaysStore()
+	if !ok {
+		return errors.New("failed to get giveaways store")
+	}
+	giveawayStore = gs
+	return nil
+}
 
 func Load(s *discordgo.Session) error {
-	fName = settings.GetString("FEATURES.GIVEAWAY.FILE")
-	if fName == "" {
-		fName = "giveaways.json"
-	}
-
-	// Ensure the directory exists before trying to read/write the file
-	dir := filepath.Dir(fName)
-	if dir != "." && dir != "" {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return errors.Join(err, errors.New("failed to create directory for giveaways file"))
-		}
-	}
-
-	b, err := os.ReadFile(fName)
+	cur, err := giveawayStore.GetAll()
 	if err != nil {
-		if os.IsNotExist(err) {
-			slog.Debug("giveaways.json not found, creating new file")
-			if err := os.WriteFile(fName, []byte("{}"), 0644); err != nil {
-				return errors.Join(err, errors.New("failed to create giveaways.json"))
-			}
+		return errors.Join(err, errors.New("failed to get giveaways from store"))
+	}
+	defer cur.Close(context.Background())
 
-			return nil
-		}
-
-		return errors.Join(err, errors.New("failed to read giveaways.json"))
+	var gList []*Giveaway
+	if err := cur.All(context.Background(), &gList); err != nil {
+		return errors.Join(err, errors.New("failed to decode giveaways from store"))
 	}
 
-	if err := json.Unmarshal(b, &giveaways); err != nil {
-		return errors.Join(err, errors.New("failed to unmarshal giveaways.json"))
+	giveaways = make(map[string]*Giveaway)
+	for _, g := range gList {
+		giveaways[g.Id] = g
 	}
 
 	for _, g := range giveaways {
 		g.sess = s
 
-		_ = g.UpdateMessage()
-		_ = g.UpdateInputs()
+		if err := g.UpdateMessage(); err != nil {
+			slog.Error("failed to update giveaway message", "error", err)
+		}
+		if err := g.UpdateInputs(); err != nil {
+			slog.Error("failed to update giveaway inputs", "error", err)
+		}
 	}
 
 	go watch()
@@ -119,17 +118,13 @@ func GetGiveaway(id string) *Giveaway {
 	return nil
 }
 
-func SaveGiveaways() {
-	b, err := json.MarshalIndent(giveaways, "", "  ")
-	if err != nil {
-		slog.Error("failed to marshal giveaways", "error", err)
-		return
+func SaveGiveaways() error {
+	giveawaysAny := make(map[string]any)
+	for id, giveaway := range giveaways {
+		giveawaysAny[id] = giveaway
 	}
-	if err := os.WriteFile(fName, b, 0644); err != nil {
-		slog.Error("failed to write giveaways.json", "error", err)
-		return
-	}
-	slog.Debug("giveaways saved to giveaways.json")
+
+	return giveawayStore.UpsertAll(giveawaysAny)
 }
 
 func (g *Giveaway) CanParticipate(memberId string) bool {
@@ -151,31 +146,26 @@ func (g *Giveaway) SetEndTime(time_m int) *Giveaway {
 	return g
 }
 
-func (g *Giveaway) Save() *Giveaway {
+func (g *Giveaway) Save() (*Giveaway, error) {
 	giveaways[g.Id] = g
-	SaveGiveaways()
-	return g
+	return g, SaveGiveaways()
 }
 
-func (g *Giveaway) Delete() {
-	delete(giveaways, g.Id)
+func (g *Giveaway) End() error {
+	if g.Ended {
+		slog.Debug("giveaway already ended")
+		return nil
+	}
 
-	SaveGiveaways()
-}
-
-func (g *Giveaway) End() {
 	for _, item := range g.Items {
 		item.SelectWinners()
 	}
 
-	if g.Ended {
-		slog.Debug("giveaway already ended")
-		return
-	}
-
 	g.Ended = true
 
-	_ = g.sess.ChannelMessageUnpin(g.ChannelId, g.EmbedMessageId)
+	if err := g.sess.ChannelMessageUnpin(g.ChannelId, g.EmbedMessageId); err != nil {
+		return errors.Join(err, errors.New("failed to unpin giveaway embed message"))
+	}
 
 	// get the winners
 	winners := []string{}
@@ -201,31 +191,31 @@ func (g *Giveaway) End() {
 		winners = append(winners, winner)
 	}
 
-	mentions := ""
+	var mentions strings.Builder
 	for _, winner := range winners {
-		mentions += "<@" + winner + "> "
+		mentions.WriteString("<@" + winner + "> ")
 	}
 
 	msg, err := g.sess.ChannelMessageSendComplex(g.ChannelId, &discordgo.MessageSend{
-		Content:    mentions,
+		Content:    mentions.String(),
 		Components: g.GetComponents(),
 		Embeds:     []*discordgo.MessageEmbed{g.GetEmbed()},
 	})
 	if err != nil {
-		slog.Error("failed to send giveaway end message", "error", err)
+		return errors.Join(err, errors.New("failed to send giveaway end message"))
 	}
 
-	_ = g.sess.ChannelMessagePin(msg.ChannelID, msg.ID)
+	if err := g.sess.ChannelMessagePin(msg.ChannelID, msg.ID); err != nil {
+		return errors.Join(err, errors.New("failed to pin giveaway end message"))
+	}
 
 	if err := g.sess.ChannelMessageDelete(g.ChannelId, g.EmbedMessageId); err != nil {
-		slog.Error("failed to delete giveaway embeded message", "error", err)
+		return errors.Join(err, errors.New("failed to delete giveaway embeded message"))
 	}
 
 	if err := g.sess.ChannelMessageDelete(g.ChannelId, g.InputMessageId); err != nil {
-		slog.Error("failed to delete giveaway input message", "error", err)
+		return errors.Join(err, errors.New("failed to delete giveaway input message"))
 	}
 
-	delete(giveaways, g.Id)
-
-	SaveGiveaways()
+	return SaveGiveaways()
 }

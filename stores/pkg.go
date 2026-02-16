@@ -39,6 +39,7 @@ type StoreRegistry struct {
 	raffles    *RaffleStore
 	kanban     *KanbanStore
 	commands   *CommandsStore
+	giveaways  *GiveawaysStore
 }
 
 // Store accessor methods
@@ -51,6 +52,7 @@ func (s *StoreRegistry) Tokens() *TokenStore          { return s.tokens }
 func (s *StoreRegistry) Raffles() *RaffleStore        { return s.raffles }
 func (s *StoreRegistry) Kanban() *KanbanStore         { return s.kanban }
 func (s *StoreRegistry) Commands() *CommandsStore     { return s.commands }
+func (s *StoreRegistry) Giveaways() *GiveawaysStore   { return s.giveaways }
 
 type Client struct {
 	*mongo.Client
@@ -100,6 +102,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 	rafflesStore := newRafflesStore(ctx, mongoClient, database)
 	kanbanStore := newKanbanStore(ctx, mongoClient, database)
 	commandsStore := newCommandsStore(ctx, mongoClient, database)
+	giveawaysStore := newGiveawaysStore(ctx, mongoClient, database)
 
 	storeRegistry := &StoreRegistry{
 		members:    membersStore,
@@ -111,6 +114,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 		raffles:    rafflesStore,
 		kanban:     kanbanStore,
 		commands:   commandsStore,
+		giveaways:  giveawaysStore,
 	}
 
 	newClient := &Client{
@@ -159,6 +163,8 @@ func (c *Client) GetCollection(collection Collection) (any, bool) {
 		return c.stores.kanban, true
 	case COMMANDS:
 		return c.stores.commands, true
+	case GIVEAWAYS:
+		return c.stores.giveaways, true
 	default:
 		return nil, false
 	}

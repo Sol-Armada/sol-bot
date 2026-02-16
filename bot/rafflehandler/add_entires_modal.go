@@ -84,7 +84,7 @@ func addEntriesModal(ctx context.Context, s *discordgo.Session, i *discordgo.Int
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
-			Content: fmt.Sprintf("%d Tickets submitted!\nIf you want to back out, press the 'Back Out' button. If you want to adjust the amount of tickets, press the 'Add Entries' button again.", ticketCount),
+			Content: fmt.Sprintf("%d Tickets submitted!\nIf you want to back out, press the 'Back Out' button. If you want to adjust the amount of tickets, press the 'Add/Edit Entries' button again.\nEditing your entries does not add to, but replaces your previous amount.", ticketCount),
 			Flags:   discordgo.MessageFlagsEphemeral,
 		},
 	})

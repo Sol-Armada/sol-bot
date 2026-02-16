@@ -16,6 +16,7 @@ import (
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
 	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/raffles"
@@ -205,6 +206,7 @@ func initializeServices(cfg *Config) error {
 		"tokens":     tokens.Setup,
 		"config":     config.Setup,
 		"raffles":    raffles.Setup,
+		"giveaways":  giveaway.Setup,
 	}
 
 	logger.Info("initializing services", "count", len(services))

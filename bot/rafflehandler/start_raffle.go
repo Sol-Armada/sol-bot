@@ -13,15 +13,6 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle start command")
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		return err
-	}
-
 	data := i.ApplicationCommandData()
 
 	attendanceRecordId := data.Options[0].Value.(string)
@@ -53,7 +44,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 				Components: []discordgo.MessageComponent{
 					discordgo.Button{
 						CustomID: "raffle:add_entries:" + raffle.Id,
-						Label:    "Add Entries",
+						Label:    "Add/Edit Entries",
 						Style:    discordgo.PrimaryButton,
 					},
 					discordgo.Button{

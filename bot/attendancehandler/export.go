@@ -40,26 +40,22 @@ func exportButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		}
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Content: "Exporting attendance data...",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		},
-	})
-
 	thread := i.Message.Thread
 	if thread == nil {
-		thread, _ = s.MessageThreadStartComplex(i.Message.ChannelID, i.Message.ID, &discordgo.ThreadStart{
+		thread, err = s.MessageThreadStartComplex(i.Message.ChannelID, i.Message.ID, &discordgo.ThreadStart{
 			Name:                "Attendance Thread - " + attendance.Name + " (" + attendance.DateCreated.Format("2006-01-02 15:04:05") + ")",
 			Type:                discordgo.ChannelTypeGuildPublicThread,
 			AutoArchiveDuration: 60,
 		})
-		_ = s.ThreadMemberAdd(thread.ID, i.Member.User.ID)
+		if err != nil {
+			return errors.Wrap(err, "starting thread for attendance export")
+		}
+		if err := s.ThreadMemberAdd(thread.ID, i.Member.User.ID); err != nil {
+			return errors.Wrap(err, "adding member to thread")
+		}
 	}
 
 	sb := strings.Builder{}
-	sb.WriteString("Here is the list of members who attended the event: " + attendance.Name + "\n")
 	sb.WriteString("```\n")
 	for i, member := range members {
 		n := member.Name
@@ -73,6 +69,11 @@ func exportButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 	_, err = s.ChannelMessageSendComplex(thread.ID, &discordgo.MessageSend{
 		Content: sb.String(),
 	})
+	if err != nil {
+		return errors.Wrap(err, "sending attendance export message")
+	}
 
-	return err
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+	})
 }

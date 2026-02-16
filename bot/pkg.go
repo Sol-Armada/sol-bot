@@ -10,18 +10,15 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
-	"github.com/sol-armada/sol-bot/bot/demerithandler"
 	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
 	helphandler "github.com/sol-armada/sol-bot/bot/helpHandler"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
-	"github.com/sol-armada/sol-bot/bot/merithandler"
 	"github.com/sol-armada/sol-bot/bot/profilehandler"
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/rankupshandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
-	"github.com/sol-armada/sol-bot/bot/wikelohandler"
-	"github.com/sol-armada/sol-bot/bot/yourelatehandler"
 	"github.com/sol-armada/sol-bot/customerrors"
+	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
@@ -50,11 +47,12 @@ var commands = map[string]command.ApplicationCommand{
 	"giveaway":   giveawayhandler.New(),
 	"tokens":     tokenshandler.New(),
 	"help":       helphandler.New(),
-	"merit":      merithandler.New(),
-	"demerit":    demerithandler.New(),
 	"rankups":    rankupshandler.New(),
-	"wikelo":     wikelohandler.New(),
-	"yourelate":  yourelatehandler.New(),
+
+	// "merit":      merithandler.New(),
+	// "demerit":    demerithandler.New(),
+	// "wikelo":     wikelohandler.New(),
+	// "yourelate":  yourelatehandler.New(),
 }
 
 var onboardingButtonHanlders = map[string]Handler{
@@ -235,16 +233,18 @@ func (b *Bot) Setup() error {
 					return
 				}
 
-				msg, err := s.InteractionResponse(i.Interaction)
-				if err != nil {
-					logger.Error("getting interaction response", "error", err)
-					return
-				}
+				if i.Type != discordgo.InteractionMessageComponent {
+					msg, err := s.InteractionResponse(i.Interaction)
+					if err != nil {
+						logger.Error("getting interaction response", "error", err)
+						return
+					}
 
-				if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-					Content: new("I ran into an error! You didn't do anything wrong. I have notified the right people and hopfully this gets fixed."),
-				}); err != nil {
-					logger.Error("editing followup message", "error", err)
+					if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
+						Content: new("I ran into an error! You didn't do anything wrong. I have notified the right people and hopfully this gets fixed."),
+					}); err != nil {
+						logger.Error("editing followup message", "error", err)
+					}
 				}
 			}
 			if i.Type != discordgo.InteractionApplicationCommandAutocomplete {
@@ -378,6 +378,11 @@ func (b *Bot) Setup() error {
 		if err := setupOnboarding(); err != nil {
 			return errors.Wrap(err, "setting up onboarding")
 		}
+	}
+
+	// giveaways
+	if err := giveaway.Load(b.Session); err != nil {
+		return errors.Wrap(err, "loading giveaways")
 	}
 
 	// activity tracking

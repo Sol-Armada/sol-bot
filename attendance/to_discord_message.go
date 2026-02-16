@@ -148,102 +148,84 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		},
 	}
 
-	buttons := []discordgo.MessageComponent{}
-	if !a.Recorded {
-		startButton := discordgo.Button{
-			Label: "Start Event",
-			Style: discordgo.SuccessButton,
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "▶️",
-			},
-			CustomID: "attendance:start:" + a.Id,
-		}
-
-		if a.Active || !a.Tokenable {
-			startButton.Label = "Finish Event"
-			startButton.Emoji.Name = "🛑"
-			startButton.CustomID = "attendance:end:" + a.Id
-		}
-		buttons = append(buttons, startButton)
-
-		if a.Active && a.Tokenable {
-			successButton := discordgo.Button{
-				Label: "Successful",
-				Style: discordgo.SuccessButton,
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "✅",
-				},
-				CustomID: "attendance:successful:" + a.Id,
-			}
-
-			if a.Successful {
-				successButton.Label = "Unsuccessful"
-				successButton.Style = discordgo.DangerButton
-				successButton.Emoji.Name = "➖"
-				successButton.CustomID = "attendance:unsuccessful:" + a.Id
-			}
-
-			buttons = append(buttons, successButton)
-		}
-
-		buttons = append(buttons,
-			discordgo.Button{
-				Label:    "Delete",
-				Style:    discordgo.DangerButton,
-				Disabled: a.Recorded,
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🗑️",
-				},
-				CustomID: "attendance:delete:" + a.Id,
-			},
-			discordgo.Button{
-				Label:    "Recheck Issues",
-				Style:    discordgo.PrimaryButton,
-				Disabled: a.Recorded,
-				Emoji: &discordgo.ComponentEmoji{
-					Name: "🔁",
-				},
-				CustomID: "attendance:recheck:" + a.Id,
-			},
-		)
-
-		// payoutButton := discordgo.Button{
-		// 	Label:    "Add Payout",
-		// 	Style:    discordgo.PrimaryButton,
-		// 	Disabled: a.Recorded,
-		// 	Emoji: &discordgo.ComponentEmoji{
-		// 		Name: "💰",
-		// 	},
-		// 	CustomID: "attendance:payout:" + a.Id,
-		// }
-		// if a.Payouts != nil {
-		// 	payoutButton.Label = "Edit Payout"
-		// 	payoutButton.CustomID = "attendance:payout:" + a.Id
-		// }
-		// buttons = append(buttons, payoutButton)
-	}
-
 	components := []discordgo.MessageComponent{}
 
 	if !a.Recorded {
-		components = append(components, discordgo.ActionsRow{
-			Components: buttons,
-		})
-	}
+		buttons := discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				func() discordgo.Button {
+					if a.Tokenable && a.Status == AttendanceStatusCreated {
+						return discordgo.Button{
+							Label: "Start Event",
+							Style: discordgo.SecondaryButton,
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "▶️",
+							},
+							CustomID: "attendance:start:" + a.Id,
+						}
+					}
 
-	lastComponents := []discordgo.MessageComponent{
-		discordgo.Button{
-			Label: "Export",
-			Style: discordgo.PrimaryButton,
-			Emoji: &discordgo.ComponentEmoji{
-				Name: "📥",
+					return discordgo.Button{
+						Label: "Finish Event",
+						Style: discordgo.SuccessButton,
+						Emoji: &discordgo.ComponentEmoji{
+							Name: "🛑",
+						},
+						CustomID: "attendance:end:" + a.Id,
+					}
+				}(),
 			},
-			CustomID: "attendance:export:" + a.Id,
-		},
-	}
+		}
+		if a.Tokenable {
+			buttons.Components = append(buttons.Components,
+				func() discordgo.Button {
+					if a.Successful {
+						return discordgo.Button{
+							Label: "Unsuccessful",
+							Style: discordgo.SecondaryButton,
+							Emoji: &discordgo.ComponentEmoji{
+								Name: "❌",
+							},
+							CustomID: "attendance:unsuccessful:" + a.Id,
+						}
+					}
+					return discordgo.Button{
+						Label: "Successful",
+						Style: discordgo.SuccessButton,
+						Emoji: &discordgo.ComponentEmoji{
+							Name: "✅",
+						},
+						CustomID: "attendance:successful:" + a.Id,
+					}
+				}(),
+			)
+		}
+		components = append(components, buttons)
 
-	if a.Recorded {
-		lastComponents = append(lastComponents,
+		components = append(components, discordgo.ActionsRow{
+			Components: []discordgo.MessageComponent{
+				discordgo.Button{
+					Label:    "Delete",
+					Style:    discordgo.DangerButton,
+					Disabled: a.Recorded,
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "🗑️",
+					},
+					CustomID: "attendance:delete:" + a.Id,
+				},
+				discordgo.Button{
+					Label:    "Recheck Issues",
+					Style:    discordgo.PrimaryButton,
+					Disabled: a.Recorded,
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "🔁",
+					},
+					CustomID: "attendance:recheck:" + a.Id,
+				},
+			},
+		})
+	} else {
+		buttons := []discordgo.MessageComponent{
 			discordgo.Button{
 				Label: "Revert",
 				Style: discordgo.PrimaryButton,
@@ -251,12 +233,32 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 					Name: "↩️",
 				},
 				CustomID: "attendance:revert:" + a.Id,
-			})
-	}
+			},
+			discordgo.Button{
+				Label: "Export",
+				Style: discordgo.PrimaryButton,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "📥",
+				},
+				CustomID: "attendance:export:" + a.Id,
+			},
+		}
 
-	components = append(components, discordgo.ActionsRow{
-		Components: lastComponents,
-	})
+		if a.Tokenable {
+			buttons = append(buttons, discordgo.Button{
+				Label: "Distribute Tokens",
+				Style: discordgo.SuccessButton,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🪙",
+				},
+				CustomID: "attendance:distribute:" + a.Id,
+			})
+		}
+
+		components = append(components, discordgo.ActionsRow{
+			Components: buttons,
+		})
+	}
 
 	return &discordgo.MessageSend{
 		Embeds:     embeds,

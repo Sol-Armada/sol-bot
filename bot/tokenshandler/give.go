@@ -15,13 +15,6 @@ func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("take command handler")
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-
 	var member *members.Member
 	var amount int = 0
 	var reason tokens.Reason
@@ -43,7 +36,7 @@ func giveCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 		case "reason":
 			reason = tokens.Reason(option.StringValue())
 		case "comment":
-			comment =new(option.StringValue())
+			comment = new(option.StringValue())
 			if *comment == "" {
 				comment = nil
 			}

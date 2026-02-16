@@ -4,11 +4,11 @@ import (
 	"slices"
 )
 
-func (g *Giveaway) AddMemberToItems(items []string, memberId string) *Giveaway {
+func (g *Giveaway) AddMemberToItems(items []string, memberId string) (*Giveaway, error) {
 	for _, itemId := range items {
 		item, ok := g.Items[itemId]
 		if !ok {
-			return g
+			return g, nil
 		}
 
 		item.AddMember(memberId)

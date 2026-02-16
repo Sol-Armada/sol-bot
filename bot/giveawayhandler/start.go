@@ -21,15 +21,6 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		return customerrors.InvalidPermissions
 	}
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		return err
-	}
-
 	data := i.ApplicationCommandData()
 
 	items := make([]*giveaway.Item, 0)
@@ -123,7 +114,7 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	g.Save()
 
 	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
-		Content:new("Giveaway started!"),
+		Content: new("Giveaway started!"),
 	}); err != nil {
 		return err
 	}

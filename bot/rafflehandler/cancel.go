@@ -13,15 +13,6 @@ func cancel(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionC
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle cancel button")
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		return err
-	}
-
 	if !utils.Allowed(i.Member, "RAFFLES") {
 		_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 			Content: "You do not have the permissions to do that.",
@@ -43,5 +34,9 @@ func cancel(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionC
 		return err
 	}
 
-	return s.ChannelMessageDelete(i.Interaction.ChannelID, i.Message.ID)
+	if err := s.ChannelMessageDelete(i.Interaction.ChannelID, i.Message.ID); err != nil {
+		return err
+	}
+
+	return nil
 }

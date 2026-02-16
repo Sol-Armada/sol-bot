@@ -117,22 +117,21 @@ func (g *GiveawayCommand) Name() string {
 
 // OnAfter implements [command.ApplicationCommand].
 func (g *GiveawayCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	panic("unimplemented")
+	return nil
 }
 
 // OnBefore implements [command.ApplicationCommand].
 func (g *GiveawayCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	panic("unimplemented")
+	return nil
 }
 
 // OnError implements [command.ApplicationCommand].
 func (g *GiveawayCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
-	panic("unimplemented")
 }
 
 // SelectMenuHandler implements [command.ApplicationCommand].
 func (g *GiveawayCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	panic("unimplemented")
+	return nil
 }
 
 // Setup implements [command.ApplicationCommand].

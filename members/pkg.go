@@ -142,6 +142,25 @@ func Get(id string) (*Member, error) {
 	return member, nil
 }
 
+func GetList(ids []string) ([]*Member, error) {
+	cur, err := membersStore.GetList(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	members := []*Member{}
+
+	for cur.Next(context.Background()) {
+		member := &Member{}
+		if err := cur.Decode(member); err != nil {
+			return nil, err
+		}
+		members = append(members, member)
+	}
+
+	return members, nil
+}
+
 func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 	membersMap, err := membersStore.GetRandom(max, int(maxRank))
 	if err != nil {

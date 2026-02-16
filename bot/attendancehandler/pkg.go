@@ -20,11 +20,11 @@ type AttendanceCommand struct{}
 var _ command.ApplicationCommand = (*AttendanceCommand)(nil)
 
 var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"create":            createCommandHandler,
-	"add":               addMembersCommandHandler,
-	"remove":            removeMembersCommandHandler,
-	"refresh":           refreshCommandHandler,
-	"revert":            revertCommandHandler,
+	"create":  createCommandHandler,
+	"add":     addMembersCommandHandler,
+	"remove":  removeMembersCommandHandler,
+	"refresh": refreshCommandHandler,
+	// "revert":            revertCommandHandler,
 	"add_event_name":    addNameCommandHandler,
 	"remove_event_name": removeNameCommandHandler,
 }
@@ -44,14 +44,19 @@ var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *disc
 	"payout":        addPayoutButtonHandler,
 	"record":        recordButtonHandler,
 	"recheck":       recheckIssuesButtonHandler,
-	"verifydelete":  verifyDeleteButtonModalHandler,
-	"canceldelete":  cancelDeleteButtonModalHandler,
+	"verifydelete":  verifyDeleteButtonHandler,
+	"canceldelete":  cancelDeleteButtonHandler,
 	"stayed":        stayedSelectHandler,
 	"stayed_submit": stayedSubmitButtonHandler,
 	"successful":    successfulButtonHandler,
 	"unsuccessful":  unsuccessfulButtonHandler,
 	"export":        exportButtonHandler,
 	"revert":        revertButtonHandler,
+	"distribute":    distributeButtonHandler,
+}
+
+var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
+	"distribute": distributeModalHandler,
 }
 
 var lastRefreshTime time.Time
@@ -177,22 +182,22 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 	})
 	// end remove member from attendance record
 
-	// revert attendance record
-	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "revert",
-		Description: "revert an attendance record",
-		Options: []*discordgo.ApplicationCommandOption{
-			{
-				Name:         "event",
-				Description:  "The event to revert",
-				Type:         discordgo.ApplicationCommandOptionString,
-				Required:     true,
-				Autocomplete: true,
-			},
-		},
-	})
-	// end revert attendance record
+	// // revert attendance record
+	// subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
+	// 	Type:        discordgo.ApplicationCommandOptionSubCommand,
+	// 	Name:        "revert",
+	// 	Description: "revert an attendance record",
+	// 	Options: []*discordgo.ApplicationCommandOption{
+	// 		{
+	// 			Name:         "event",
+	// 			Description:  "The event to revert",
+	// 			Type:         discordgo.ApplicationCommandOptionString,
+	// 			Required:     true,
+	// 			Autocomplete: true,
+	// 		},
+	// 	},
+	// })
+	// // end revert attendance record
 
 	// refresh attendance records
 	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
@@ -244,12 +249,7 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 }
 
 func (c *AttendanceCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	return nil
 }
 
 func (c *AttendanceCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -257,8 +257,6 @@ func (c *AttendanceCommand) OnAfter(ctx context.Context, s *discordgo.Session, i
 }
 
 func (c *AttendanceCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
-	logger := utils.GetLoggerFromContext(ctx)
-	logger.Error("handling attendance command", "error", err)
 }
 
 func (c *AttendanceCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -320,7 +318,17 @@ func (c *AttendanceCommand) ButtonHandler(ctx context.Context, s *discordgo.Sess
 }
 
 func (c *AttendanceCommand) ModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	return nil
+	logger := utils.GetLoggerFromContext(ctx)
+	logger.Debug("attendance modal handler")
+
+	data := i.Interaction.ModalSubmitData()
+	action := strings.Split(data.CustomID, ":")[1]
+	handler, ok := modals[action]
+	if !ok {
+		return customerrors.InvalidModal
+	}
+
+	return handler(ctx, s, i)
 }
 
 func (c *AttendanceCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {

@@ -15,14 +15,14 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle end button")
 
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	}); err != nil {
-		return err
-	}
+	// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	// 	Data: &discordgo.InteractionResponseData{
+	// 		Flags: discordgo.MessageFlagsEphemeral,
+	// 	},
+	// }); err != nil {
+	// 	return err
+	// }
 
 	if !utils.Allowed(i.Member, "RAFFLES") {
 		_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{

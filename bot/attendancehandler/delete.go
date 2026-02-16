@@ -24,17 +24,16 @@ func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 	if attendance == nil {
 		_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Flags:   discordgo.MessageFlagsEphemeral,
 				Content: "Looks like that attendance doesn't exist in the database anyway, removed the message.",
 			},
 		})
-		return nil
 	}
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{
 			Flags:   discordgo.MessageFlagsEphemeral,
@@ -57,20 +56,11 @@ func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 			},
 		},
 	})
-
-	return nil
 }
 
-func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func verifyDeleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
-	logger.Debug("deleting verify modal handler")
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredMessageUpdate,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	logger.Debug("deleting verify handler")
 
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
@@ -83,6 +73,20 @@ func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 			return errors.Wrap(err, "deleting attendance record")
 		}
 
+		msg, err := s.ChannelMessage(attendance.ChannelId, attendance.MessageId)
+		if err != nil && !errors.Is(err, attdnc.ErrAttendanceNotFound) {
+			return errors.Wrap(err, "getting attendance message")
+		}
+
+		if msg.Thread != nil {
+			if err := s.ChannelMessageDelete(msg.Thread.ID, msg.Thread.ID); err != nil {
+				derr := err.(*discordgo.RESTError)
+				if derr.Response.StatusCode != 404 {
+					return errors.Wrap(err, "deleting attendance thread")
+				}
+			}
+		}
+
 		if err := s.ChannelMessageDelete(attendance.ChannelId, attendance.MessageId); err != nil {
 			derr := err.(*discordgo.RESTError)
 			if derr.Response.StatusCode != 404 {
@@ -91,20 +95,26 @@ func verifyDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i
 		}
 	}
 
-	return s.InteractionResponseDelete(i.Interaction)
-}
-
-func cancelDeleteButtonModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx)
-	logger.Debug("deleting cancel modal handler")
-
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseChannelMessageWithSource,
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
 		Data: &discordgo.InteractionResponseData{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "Whew, that was close. Attendance record not deleted.",
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Content:    "Attendance record deleted.",
+			Components: []discordgo.MessageComponent{},
 		},
 	})
+}
 
-	return nil
+func cancelDeleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	logger := utils.GetLoggerFromContext(ctx)
+	logger.Debug("deleting cancel handler")
+
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Flags:      discordgo.MessageFlagsEphemeral,
+			Content:    "Whew, that was close. Attendance record not deleted.",
+			Components: []discordgo.MessageComponent{},
+		},
+	})
 }

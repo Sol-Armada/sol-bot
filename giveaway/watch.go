@@ -15,12 +15,16 @@ func watch() {
 		for _, g := range giveaways {
 			if g.Ended {
 				slog.Debug("giveaway timer ended")
+				delete(giveaways, g.Id)
 				continue
 			}
 
 			if time.Now().After(g.EndTime) {
 				slog.Debug("giveaway timer expired")
-				g.End()
+				if err := g.End(); err != nil {
+					slog.Error("failed to end giveaway", "error", err)
+				}
+				delete(giveaways, g.Id)
 				continue
 			}
 
