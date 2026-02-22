@@ -1,6 +1,8 @@
 name: Docker Image CI
-
 on:
+  push:
+    tags:
+      - "v*.*.*"
   workflow_dispatch:
     inputs:
       branch:
@@ -19,7 +21,7 @@ jobs:
       - name: Tag the Docker latest image
         run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:latest
       - name: Tag the Docker version image
-        run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:${{ github.event.inputs.branch }}
+        run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:${{ github.ref_name }}
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -29,4 +31,4 @@ jobs:
       - name: Push the Docker images to GitHub Container Registry
         run: |
           docker push ghcr.io/sol-armada/sol-bot:latest
-          docker push ghcr.io/sol-armada/sol-bot:${{ github.event.inputs.branch }}
+          docker push ghcr.io/sol-armada/sol-bot:${{ github.ref_name }}
