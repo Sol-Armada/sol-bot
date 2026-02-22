@@ -1,0 +1,66 @@
+services:
+  mongo1:
+    image: mongo:latest
+    container_name: mongo-01
+    networks:
+      - sol-bot-network
+    volumes:
+      - mongo-01-data:/data/db
+    ports:
+      - "27017:27017"
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == containers-01
+
+  mongo2:
+    image: mongo:latest
+    container_name: mongo-02
+    networks:
+      - sol-bot-network
+    volumes:
+      - mongo-02-data:/data/db
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == containers-02
+
+  mongo3:
+    image: mongo:latest
+    container_name: mongo-03
+    networks:
+      - sol-bot-network
+    volumes:
+      - mongo-03-data:/data/db
+    deploy:
+      placement:
+        constraints:
+          - node.hostname == containers-03
+
+  sol-bot:
+    image: ghcr.io/sol-armada/sol-bot:latest
+    container_name: sol-bot
+    networks:
+      - sol-bot-network
+    configs:
+      - source: sol-bot-config
+        target: /app/settings.toml
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
+    deploy:
+      mode: global
+
+networks:
+  sol-bot-network:
+    driver: overlay
+
+volumes:
+  mongo-01-data:
+  mongo-02-data:
+  mongo-03-data:
+
+configs:
+  sol-bot-config:
+    file: ./settings.toml
