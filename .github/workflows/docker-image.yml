@@ -1,9 +1,6 @@
 name: Docker Image CI
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
   workflow_dispatch:
     inputs:
       branch:
@@ -22,4 +19,4 @@ jobs:
       - name: Tag the Docker latest image
         run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:latest
       - name: Tag the Docker version image
-        run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:${{ github.ref_name}}
+        run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:${{ github.event.inputs.branch }}
