@@ -20,3 +20,13 @@ jobs:
         run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:latest
       - name: Tag the Docker version image
         run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:${{ github.event.inputs.branch }}
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Push the Docker images to GitHub Container Registry
+        run: |
+          docker push ghcr.io/sol-armada/sol-bot:latest
+          docker push ghcr.io/sol-armada/sol-bot:${{ github.event.inputs.branch }}
