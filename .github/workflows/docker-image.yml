@@ -4,6 +4,12 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch to build the Docker image from"
+        required: true
+        default: "main"
 
 jobs:
   build:
