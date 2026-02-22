@@ -29,7 +29,7 @@ func recheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 		return errors.Wrap(err, "getting attendance record")
 	}
 
-	if err := attendance.RecheckIssues(); err != nil {
+	if err := attendance.RecheckIssues(s); err != nil {
 		return errors.Wrap(err, "rechecking issues for attendance record")
 	}
 

@@ -11,7 +11,6 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -202,24 +201,24 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		chunkEnd := min(chunkStart+memberProcessingChunkSize, len(discordMembers))
 
 		chunk := discordMembers[chunkStart:chunkEnd]
-		chunkMembersToSave := make([]members.Member, 0, len(chunk))
+		// chunkMembersToSave := make([]members.Member, 0, len(chunk))
 
 		logger.Debug("processing chunk", "start", chunkStart, "end", chunkEnd, "size", len(chunk))
 		upsertStatusMessage("member_monitor", fmt.Sprintf("Updating members... (%d/%d)", chunkEnd, len(discordMembers)))
 
 		// Process each member in the chunk
 		processedMembers := processChunkMembers(ctx, chunk, chunkStart, recruitRoleID, allyRoleID, rsiBackoff, logger, &processingErrors)
-		chunkMembersToSave = append(chunkMembersToSave, processedMembers...)
+		// chunkMembersToSave = append(chunkMembersToSave, processedMembers...)
 
 		// Save chunk in batch
-		if len(chunkMembersToSave) > 0 {
-			logger.Debug("saving chunk", "count", len(chunkMembersToSave))
-			if err := members.BulkSave(chunkMembersToSave); err != nil {
+		if len(processedMembers) > 0 {
+			logger.Debug("saving chunk", "count", len(processedMembers))
+			if err := members.BulkSave(processedMembers); err != nil {
 				logger.Error("bulk saving chunk", "error", err)
 				processingErrors = append(processingErrors, err)
 				continue
 			}
-			logger.Debug("chunk saved successfully", "count", len(chunkMembersToSave))
+			logger.Debug("chunk saved successfully", "count", len(processedMembers))
 		}
 	}
 
@@ -229,46 +228,6 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 	}
 
 	return nil
-}
-
-// createRoleMap creates an efficient map for role lookups
-func createRoleMap(roles []string, logger *slog.Logger) map[string]bool {
-	roleMap := make(map[string]bool, len(roles))
-	for _, roleID := range roles {
-		if roleID == "" {
-			logger.Warn("empty role ID found")
-			continue
-		}
-		roleMap[roleID] = true
-	}
-	return roleMap
-}
-
-// updateMemberRoles efficiently updates member roles based on the role map
-func updateMemberRoles(member *members.Member, roleMap map[string]bool, recruitRoleID, allyRoleID string, logger *slog.Logger) {
-	// Reset role flags
-	member.IsAffiliate = false
-	member.IsAlly = false
-	member.IsGuest = false
-	member.IsBot = false
-
-	if roleMap[recruitRoleID] {
-		logger.Debug("is recruit")
-		member.Rank = ranks.Recruit
-		member.IsGuest = false
-		return
-	}
-
-	if roleMap[allyRoleID] {
-		logger.Debug("is ally")
-		member.Rank = ranks.None
-		member.IsAlly = true
-		member.IsGuest = false
-		return
-	}
-
-	// Default to guest if no specific roles found
-	member.IsGuest = true
 }
 
 // fetchAndValidateDiscordMembers fetches Discord members with retry logic and validates them
@@ -446,16 +405,20 @@ func processChunkMembers(
 		}
 
 		// Update member data
-		updateMemberData(member, discordMember, recruitRoleID, allyRoleID, mlogger)
+		UpdateMemberData(member, discordMember, recruitRoleID, allyRoleID, mlogger)
 
 		// Update RSI info with retry logic
-		updateMemberRSIInfo(member, rsiBackoff, mlogger)
+		err = rsi.UpdateMemberRSIInfo(member, rsiBackoff, mlogger)
+		if err != nil {
+			mlogger.Error("updating RSI info", "error", err)
+			*processingErrors = append(*processingErrors, err)
+		} else {
+			// Add to chunk batch for saving
+			mlogger.Debug("adding member to chunk save batch")
+			chunkMembers = append(chunkMembers, *member)
+		}
 
-		// Add to chunk batch for saving
-		mlogger.Debug("adding member to chunk save batch")
-		chunkMembers = append(chunkMembers, *member)
-
-		time.Sleep(500 * time.Millisecond) // Small delay to avoid hitting rate limits
+		time.Sleep(1 * time.Second) // Small delay to avoid hitting rate limits
 	}
 
 	return chunkMembers
@@ -482,7 +445,7 @@ func getOrCreateMember(discordMember *discordgo.Member, logger *slog.Logger) (*m
 }
 
 // updateMemberData updates basic member information from Discord
-func updateMemberData(member *members.Member, discordMember *discordgo.Member, recruitRoleID, allyRoleID string, logger *slog.Logger) {
+func UpdateMemberData(member *members.Member, discordMember *discordgo.Member, recruitRoleID, allyRoleID string, logger *slog.Logger) {
 	// Update basic member fields
 	logger.Debug("updating member fields", "current_name", member.Name)
 	truenick := member.GetTrueNick(discordMember)
@@ -497,29 +460,5 @@ func updateMemberData(member *members.Member, discordMember *discordgo.Member, r
 	// Update avatar
 	member.Avatar = discordMember.User.Avatar
 
-	// Process roles efficiently
-	roleMap := createRoleMap(discordMember.Roles, logger)
-	updateMemberRoles(member, roleMap, recruitRoleID, allyRoleID, logger)
-}
-
-// updateMemberRSIInfo updates RSI information with retry logic
-func updateMemberRSIInfo(member *members.Member, rsiBackoff *utils.ExponentialBackoff, logger *slog.Logger) {
-	logger.Debug("updating RSI info")
-	err := rsiBackoff.Execute(func() error {
-		return rsi.UpdateRsiInfo(member)
-	})
-
-	if err == nil {
-		return
-	}
-
-	if errors.Is(err, rsi.ErrUserNotFound) || errors.Is(err, rsi.ErrForbidden) {
-		logger.Debug("rsi user not found or forbidden", "error", err)
-		member.RSIMember = false
-		return
-	}
-
-	logger.Warn("failed to update RSI info after retries", "error", err)
-	// Don't fail the entire operation for RSI issues
-	member.RSIMember = false
+	member.UpdateRoles(discordMember.Roles)
 }

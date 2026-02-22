@@ -257,6 +257,15 @@ func (c *AttendanceCommand) OnAfter(ctx context.Context, s *discordgo.Session, i
 }
 
 func (c *AttendanceCommand) OnError(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate, err error) {
+	if i.Type == discordgo.InteractionMessageComponent {
+		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "I ran into an error! You didn't do anything wrong. The right people have been notified and will look into it as soon as possible.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
 }
 
 func (c *AttendanceCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {

@@ -18,7 +18,9 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 	giveawayId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
 	g := giveaway.GetGiveaway(giveawayId)
-	g.End()
+	if err := g.End(); err != nil {
+		return err
+	}
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,

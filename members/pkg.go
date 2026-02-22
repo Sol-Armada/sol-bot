@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/auth"
 	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
 	"go.mongodb.org/mongo-driver/bson"
 )
@@ -306,10 +308,32 @@ func ValidateDiscordMembers(discordMembers []*discordgo.Member) []*discordgo.Mem
 		if member == nil || member.User == nil || member.User.Bot {
 			continue
 		}
+		if !hasRankRole(member.Roles) {
+			continue
+		}
 		validMembers = append(validMembers, member)
 	}
 
 	return validMembers
+}
+
+func hasRankRole(roles []string) bool {
+	return slices.ContainsFunc(roles, func(role string) bool {
+		switch role {
+		case settings.GetString("DISCORD.ROLE_IDS.ALLY"),
+			settings.GetString("DISCORD.ROLE_IDS.RECRUIT"),
+			settings.GetString("DISCORD.ROLE_IDS.AFFILIATE"),
+			settings.GetString("DISCORD.ROLE_IDS.MEMBER"),
+			settings.GetString("DISCORD.ROLE_IDS.TECHNICIAN"),
+			settings.GetString("DISCORD.ROLE_IDS.SPECIALIST"),
+			settings.GetString("DISCORD.ROLE_IDS.LIEUTENANT"),
+			settings.GetString("DISCORD.ROLE_IDS.COMMANDER"),
+			settings.GetString("DISCORD.ROLE_IDS.ADMIRAL"):
+			return true
+		default:
+			return false
+		}
+	})
 }
 
 func (m *Member) IsAdmin() bool {
@@ -486,4 +510,42 @@ func (m *Member) IsRanked() bool {
 
 func (m *Member) IsOfficer() bool {
 	return m.Rank <= ranks.Lieutenant
+}
+
+func (m *Member) UpdateRoles(discordRoles []string) {
+	recruitRoleID := settings.GetString("DISCORD.ROLE_IDS.RECRUIT")
+	allyRoleID := settings.GetString("DISCORD.ROLE_IDS.ALLY")
+
+	roleMap := createRoleMap(discordRoles)
+
+	m.IsAffiliate = false
+	m.IsAlly = false
+	m.IsGuest = false
+	m.IsBot = false
+
+	if roleMap[recruitRoleID] {
+		m.Rank = ranks.Recruit
+		m.IsGuest = false
+		return
+	}
+
+	if roleMap[allyRoleID] {
+		m.Rank = ranks.None
+		m.IsAlly = true
+		m.IsGuest = false
+		return
+	}
+
+	m.IsGuest = true
+}
+
+func createRoleMap(roles []string) map[string]bool {
+	roleMap := make(map[string]bool, len(roles))
+	for _, roleID := range roles {
+		if roleID == "" {
+			continue
+		}
+		roleMap[roleID] = true
+	}
+	return roleMap
 }

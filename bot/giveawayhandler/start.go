@@ -111,7 +111,9 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	}
 	g.InputMessageId = msg.ID
 
-	g.Save()
+	if _, err := g.Save(); err != nil {
+		return err
+	}
 
 	if _, err := s.InteractionResponseEdit(i.Interaction, &discordgo.WebhookEdit{
 		Content: new("Giveaway started!"),

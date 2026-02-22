@@ -25,9 +25,13 @@ func updateEntry(ctx context.Context, s *discordgo.Session, i *discordgo.Interac
 		return nil
 	}
 
-	g.AddMemberToItems(entries, member.Id)
+	if _, err := g.AddMemberToItems(entries, member.Id); err != nil {
+		return err
+	}
 
-	_ = g.UpdateMessage()
+	if err := g.UpdateMessage(); err != nil {
+		return err
+	}
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
