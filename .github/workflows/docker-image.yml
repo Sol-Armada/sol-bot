@@ -1,0 +1,19 @@
+name: Docker Image CI
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check out the repository
+        run: docker build . --file Dockerfile --tag sol-bot:${{ github.sha }}
+      - name: Tag the Docker latest image
+        run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:latest
+      - name: Tag the Docker version image
+        run: docker tag sol-bot:${{ github.sha }} ghcr.io/sol-armada/sol-bot:${{ github.ref_name}}

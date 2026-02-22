@@ -1,4 +1,4 @@
-FROM golang:1.22 AS builder
+FROM golang:1.26 AS builder
 
 WORKDIR /src
 
@@ -6,7 +6,7 @@ COPY . .
 
 RUN go build -o ./dist/solbot ./cmd
 
-FROM golang:latest
+FROM alpine:latest
 
 WORKDIR /srv/
 
