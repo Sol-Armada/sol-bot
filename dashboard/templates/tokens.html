@@ -1,0 +1,136 @@
+{{define "tokens.html"}}
+{{template "header" .}}
+<article>
+    <header>
+        <h1>Token Economy</h1>
+    </header>
+
+    <section class="grid-stats">
+        <div class="stat-card">
+            <p class="stat-value" id="total-circulation">{{.Metrics.Tokens.TotalInCirculation}}</p>
+            <p class="stat-label">Total Circulation</p>
+        </div>
+    </section>
+
+    <div class="grid">
+        <section>
+            <header>
+                <h2>Top Token Holders</h2>
+            </header>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Rank</th>
+                            <th>Member</th>
+                            <th>Balance</th>
+                        </tr>
+                    </thead>
+                    <tbody id="top-holders">
+                        {{range $index, $holder := .Metrics.Tokens.TopHolders}}
+                        <tr>
+                            <td>{{add $index 1}}</td>
+                            <td>{{$holder.MemberName}}</td>
+                            <td><strong>{{$holder.Balance}}</strong></td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <header>
+                <h2>Distribution by Reason</h2>
+            </header>
+            <table>
+                <tbody id="distribution-reasons">
+                    {{range $reason, $count := .Metrics.Tokens.DistributionByReason}}
+                    <tr>
+                        <td>{{$reason}}</td>
+                        <td><strong>{{$count}}</strong></td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <section>
+        <header>
+            <h2>Recent Token Distributions</h2>
+        </header>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Member</th>
+                        <th>Amount</th>
+                        <th>Reason</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-distributions">
+                    {{range .Metrics.Tokens.RecentDistributions}}
+                    <tr>
+                        <td>{{.MemberName}}</td>
+                        <td><strong>{{.Amount}}</strong></td>
+                        <td>{{.Reason}}</td>
+                        <td>{{.CreatedAt.Format "Jan 02, 15:04"}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</article>
+{{template "footer" .}}
+
+<script>
+    window.addEventListener('metrics-update', function (event) {
+        const metrics = event.detail;
+
+        document.getElementById('total-circulation').textContent = metrics.tokens.total_in_circulation;
+
+        // Update top holders
+        const holdersTable = document.getElementById('top-holders');
+        holdersTable.innerHTML = '';
+        metrics.tokens.top_holders.forEach(function (holder, index) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${index + 1}</td>
+                <td>${holder.member_name}</td>
+                <td><strong>${holder.balance}</strong></td>
+            `;
+            holdersTable.appendChild(row);
+        });
+
+        // Update distribution by reason
+        const reasonsTable = document.getElementById('distribution-reasons');
+        reasonsTable.innerHTML = '';
+        for (const [reason, count] of Object.entries(metrics.tokens.distribution_by_reason)) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${reason}</td>
+                <td><strong>${count}</strong></td>
+            `;
+            reasonsTable.appendChild(row);
+        }
+
+        // Update recent distributions
+        const distributionsTable = document.getElementById('recent-distributions');
+        distributionsTable.innerHTML = '';
+        metrics.tokens.recent_distributions.forEach(function (dist) {
+            const date = new Date(dist.created_at);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${dist.member_name}</td>
+                <td><strong>${dist.amount}</strong></td>
+                <td>${dist.reason}</td>
+                <td>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</td>
+            `;
+            distributionsTable.appendChild(row);
+        });
+    });
+</script>
+{{end}}

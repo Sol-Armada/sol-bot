@@ -1,0 +1,215 @@
+{{define "configs.html"}}
+{{template "header" .}}
+
+<h1>Configuration Management</h1>
+<p>Manage runtime configuration overrides. Changes are applied immediately and stored in MongoDB.</p>
+
+<article>
+    <header>
+        <strong>Configuration Settings</strong>
+        <div style="float: right;">
+            <button id="reload-configs" class="secondary">🔄 Reload</button>
+            <button id="export-configs" class="secondary">📥 Export</button>
+        </div>
+    </header>
+
+    <div style="margin-bottom: 1rem;">
+        <input type="search" id="config-search" placeholder="Search configurations..." />
+    </div>
+
+    <div class="table-container">
+        <table id="configs-table">
+            <thead>
+                <tr>
+                    <th>Configuration Key</th>
+                    <th>Current Value</th>
+                    <th>Default Value</th>
+                    <th>Modified</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{range .Metrics.Configs}}
+                <tr data-config-key="{{.Key}}">
+                    <td><code>{{.Key}}</code></td>
+                    <td>
+                        <span class="config-value" data-key="{{.Key}}">
+                            {{if .IsOverridden}}
+                            <strong style="color: var(--primary);">{{.Value}}</strong>
+                            {{else}}
+                            {{.Value}}
+                            {{end}}
+                        </span>
+                    </td>
+                    <td><small style="color: var(--muted-color);">{{.DefaultValue}}</small></td>
+                    <td>
+                        {{if .IsOverridden}}
+                        <span class="success-badge">✓ Override</span>
+                        {{if .UpdatedBy}}<br><small>by {{.UpdatedBy}}</small>{{end}}
+                        {{if .UpdatedAt}}<br><small>{{.UpdatedAt.Format "2006-01-02 15:04"}}</small>{{end}}
+                        {{else}}
+                        <span style="color: var(--muted-color);">Default</span>
+                        {{end}}
+                    </td>
+                    <td>
+                        <button class="edit-config secondary" data-key="{{.Key}}" data-type="{{.Type}}">✏️ Edit</button>
+                        {{if .IsOverridden}}
+                        <button class="reset-config secondary" data-key="{{.Key}}">↩️ Reset</button>
+                        {{end}}
+                    </td>
+                </tr>
+                {{end}}
+            </tbody>
+        </table>
+    </div>
+</article>
+
+<!-- Edit Modal -->
+<dialog id="edit-modal">
+    <article>
+        <header>
+            <button aria-label="Close" rel="prev" id="close-modal"></button>
+            <h3>Edit Configuration</h3>
+        </header>
+        <form id="edit-form">
+            <label>
+                Configuration Key
+                <input type="text" id="edit-key" readonly />
+            </label>
+            <label>
+                Value
+                <input type="text" id="edit-value" required />
+                <small id="edit-type-hint"></small>
+            </label>
+            <label>
+                Updated By (your name/identifier)
+                <input type="text" id="edit-updatedby" placeholder="admin" required />
+            </label>
+        </form>
+        <footer>
+            <button class="secondary" id="cancel-edit">Cancel</button>
+            <button id="save-edit">Save Override</button>
+        </footer>
+    </article>
+</dialog>
+
+<script>
+    let configs = [];
+
+    // Search functionality
+    document.getElementById('config-search').addEventListener('input', function (e) {
+        const search = e.target.value.toLowerCase();
+        const rows = document.querySelectorAll('#configs-table tbody tr');
+        rows.forEach(row => {
+            const key = row.dataset.configKey.toLowerCase();
+            row.style.display = key.includes(search) ? '' : 'none';
+        });
+    });
+
+    // Edit config
+    document.querySelectorAll('.edit-config').forEach(btn => {
+        btn.addEventListener('click', function () {
+            const key = this.dataset.key;
+            const type = this.dataset.type;
+            const currentValue = document.querySelector(`.config-value[data-key="${key}"]`).textContent.trim();
+
+            document.getElementById('edit-key').value = key;
+            document.getElementById('edit-value').value = currentValue;
+            document.getElementById('edit-type-hint').textContent = `Type: ${type}`;
+            document.getElementById('edit-modal').showModal();
+        });
+    });
+
+    // Reset config
+    document.querySelectorAll('.reset-config').forEach(btn => {
+        btn.addEventListener('click', async function () {
+            const key = this.dataset.key;
+            if (!confirm(`Reset ${key} to default value?`)) return;
+
+            try {
+                const response = await fetch('/api/configs/reset', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key })
+                });
+
+                if (response.ok) {
+                    location.reload();
+                } else {
+                    const error = await response.text();
+                    alert('Failed to reset config: ' + error);
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        });
+    });
+
+    // Save edit
+    document.getElementById('save-edit').addEventListener('click', async function () {
+        const key = document.getElementById('edit-key').value;
+        const value = document.getElementById('edit-value').value;
+        const updatedBy = document.getElementById('edit-updatedby').value;
+
+        if (!updatedBy) {
+            alert('Please enter your name/identifier');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/configs/update', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key, value, updated_by: updatedBy })
+            });
+
+            if (response.ok) {
+                document.getElementById('edit-modal').close();
+                location.reload();
+            } else {
+                const error = await response.text();
+                alert('Failed to update config: ' + error);
+            }
+        } catch (e) {
+            alert('Error: ' + e.message);
+        }
+    });
+
+    // Close modal
+    document.getElementById('close-modal').addEventListener('click', () => {
+        document.getElementById('edit-modal').close();
+    });
+    document.getElementById('cancel-edit').addEventListener('click', () => {
+        document.getElementById('edit-modal').close();
+    });
+
+    // Reload configs
+    document.getElementById('reload-configs').addEventListener('click', () => {
+        location.reload();
+    });
+
+    // Export configs
+    document.getElementById('export-configs').addEventListener('click', async () => {
+        try {
+            const response = await fetch('/api/configs/export');
+            const data = await response.json();
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'solbot-configs-' + new Date().toISOString().split('T')[0] + '.json';
+            a.click();
+        } catch (e) {
+            alert('Export failed: ' + e.message);
+        }
+    });
+
+    // Listen for metrics updates
+    window.addEventListener('metrics-update', function (event) {
+        // Reload page when configs change (could be optimized to update in place)
+        console.log('Config metrics updated');
+    });
+</script>
+
+{{template "footer" .}}
+{{end}}

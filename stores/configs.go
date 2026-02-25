@@ -45,3 +45,33 @@ func (s *ConfigsStore) Upsert(name string, config any) error {
 	}
 	return nil
 }
+
+// UpsertOverride updates or inserts a config override with full metadata
+func (s *ConfigsStore) UpsertOverride(override any) error {
+	opts := options.Update().SetUpsert(true)
+	
+	overrideMap, ok := override.(bson.M)
+	if !ok {
+		// Convert to bson.M if needed
+		data, err := bson.Marshal(override)
+		if err != nil {
+			return err
+		}
+		if err := bson.Unmarshal(data, &overrideMap); err != nil {
+			return err
+		}
+	}
+	
+	name, ok := overrideMap["name"]
+	if !ok {
+		return mongo.ErrNoDocuments
+	}
+	
+	_, err := s.UpdateOne(s.ctx, bson.M{"name": name}, bson.M{"$set": overrideMap}, opts)
+	return err
+}
+
+// GetAll returns all config documents
+func (s *ConfigsStore) GetAll() (*mongo.Cursor, error) {
+	return s.Find(s.ctx, bson.M{})
+}

@@ -1,0 +1,189 @@
+{{define "header"}}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.Title}}</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        :root {
+            --spacing-nav: 1rem;
+        }
+
+        .grid-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background: var(--card-background-color);
+            padding: 1.5rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--card-border-color);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: var(--primary);
+            margin: 0;
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            color: var(--muted-color);
+            margin: 0;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+        }
+
+        .status-connected {
+            background-color: #4caf50;
+        }
+
+        .status-disconnected {
+            background-color: #f44336;
+        }
+
+        .nav-active {
+            background-color: var(--primary-focus);
+        }
+
+        .table-container {
+            overflow-x: auto;
+        }
+
+        .rank-badge {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+            background-color: var(--primary-focus);
+        }
+
+        .success-badge {
+            color: #4caf50;
+        }
+
+        .failed-badge {
+            color: #f44336;
+        }
+
+        header.container {
+            padding-top: var(--spacing-nav);
+        }
+
+        nav ul {
+            padding: 0;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 300px;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <header class="container">
+        <nav>
+            <ul>
+                <li><strong>🚀 Sol-Bot Dashboard</strong></li>
+            </ul>
+            <ul>
+                <li><a href="/" class="{{if eq .Page " home"}}nav-active{{end}}">Home</a></li>
+                <li><a href="/members" class="{{if eq .Page " members"}}nav-active{{end}}">Members</a></li>
+                <li><a href="/attendance" class="{{if eq .Page " attendance"}}nav-active{{end}}">Attendance</a></li>
+                <li><a href="/tokens" class="{{if eq .Page " tokens"}}nav-active{{end}}">Tokens</a></li>
+                <li><a href="/activity" class="{{if eq .Page " activity"}}nav-active{{end}}">Activity</a></li>
+                <li><a href="/raffles" class="{{if eq .Page " raffles"}}nav-active{{end}}">Raffles</a></li>
+                <li><a href="/configs" class="{{if eq .Page " configs"}}nav-active{{end}}">⚙️ Configs</a></li>
+            </ul>
+        </nav>
+    </header>
+
+    <main class="container">
+        {{end}}
+
+        {{define "footer"}}
+    </main>
+
+    <footer class="container">
+        <small>
+            <span
+                class="status-indicator {{if .Metrics.Health.DatabaseConnected}}status-connected{{else}}status-disconnected{{end}}"></span>
+            Database: {{if .Metrics.Health.DatabaseConnected}}Connected{{else}}Disconnected{{end}}
+            &nbsp;|&nbsp;
+            Last Update: <span id="last-update">{{.Metrics.Timestamp.Format "15:04:05"}}</span>
+        </small>
+    </footer>
+
+    <script>
+        // WebSocket connection for live updates
+        let ws;
+        let reconnectInterval = 5000;
+
+        function connect() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws`;
+
+            console.log('Connecting to WebSocket:', wsUrl);
+            ws = new WebSocket(wsUrl);
+
+            ws.onopen = function () {
+                console.log('WebSocket connected');
+            };
+
+            ws.onmessage = function (event) {
+                try {
+                    const message = JSON.parse(event.data);
+                    console.log('Received message:', message.type);
+
+                    if (message.type === 'metrics_update') {
+                        updateMetrics(message.data);
+                    }
+                } catch (e) {
+                    console.error('Failed to parse message:', e);
+                }
+            };
+
+            ws.onerror = function (error) {
+                console.error('WebSocket error:', error);
+            };
+
+            ws.onclose = function () {
+                console.log('WebSocket disconnected, reconnecting in ' + (reconnectInterval / 1000) + 's...');
+                setTimeout(connect, reconnectInterval);
+            };
+        }
+
+        function updateMetrics(metrics) {
+            // Update last update time
+            const now = new Date();
+            document.getElementById('last-update').textContent = now.toLocaleTimeString();
+
+            // Dispatch custom event for page-specific updates
+            window.dispatchEvent(new CustomEvent('metrics-update', { detail: metrics }));
+        }
+
+        // Connect on page load
+        document.addEventListener('DOMContentLoaded', function () {
+            connect();
+        });
+    </script>
+</body>
+
+</html>
+{{end}}

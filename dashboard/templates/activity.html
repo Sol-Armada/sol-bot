@@ -1,0 +1,78 @@
+{{define "activity.html"}}
+{{template "header" .}}
+<article>
+    <header>
+        <h1>Member Activity</h1>
+    </header>
+
+    <section class="grid-stats">
+        <div class="stat-card">
+            <p class="stat-value" id="active-today">{{.Metrics.Activity.ActiveToday}}</p>
+            <p class="stat-label">Active Today</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="active-week">{{.Metrics.Activity.ActiveThisWeek}}</p>
+            <p class="stat-label">Active This Week</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="voice-activity">{{.Metrics.Activity.VoiceActivity}}</p>
+            <p class="stat-label">Voice Activity (24h)</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="message-activity">{{.Metrics.Activity.MessageActivity}}</p>
+            <p class="stat-label">Message Activity (24h)</p>
+        </div>
+    </section>
+
+    <section>
+        <header>
+            <h2>Activity Overview</h2>
+        </header>
+        <p>Real-time activity monitoring showing member engagement across Discord voice channels, messages, and Star
+            Citizen gameplay.</p>
+
+        <table>
+            <tbody>
+                <tr>
+                    <td>Members Active Today</td>
+                    <td><strong id="active-today-value">{{.Metrics.Activity.ActiveToday}}</strong></td>
+                </tr>
+                <tr>
+                    <td>Members Active This Week</td>
+                    <td><strong id="active-week-value">{{.Metrics.Activity.ActiveThisWeek}}</strong></td>
+                </tr>
+                <tr>
+                    <td>Voice Channel Joins (24h)</td>
+                    <td><strong id="voice-joins">{{.Metrics.Activity.VoiceActivity}}</strong></td>
+                </tr>
+                <tr>
+                    <td>Messages Sent (24h)</td>
+                    <td><strong id="messages-sent">{{.Metrics.Activity.MessageActivity}}</strong></td>
+                </tr>
+                <tr>
+                    <td>Playing Star Citizen</td>
+                    <td><strong id="sc-playing">{{.Metrics.Activity.StarCitizenPlaying}}</strong></td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+</article>
+{{template "footer" .}}
+
+<script>
+    window.addEventListener('metrics-update', function (event) {
+        const metrics = event.detail;
+
+        document.getElementById('active-today').textContent = metrics.activity.active_today;
+        document.getElementById('active-week').textContent = metrics.activity.active_this_week;
+        document.getElementById('voice-activity').textContent = metrics.activity.voice_activity;
+        document.getElementById('message-activity').textContent = metrics.activity.message_activity;
+
+        document.getElementById('active-today-value').textContent = metrics.activity.active_today;
+        document.getElementById('active-week-value').textContent = metrics.activity.active_this_week;
+        document.getElementById('voice-joins').textContent = metrics.activity.voice_activity;
+        document.getElementById('messages-sent').textContent = metrics.activity.message_activity;
+        document.getElementById('sc-playing').textContent = metrics.activity.star_citizen_playing;
+    });
+</script>
+{{end}}

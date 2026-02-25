@@ -1,0 +1,170 @@
+{{define "raffles.html"}}
+{{template "header" .}}
+<article>
+    <header>
+        <h1>Raffles & Giveaways</h1>
+    </header>
+
+    <section class="grid-stats">
+        <div class="stat-card">
+            <p class="stat-value" id="active-raffles">{{.Metrics.Raffles.Active}}</p>
+            <p class="stat-label">Active Raffles</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="active-giveaways">{{.Metrics.Giveaways.Active}}</p>
+            <p class="stat-label">Active Giveaways</p>
+        </div>
+    </section>
+
+    <div class="grid">
+        <section>
+            <header>
+                <h2>Recent Raffles</h2>
+            </header>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Prize</th>
+                            <th>Entries</th>
+                            <th>Winners</th>
+                        </tr>
+                    </thead>
+                    <tbody id="recent-raffles">
+                        {{range .Metrics.Raffles.Recent}}
+                        <tr>
+                            <td>{{.Name}}</td>
+                            <td>{{.Prize}}</td>
+                            <td>{{.Entries}}</td>
+                            <td>{{len .Winners}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section>
+            <header>
+                <h2>Upcoming Giveaways</h2>
+            </header>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Items</th>
+                            <th>Ends</th>
+                        </tr>
+                    </thead>
+                    <tbody id="upcoming-giveaways">
+                        {{range .Metrics.Giveaways.Upcoming}}
+                        <tr>
+                            <td>{{.Name}}</td>
+                            <td>{{.ItemCount}}</td>
+                            <td>{{.EndTime.Format "Jan 02, 15:04"}}</td>
+                        </tr>
+                        {{end}}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <section>
+        <header>
+            <h2>Recent Giveaways</h2>
+        </header>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Name</th>
+                        <th>Items</th>
+                        <th>Status</th>
+                        <th>End Time</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-giveaways">
+                    {{range .Metrics.Giveaways.Recent}}
+                    <tr>
+                        <td>{{.Name}}</td>
+                        <td>{{.ItemCount}}</td>
+                        <td>
+                            {{if .Ended}}
+                            <span class="failed-badge">Ended</span>
+                            {{else}}
+                            <span class="success-badge">Active</span>
+                            {{end}}
+                        </td>
+                        <td>{{.EndTime.Format "Jan 02, 15:04"}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</article>
+{{template "footer" .}}
+
+<script>
+    window.addEventListener('metrics-update', function (event) {
+        const metrics = event.detail;
+
+        document.getElementById('active-raffles').textContent = metrics.raffles.active;
+        document.getElementById('active-giveaways').textContent = metrics.giveaways.active;
+
+        // Update recent raffles
+        const rafflesTable = document.getElementById('recent-raffles');
+        rafflesTable.innerHTML = '';
+        metrics.raffles.recent.forEach(function (raffle) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${raffle.name}</td>
+                <td>${raffle.prize}</td>
+                <td>${raffle.entries}</td>
+            `;
+            if (raffle.winners?.length > 0) {
+                row.innerHTML += `<td>${raffle.winners.join(', ')}</td>`;
+            } else {
+                row.innerHTML += `<td><em>No winners yet</em></td>`;
+            }
+            rafflesTable.appendChild(row);
+        });
+
+        // Update upcoming giveaways
+        const upcomingTable = document.getElementById('upcoming-giveaways');
+        upcomingTable.innerHTML = '';
+        metrics.giveaways.upcoming.forEach(function (giveaway) {
+            const endDate = new Date(giveaway.end_time);
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${giveaway.name}</td>
+                <td>${giveaway.item_count}</td>
+                <td>${endDate.toLocaleDateString()} ${endDate.toLocaleTimeString()}</td>
+            `;
+            upcomingTable.appendChild(row);
+        });
+
+        // Update recent giveaways
+        const recentTable = document.getElementById('recent-giveaways');
+        recentTable.innerHTML = '';
+        metrics.giveaways.recent.forEach(function (giveaway) {
+            const endDate = new Date(giveaway.end_time);
+            const status = giveaway.ended
+                ? '<span class="failed-badge">Ended</span>'
+                : '<span class="success-badge">Active</span>';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${giveaway.name}</td>
+                <td>${giveaway.item_count}</td>
+                <td>${status}</td>
+                <td>${endDate.toLocaleDateString()} ${endDate.toLocaleTimeString()}</td>
+            `;
+            recentTable.appendChild(row);
+        });
+    });
+</script>
+{{end}}
