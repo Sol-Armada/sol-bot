@@ -1,0 +1,142 @@
+{{define "members.html"}}
+{{template "header" .}}
+<article>
+    <header>
+        <h1>Members Management</h1>
+    </header>
+
+    <section class="grid-stats">
+        <div class="stat-card">
+            <p class="stat-value" id="total-members">{{.Metrics.Members.Total}}</p>
+            <p class="stat-label">Total Members</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="validated-members">{{.Metrics.Members.Validated}}</p>
+            <p class="stat-label">Validated</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="unvalidated-members">{{.Metrics.Members.Unvalidated}}</p>
+            <p class="stat-label">Unvalidated</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="pending-onboarding">{{.Metrics.Members.PendingOnboarding}}</p>
+            <p class="stat-label">Pending Onboarding</p>
+        </div>
+    </section>
+
+    <div class="grid">
+        <section>
+            <header>
+                <h2>Member Statistics</h2>
+            </header>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>Recently Joined (7d)</td>
+                        <td><strong id="recently-joined">{{.Metrics.Members.RecentlyJoined}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Recently Left (7d)</td>
+                        <td><strong id="recently-left">{{.Metrics.Members.RecentlyLeft}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>RSI Members</td>
+                        <td><strong id="rsi-members">{{.Metrics.Members.RSIMembers}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Bad Affiliations</td>
+                        <td><strong class="failed-badge"
+                                id="bad-affiliations">{{.Metrics.Members.BadAffiliations}}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <header>
+                <h2>Members by Rank</h2>
+            </header>
+            <table>
+                <tbody id="rank-breakdown">
+                    {{range $rank, $count := .Metrics.Members.ByRank}}
+                    <tr>
+                        <td><span class="rank-badge">{{$rank}}</span></td>
+                        <td><strong>{{$count}}</strong></td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <section>
+        <header>
+            <h2>Search Members</h2>
+        </header>
+        <input type="search" id="member-search" placeholder="Search by name..." />
+        <div id="search-results"></div>
+    </section>
+</article>
+{{template "footer" .}}
+
+<script>
+    window.addEventListener('metrics-update', function (event) {
+        const metrics = event.detail;
+
+        document.getElementById('total-members').textContent = metrics.members.total;
+        document.getElementById('validated-members').textContent = metrics.members.validated;
+        document.getElementById('unvalidated-members').textContent = metrics.members.unvalidated;
+        document.getElementById('pending-onboarding').textContent = metrics.members.pending_onboarding;
+        document.getElementById('recently-joined').textContent = metrics.members.recently_joined;
+        document.getElementById('recently-left').textContent = metrics.members.recently_left;
+        document.getElementById('rsi-members').textContent = metrics.members.rsi_members;
+        document.getElementById('bad-affiliations').textContent = metrics.members.bad_affiliations;
+
+        const rankTable = document.getElementById('rank-breakdown');
+        rankTable.innerHTML = '';
+        for (const [rank, count] of Object.entries(metrics.members.by_rank)) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><span class="rank-badge">${rank}</span></td>
+                <td><strong>${count}</strong></td>
+            `;
+            rankTable.appendChild(row);
+        }
+    });
+
+    // Member search functionality
+    let searchTimeout;
+    document.getElementById('member-search').addEventListener('input', function (e) {
+        clearTimeout(searchTimeout);
+        const query = e.target.value.trim();
+
+        if (query.length < 2) {
+            document.getElementById('search-results').innerHTML = '';
+            return;
+        }
+
+        searchTimeout = setTimeout(function () {
+            fetch(`/api/members/search?q=${encodeURIComponent(query)}`)
+                .then(response => response.json())
+                .then(members => {
+                    const resultsDiv = document.getElementById('search-results');
+                    if (!members || members.length === 0) {
+                        resultsDiv.innerHTML = '<p>No members found</p>';
+                        return;
+                    }
+
+                    let html = '<table><thead><tr><th>Name</th><th>Rank</th><th>Validated</th></tr></thead><tbody>';
+                    members.forEach(member => {
+                        const validated = member.validated ? '✓' : '✗';
+                        html += `<tr><td>${member.name}</td><td><span class="rank-badge">${member.rank}</span></td><td>${validated}</td></tr>`;
+                    });
+                    html += '</tbody></table>';
+                    resultsDiv.innerHTML = html;
+                })
+                .catch(error => {
+                    console.error('Search failed:', error);
+                });
+        }, 300);
+    });
+</script>
+{{end}}

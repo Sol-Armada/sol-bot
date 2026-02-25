@@ -16,8 +16,10 @@ import (
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
 	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/dashboard"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/health"
+	"github.com/sol-armada/sol-bot/hybridconfig"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
@@ -198,6 +200,19 @@ func initializeServices(cfg *Config) error {
 	}
 	logger.Info("database connection established successfully")
 
+	// Initialize hybrid config system (must be after stores, before other services)
+	logger.Info("initializing hybrid configuration system")
+	if err := hybridconfig.Setup(ctx); err != nil {
+		logger.Error("failed to setup hybrid config", "error", err)
+		return fmt.Errorf("failed to setup hybrid config: %w", err)
+	}
+	logger.Info("hybrid configuration system initialized")
+
+	// Initialize settings wrapper to use hybrid config
+	logger.Info("initializing settings wrapper")
+	settings.InitWithHybridConfig(hybridconfig.Get())
+	logger.Info("settings wrapper initialized")
+
 	// Initialize all services
 	services := map[string]func() error{
 		"members":    members.Setup,
@@ -207,6 +222,7 @@ func initializeServices(cfg *Config) error {
 		"config":     config.Setup,
 		"raffles":    raffles.Setup,
 		"giveaways":  giveaway.Setup,
+		"dashboard":  dashboard.Setup,
 	}
 
 	logger.Info("initializing services", "count", len(services))
@@ -258,6 +274,12 @@ func main() {
 	defer func() {
 		logger.Info("shutting down application")
 		app.shutdown()
+		
+		// Shutdown hybrid config system
+		logger.Info("shutting down hybrid config")
+		hybridconfig.Get().Shutdown()
+		logger.Info("hybrid config shutdown completed")
+		
 		logger.Info("application shutdown completed")
 	}()
 
@@ -287,6 +309,44 @@ func (app *Application) start() error {
 		}
 	}
 
+	// Check if initial setup is required
+	hc := hybridconfig.Get()
+	setupNeeded := !hc.GetBool("setup.completed") ||
+		hc.GetString("discord.client_id") == "" ||
+		hc.GetString("discord.bot_token") == "" ||
+		hc.GetString("discord.guild_id") == ""
+
+	if setupNeeded {
+		logger.Warn("initial setup required - starting dashboard only")
+		logger.Warn("bot, scheduler, and monitoring services will not start")
+		logger.Warn("please complete setup at http://localhost:" + hc.GetString("dashboard.port") + "/setup")
+		
+		if app.cfg.Features.SystemdIntegration {
+			if err := systemd.Status("Waiting for initial setup..."); err != nil {
+				logger.Warn("failed to set systemd status", "error", err)
+			}
+		}
+
+		// Start dashboard only for setup
+		logger.Info("starting dashboard server for initial setup")
+		if err := dashboard.Start(context.Background()); err != nil {
+			logger.Error("failed to start dashboard", "error", err)
+			return fmt.Errorf("failed to start dashboard: %w", err)
+		}
+		logger.Info("dashboard server started - visit /setup to configure the bot")
+		
+		if app.cfg.Features.SystemdIntegration {
+			if err := systemd.Ready(); err != nil {
+				logger.Warn("failed to notify systemd ready", "error", err)
+			}
+		}
+		
+		return nil
+	}
+
+	// Normal startup with all services
+	logger.Info("setup complete - starting all services")
+
 	// Initialize bot with exponential backoff
 	logger.Info("initializing Discord bot")
 	if err := app.initializeBotWithBackoff(); err != nil {
@@ -307,6 +367,14 @@ func (app *Application) start() error {
 	logger.Info("starting monitoring services")
 	app.startMonitoringServices()
 	logger.Info("monitoring services started")
+
+	// Start dashboard server
+	logger.Info("starting dashboard server")
+	if err := dashboard.Start(context.Background()); err != nil {
+		logger.Error("failed to start dashboard", "error", err)
+		return fmt.Errorf("failed to start dashboard: %w", err)
+	}
+	logger.Info("dashboard server started successfully")
 
 	if app.cfg.Features.SystemdIntegration {
 		logger.Info("notifying systemd that application is ready")
@@ -585,6 +653,16 @@ func (app *Application) shutdown() {
 	// Stop monitoring services
 	logger.Info("stopping monitoring services")
 	close(app.stopCh)
+
+	// Shutdown dashboard
+	logger.Info("shutting down dashboard server")
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := dashboard.Shutdown(shutdownCtx); err != nil {
+		logger.Error("failed to shutdown dashboard", "error", err)
+	} else {
+		logger.Info("dashboard server shutdown completed")
+	}
 
 	// Shutdown scheduler
 	if app.scheduler != nil {

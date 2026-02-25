@@ -1,0 +1,212 @@
+{{define "home.html"}}
+{{template "header" .}}
+<article>
+    <header>
+        <h1>Dashboard Overview</h1>
+    </header>
+
+    <section class="grid-stats">
+        <div class="stat-card">
+            <p class="stat-value" id="total-members">{{.Metrics.Members.Total}}</p>
+            <p class="stat-label">Total Members</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="active-attendance">{{.Metrics.Attendance.Active}}</p>
+            <p class="stat-label">Active Events</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="tokens-circulation">{{.Metrics.Tokens.TotalInCirculation}}</p>
+            <p class="stat-label">Tokens in Circulation</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="active-today">{{.Metrics.Activity.ActiveToday}}</p>
+            <p class="stat-label">Active Today</p>
+        </div>
+    </section>
+
+    <div class="grid">
+        <section>
+            <header>
+                <h2>Members Overview</h2>
+            </header>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>Validated</td>
+                        <td><strong id="validated-members">{{.Metrics.Members.Validated}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Unvalidated</td>
+                        <td><strong id="unvalidated-members">{{.Metrics.Members.Unvalidated}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Pending Onboarding</td>
+                        <td><strong id="pending-onboarding">{{.Metrics.Members.PendingOnboarding}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Joined (Last 7 Days)</td>
+                        <td><strong id="recently-joined">{{.Metrics.Members.RecentlyJoined}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>RSI Members</td>
+                        <td><strong id="rsi-members">{{.Metrics.Members.RSIMembers}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Bad Affiliations</td>
+                        <td><strong class="failed-badge"
+                                id="bad-affiliations">{{.Metrics.Members.BadAffiliations}}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <header>
+                <h2>Members by Rank</h2>
+            </header>
+            <table>
+                <tbody id="rank-breakdown">
+                    {{range $rank, $count := .Metrics.Members.ByRank}}
+                    <tr>
+                        <td><span class="rank-badge">{{$rank}}</span></td>
+                        <td><strong>{{$count}}</strong></td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </section>
+    </div>
+
+    <section>
+        <header>
+            <h2>Recent Attendance</h2>
+        </header>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event Name</th>
+                        <th>Attendees</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody id="recent-attendance">
+                    {{range .Metrics.Attendance.Recent}}
+                    <tr>
+                        <td>{{.Name}}</td>
+                        <td>{{.MemberCount}}</td>
+                        <td>
+                            {{if .Successful}}
+                            <span class="success-badge">✓ Successful</span>
+                            {{else}}
+                            <span class="failed-badge">✗ Failed</span>
+                            {{end}}
+                        </td>
+                        <td>{{.DateCreated.Format "Jan 02, 15:04"}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <div class="grid">
+        <section>
+            <header>
+                <h2>Active Raffles & Giveaways</h2>
+            </header>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>Active Raffles</td>
+                        <td><strong id="active-raffles">{{.Metrics.Raffles.Active}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Active Giveaways</td>
+                        <td><strong id="active-giveaways">{{.Metrics.Giveaways.Active}}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+
+        <section>
+            <header>
+                <h2>Activity (24h)</h2>
+            </header>
+            <table>
+                <tbody>
+                    <tr>
+                        <td>Voice Activity</td>
+                        <td><strong id="voice-activity">{{.Metrics.Activity.VoiceActivity}}</strong></td>
+                    </tr>
+                    <tr>
+                        <td>Message Activity</td>
+                        <td><strong id="message-activity">{{.Metrics.Activity.MessageActivity}}</strong></td>
+                    </tr>
+                </tbody>
+            </table>
+        </section>
+    </div>
+</article>
+{{template "footer" .}}
+
+<script>
+    window.addEventListener('metrics-update', function (event) {
+        const metrics = event.detail;
+
+        // Update main stats
+        document.getElementById('total-members').textContent = metrics.members.total;
+        document.getElementById('active-attendance').textContent = metrics.attendance.active;
+        document.getElementById('tokens-circulation').textContent = metrics.tokens.total_in_circulation;
+        document.getElementById('active-today').textContent = metrics.activity.active_today;
+
+        // Update member details
+        document.getElementById('validated-members').textContent = metrics.members.validated;
+        document.getElementById('unvalidated-members').textContent = metrics.members.unvalidated;
+        document.getElementById('pending-onboarding').textContent = metrics.members.pending_onboarding;
+        document.getElementById('recently-joined').textContent = metrics.members.recently_joined;
+        document.getElementById('rsi-members').textContent = metrics.members.rsi_members;
+        document.getElementById('bad-affiliations').textContent = metrics.members.bad_affiliations;
+
+        // Update activity
+        document.getElementById('voice-activity').textContent = metrics.activity.voice_activity;
+        document.getElementById('message-activity').textContent = metrics.activity.message_activity;
+
+        // Update raffles/giveaways
+        document.getElementById('active-raffles').textContent = metrics.raffles.active;
+        document.getElementById('active-giveaways').textContent = metrics.giveaways.active;
+
+        // Update rank breakdown
+        const rankTable = document.getElementById('rank-breakdown');
+        rankTable.innerHTML = '';
+        for (const [rank, count] of Object.entries(metrics.members.by_rank)) {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td><span class="rank-badge">${rank}</span></td>
+                <td><strong>${count}</strong></td>
+            `;
+            rankTable.appendChild(row);
+        }
+
+        // Update recent attendance
+        const attendanceTable = document.getElementById('recent-attendance');
+        attendanceTable.innerHTML = '';
+        metrics.attendance.recent.forEach(function (event) {
+            const date = new Date(event.date_created);
+            const status = event.successful
+                ? '<span class="success-badge">✓ Successful</span>'
+                : '<span class="failed-badge">✗ Failed</span>';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${event.name}</td>
+                <td>${event.member_count}</td>
+                <td>${status}</td>
+                <td>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</td>
+            `;
+            attendanceTable.appendChild(row);
+        });
+    });
+</script>
+{{end}}

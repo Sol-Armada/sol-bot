@@ -1,0 +1,496 @@
+{{define "setup.html"}}
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Initial Setup - Sol-Bot Dashboard</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    <style>
+        :root {
+            --spacing-nav: 1rem;
+        }
+
+        .setup-container {
+            max-width: 800px;
+            margin: 2rem auto;
+        }
+
+        .setup-progress {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2rem;
+            position: relative;
+        }
+
+        .setup-progress::before {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--muted-border-color);
+            z-index: 0;
+        }
+
+        .setup-step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+            z-index: 1;
+        }
+
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--card-background-color);
+            border: 2px solid var(--muted-border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 0.5rem;
+            font-weight: bold;
+        }
+
+        .setup-step.active .step-circle {
+            background: var(--primary);
+            border-color: var(--primary);
+            color: white;
+        }
+
+        .setup-step.completed .step-circle {
+            background: var(--primary-focus);
+            border-color: var(--primary-focus);
+        }
+
+        .setup-step.completed .step-circle::before {
+            content: '✓';
+            color: white;
+        }
+
+        .step-label {
+            font-size: 0.875rem;
+            color: var(--muted-color);
+        }
+
+        .setup-step.active .step-label {
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        .setup-content {
+            display: none;
+        }
+
+        .setup-content.active {
+            display: block;
+        }
+
+        .warning-box {
+            background: rgba(255, 193, 7, 0.1);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+        }
+
+        .success-box {
+            background: rgba(76, 175, 80, 0.1);
+            border: 1px solid rgba(76, 175, 80, 0.3);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            margin-bottom: 1rem;
+        }
+
+        .setup-buttons {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 2rem;
+        }
+
+        .help-text {
+            font-size: 0.875rem;
+            color: var(--muted-color);
+            margin-top: 0.5rem;
+        }
+
+        .code-block {
+            background: var(--card-background-color);
+            padding: 1rem;
+            border-radius: var(--border-radius);
+            border: 1px solid var(--card-border-color);
+            font-family: monospace;
+            overflow-x: auto;
+            margin: 0.5rem 0;
+        }
+    </style>
+</head>
+
+<body>
+    <main class="container setup-container">
+        <header>
+            <h1>🚀 Sol-Bot Initial Setup</h1>
+            <p>Welcome! Let's configure your bot to get started.</p>
+        </header>
+
+        <div class="warning-box">
+            <strong>⚠️ Bot Not Running - Setup Required</strong>
+            <p>The Discord bot is currently <strong>not running</strong>. Only the dashboard is active in setup mode.
+            </p>
+            <p>Complete this setup wizard and restart the service to start the bot with your Discord server.</p>
+        </div>
+
+        <!-- Progress Steps -->
+        <div class="setup-progress">
+            <div class="setup-step active" data-step="1">
+                <div class="step-circle"></div>
+                <div class="step-label">Discord</div>
+            </div>
+            <div class="setup-step" data-step="2">
+                <div class="step-circle"></div>
+                <div class="step-label">MongoDB</div>
+            </div>
+            <div class="setup-step" data-step="3">
+                <div class="step-circle"></div>
+                <div class="step-label">Organization</div>
+            </div>
+            <div class="setup-step" data-step="4">
+                <div class="step-circle"></div>
+                <div class="step-label">Complete</div>
+            </div>
+        </div>
+
+        <!-- Step 1: Discord Configuration -->
+        <article class="setup-content active" data-step="1">
+            <header><strong>Step 1: Discord Bot Configuration</strong></header>
+            <p>Configure your Discord bot credentials. You can obtain these from the <a
+                    href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a>.</p>
+
+            <form id="discord-form">
+                <label>
+                    Client ID <span style="color: var(--del-color);">*</span>
+                    <input type="text" name="client_id" placeholder="1234567890123456789" required>
+                    <small class="help-text">Found in your application's OAuth2 settings</small>
+                </label>
+
+                <label>
+                    Client Secret <span style="color: var(--del-color);">*</span>
+                    <input type="password" name="client_secret" placeholder="Your client secret" required>
+                    <small class="help-text">Found in your application's OAuth2 settings (keep this private!)</small>
+                </label>
+
+                <label>
+                    Bot Token <span style="color: var(--del-color);">*</span>
+                    <input type="password" name="bot_token" placeholder="Your bot token" required>
+                    <small class="help-text">Found in your application's Bot settings (keep this private!)</small>
+                </label>
+
+                <label>
+                    Guild ID (Server ID) <span style="color: var(--del-color);">*</span>
+                    <input type="text" name="guild_id" placeholder="1234567890123456789" required>
+                    <small class="help-text">Right-click your Discord server → Copy Server ID (requires Developer Mode
+                        enabled)</small>
+                </label>
+
+                <label>
+                    Error Channel ID
+                    <input type="text" name="error_channel_id" placeholder="1234567890123456789">
+                    <small class="help-text">Channel where bot errors will be reported (optional)</small>
+                </label>
+            </form>
+
+            <details>
+                <summary>How to get Discord credentials</summary>
+                <div class="code-block">
+                    1. Visit <a href="https://discord.com/developers/applications"
+                        target="_blank">discord.com/developers/applications</a><br>
+                    2. Create or select your application<br>
+                    3. In OAuth2 → General, copy your Client ID and Client Secret<br>
+                    4. In Bot settings, copy your Bot Token<br>
+                    5. In Discord, right-click your server → Copy Server ID
+                </div>
+            </details>
+
+            <div class="setup-buttons">
+                <button class="secondary" disabled>Previous</button>
+                <button onclick="nextStep(2)">Next: MongoDB →</button>
+            </div>
+        </article>
+
+        <!-- Step 2: MongoDB Configuration -->
+        <article class="setup-content" data-step="2">
+            <header><strong>Step 2: MongoDB Configuration</strong></header>
+            <p>Configure your MongoDB connection. The bot uses MongoDB to store all data.</p>
+
+            <form id="mongo-form">
+                <label>
+                    Host <span style="color: var(--del-color);">*</span>
+                    <input type="text" name="mongo_host" value="localhost" required>
+                    <small class="help-text">MongoDB server hostname or IP address</small>
+                </label>
+
+                <label>
+                    Port <span style="color: var(--del-color);">*</span>
+                    <input type="text" name="mongo_port" value="27017" required>
+                    <small class="help-text">MongoDB server port (default: 27017)</small>
+                </label>
+
+                <label>
+                    Database Name <span style="color: var(--del-color);">*</span>
+                    <input type="text" name="mongo_database" value="solarmada" required>
+                    <small class="help-text">Name of the database to use</small>
+                </label>
+            </form>
+
+            <div class="setup-buttons">
+                <button class="secondary" onclick="prevStep(1)">← Previous</button>
+                <button onclick="nextStep(3)">Next: Organization →</button>
+            </div>
+        </article>
+
+        <!-- Step 3: Organization Configuration -->
+        <article class="setup-content" data-step="3">
+            <header><strong>Step 3: Organization Settings</strong></header>
+            <p>Configure your Star Citizen organization details (optional but recommended).</p>
+
+            <form id="org-form">
+                <label>
+                    RSI Organization SID
+                    <input type="text" name="rsi_org_sid" placeholder="YOURORG">
+                    <small class="help-text">Your organization's spectrum identifier (e.g., SOLARMADA)</small>
+                </label>
+
+                <label>
+                    Ally Role ID
+                    <input type="text" name="ally_role" placeholder="1234567890123456789">
+                    <small class="help-text">Discord role ID for ally members</small>
+                </label>
+
+                <label>
+                    Allied Organizations
+                    <input type="text" name="allies" placeholder="ORG1, ORG2, ORG3">
+                    <small class="help-text">Comma-separated list of allied organization SIDs</small>
+                </label>
+
+                <label>
+                    Enemy Organizations
+                    <input type="text" name="enemies" placeholder="ENEMY1, ENEMY2">
+                    <small class="help-text">Comma-separated list of enemy organization SIDs</small>
+                </label>
+            </form>
+
+            <div class="setup-buttons">
+                <button class="secondary" onclick="prevStep(2)">← Previous</button>
+                <button onclick="nextStep(4)">Complete Setup →</button>
+            </div>
+        </article>
+
+        <!-- Step 4: Complete -->
+        <article class="setup-content" data-step="4">
+            <header><strong>Setup Complete!</strong></header>
+
+            <div class="success-box" id="success-message" style="display: none;">
+                <strong>✓ Configuration Saved Successfully!</strong>
+                <p>Your bot configuration has been saved to the database.</p>
+                <p><strong>Next Step:</strong> Restart the bot service to apply changes and start the Discord bot.</p>
+            </div>
+
+            <div id="setup-summary">
+                <p>Review your configuration and click "Save & Complete" to finish setup.</p>
+
+                <h3>Configuration Summary</h3>
+                <div id="summary-content"></div>
+            </div>
+
+            <div class="warning-box">
+                <strong>⚠️ Important: Service Restart Required</strong>
+                <p>After completing setup, you must <strong>restart the bot service</strong> for the bot to start with
+                    your configuration.</p>
+                <div class="code-block">
+                    # Restart the service
+                    sudo systemctl restart solbot
+
+                    # Or if running manually
+                    # Stop the current process (Ctrl+C) and restart it
+                </div>
+                <p><small>The dashboard is currently running in setup-only mode. The Discord bot, schedulers, and
+                        monitoring services will not start until setup is complete and the service is restarted.</small>
+                </p>
+            </div>
+
+            <div class="setup-buttons">
+                <button class="secondary" onclick="prevStep(3)">← Previous</button>
+                <button id="save-button" onclick="saveConfiguration()">💾 Save & Complete</button>
+            </div>
+
+            <div style="text-align: center; margin-top: 2rem;">
+                <a href="/" style="display: none;" id="dashboard-link">
+                    <button class="secondary">Go to Dashboard →</button>
+                </a>
+            </div>
+        </article>
+    </main>
+
+    <script>
+        let currentStep = 1;
+        const configData = {};
+
+        function nextStep(step) {
+            // Validate current step
+            const currentForm = document.querySelector(`.setup-content[data-step="${currentStep}"] form`);
+            if (currentForm && !currentForm.checkValidity()) {
+                currentForm.reportValidity();
+                return;
+            }
+
+            // Save current step data
+            if (currentForm) {
+                const formData = new FormData(currentForm);
+                for (let [key, value] of formData.entries()) {
+                    configData[key] = value;
+                }
+            }
+
+            // Update UI
+            document.querySelector(`.setup-content[data-step="${currentStep}"]`).classList.remove('active');
+            document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.add('completed');
+            document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.remove('active');
+
+            currentStep = step;
+
+            document.querySelector(`.setup-content[data-step="${currentStep}"]`).classList.add('active');
+            document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.add('active');
+
+            // Show summary on final step
+            if (currentStep === 4) {
+                showSummary();
+            }
+
+            window.scrollTo(0, 0);
+        }
+
+        function prevStep(step) {
+            document.querySelector(`.setup-content[data-step="${currentStep}"]`).classList.remove('active');
+            document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.remove('active');
+
+            currentStep = step;
+
+            document.querySelector(`.setup-content[data-step="${currentStep}"]`).classList.add('active');
+            document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.add('active');
+
+            window.scrollTo(0, 0);
+        }
+
+        function showSummary() {
+            const summary = document.getElementById('summary-content');
+            let html = '<table><tbody>';
+
+            const sections = [
+                { title: 'Discord', keys: ['client_id', 'guild_id', 'error_channel_id'] },
+                { title: 'MongoDB', keys: ['mongo_host', 'mongo_port', 'mongo_database'] },
+                { title: 'Organization', keys: ['rsi_org_sid', 'ally_role', 'allies', 'enemies'] }
+            ];
+
+            sections.forEach(section => {
+                html += `<tr><td colspan="2"><strong>${section.title}</strong></td></tr>`;
+                section.keys.forEach(key => {
+                    const value = configData[key] || '(not set)';
+                    const displayValue = key.includes('secret') || key.includes('token') || key.includes('password')
+                        ? '••••••••'
+                        : value;
+                    html += `<tr><td>${formatKey(key)}</td><td><code>${displayValue}</code></td></tr>`;
+                });
+            });
+
+            html += '</tbody></table>';
+            summary.innerHTML = html;
+        }
+
+        function formatKey(key) {
+            return key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        async function saveConfiguration() {
+            const button = document.getElementById('save-button');
+            button.disabled = true;
+            button.textContent = '⏳ Saving...';
+
+            try {
+                // Save all configurations
+                const configs = [
+                    { key: 'discord.client_id', value: configData.client_id },
+                    { key: 'discord.client_secret', value: configData.client_secret },
+                    { key: 'discord.bot_token', value: configData.bot_token },
+                    { key: 'discord.guild_id', value: configData.guild_id },
+                    { key: 'discord.error_channel_id', value: configData.error_channel_id || '' },
+                    { key: 'mongo.host', value: configData.mongo_host },
+                    { key: 'mongo.port', value: configData.mongo_port },
+                    { key: 'mongo.database', value: configData.mongo_database },
+                    { key: 'rsi_org_sid', value: configData.rsi_org_sid || '' },
+                    { key: 'ally_role', value: configData.ally_role || '' },
+                ];
+
+                // Handle arrays
+                if (configData.allies) {
+                    configs.push({
+                        key: 'allies',
+                        value: configData.allies.split(',').map(s => s.trim()).filter(s => s)
+                    });
+                }
+                if (configData.enemies) {
+                    configs.push({
+                        key: 'enemies',
+                        value: configData.enemies.split(',').map(s => s.trim()).filter(s => s)
+                    });
+                }
+
+                // Save each config
+                for (const config of configs) {
+                    if (!config.value) continue;
+
+                    const response = await fetch('/api/configs/update', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            key: config.key,
+                            value: config.value,
+                            updated_by: 'setup_wizard'
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Failed to save ${config.key}`);
+                    }
+                }
+
+                // Mark setup as complete
+                await fetch('/api/configs/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        key: 'setup.completed',
+                        value: 'true',
+                        updated_by: 'setup_wizard'
+                    })
+                });
+
+                // Show success
+                document.getElementById('setup-summary').style.display = 'none';
+                document.getElementById('success-message').style.display = 'block';
+                document.getElementById('dashboard-link').style.display = 'block';
+                button.style.display = 'none';
+
+            } catch (error) {
+                alert('Failed to save configuration: ' + error.message);
+                button.disabled = false;
+                button.textContent = '💾 Save & Complete';
+            }
+        }
+    </script>
+</body>
+
+</html>
+{{end}}

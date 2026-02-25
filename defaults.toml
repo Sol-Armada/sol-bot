@@ -1,0 +1,79 @@
+# Default configuration values for Sol-Bot
+# These are the baseline settings that will be used if no override exists in MongoDB
+# DO NOT put sensitive values here - use environment-specific settings.toml or MongoDB overrides
+
+allies = []
+ally_role = ""
+enemies = []
+rsi_org_sid = ""
+GOOGLE_SHEET_API_KEY = ""
+LOGO = ""
+
+[log]
+debug = false
+cli = true
+file = "/var/log/solbot/solbot.log"
+
+[features.monitor]
+enable = false
+
+[features.merit]
+enable = false
+
+[features.attendance]
+enable = true
+allowed_roles = []
+channel_id = ""
+
+[features.onboarding]
+enable = false
+input_channel_id = ""
+output_channel_id = ""
+
+[features.activity_tracking]
+enable = false
+afk_channel_id = ""
+
+[features.tokens]
+enable = true
+allowed_roles = []
+
+[features.raffles]
+enable = true
+allowed_roles = []
+
+[features.giveaways]
+enable = true
+allowed_roles = []
+
+[discord]
+client_id = ""
+client_secret = ""
+bot_token = ""
+guild_id = ""
+error_channel_id = ""
+
+[discord.channels]
+event_singup = ""
+
+[discord.roles.ranks]
+admiral = ""
+commander = ""
+lieutenant = ""
+specialist = ""
+technician = ""
+member = ""
+affiliate = ""
+recruit = ""
+ally = ""
+
+[mongo]
+host = "localhost"
+port = "27017"
+database = "solarmada"
+
+[dashboard]
+port = "8080"
+
+[setup]
+completed = false

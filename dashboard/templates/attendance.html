@@ -1,0 +1,91 @@
+{{define "attendance.html"}}
+{{template "header" .}}
+<article>
+    <header>
+        <h1>Attendance & Events</h1>
+    </header>
+
+    <section class="grid-stats">
+        <div class="stat-card">
+            <p class="stat-value" id="active-events">{{.Metrics.Attendance.Active}}</p>
+            <p class="stat-label">Active Events</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="total-events">{{.Metrics.Attendance.TotalEvents}}</p>
+            <p class="stat-label">Total Events</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="success-rate">{{printf "%.1f" .Metrics.Attendance.SuccessRate}}%</p>
+            <p class="stat-label">Success Rate</p>
+        </div>
+        <div class="stat-card">
+            <p class="stat-value" id="avg-attendees">{{printf "%.0f" .Metrics.Attendance.AverageAttendees}}</p>
+            <p class="stat-label">Avg Attendees</p>
+        </div>
+    </section>
+
+    <section>
+        <header>
+            <h2>Recent Attendance Records</h2>
+        </header>
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Event Name</th>
+                        <th>Attendees</th>
+                        <th>Status</th>
+                        <th>Date Created</th>
+                    </tr>
+                </thead>
+                <tbody id="attendance-list">
+                    {{range .Metrics.Attendance.Recent}}
+                    <tr>
+                        <td>{{.Name}}</td>
+                        <td>{{.MemberCount}}</td>
+                        <td>
+                            {{if .Successful}}
+                            <span class="success-badge">✓ Successful</span>
+                            {{else}}
+                            <span class="failed-badge">✗ Failed</span>
+                            {{end}}
+                        </td>
+                        <td>{{.DateCreated.Format "Jan 02, 2006 15:04"}}</td>
+                    </tr>
+                    {{end}}
+                </tbody>
+            </table>
+        </div>
+    </section>
+</article>
+{{template "footer" .}}
+
+<script>
+    window.addEventListener('metrics-update', function (event) {
+        const metrics = event.detail;
+
+        document.getElementById('active-events').textContent = metrics.attendance.active;
+        document.getElementById('total-events').textContent = metrics.attendance.total_events;
+        document.getElementById('success-rate').textContent = metrics.attendance.success_rate.toFixed(1) + '%';
+        document.getElementById('avg-attendees').textContent = Math.round(metrics.attendance.average_attendees);
+
+        const attendanceTable = document.getElementById('attendance-list');
+        attendanceTable.innerHTML = '';
+        metrics.attendance.recent.forEach(function (event) {
+            const date = new Date(event.date_created);
+            const status = event.successful
+                ? '<span class="success-badge">✓ Successful</span>'
+                : '<span class="failed-badge">✗ Failed</span>';
+
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${event.name}</td>
+                <td>${event.member_count}</td>
+                <td>${status}</td>
+                <td>${date.toLocaleDateString()} ${date.toLocaleTimeString()}</td>
+            `;
+            attendanceTable.appendChild(row);
+        });
+    });
+</script>
+{{end}}
