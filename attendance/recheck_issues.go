@@ -29,9 +29,8 @@ func (a *Attendance) RecheckIssues(s *discordgo.Session) error {
 	for _, member := range a.WithIssues {
 		dm, err := s.GuildMember(s.State.Application.GuildID, member.Id)
 		if err != nil {
-			return errors.Wrap(err, fmt.Sprintf("getting guild member for <@%s>", member.Id))
-			// slog.Default().Warn("getting guild member", "member", fmt.Sprintf("<@%s>", member.Id), "error", err)
-			// goto SKIP
+			slog.Default().Warn("getting guild member", "member", fmt.Sprintf("<@%s>", member.Id), "error", err)
+			goto SKIP
 		}
 
 		member.UpdateRoles(dm.Roles)
@@ -44,7 +43,7 @@ func (a *Attendance) RecheckIssues(s *discordgo.Session) error {
 			return errors.Wrap(err, fmt.Sprintf("updating RSI info for <@%s>", member.Id))
 		}
 
-		// SKIP:
+	SKIP:
 		memberIssues := Issues(member)
 		if len(memberIssues) != 0 {
 			newIssues = append(newIssues, member)

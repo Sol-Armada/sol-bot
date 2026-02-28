@@ -374,6 +374,7 @@ func (b *Bot) Setup() error {
 		// watch for on join and leave
 		b.AddHandler(onJoinHandler)
 		b.AddHandler(onLeaveHandler)
+		b.AddHandler(OnNameChangeHandler)
 
 		if err := setupOnboarding(); err != nil {
 			return errors.Wrap(err, "setting up onboarding")

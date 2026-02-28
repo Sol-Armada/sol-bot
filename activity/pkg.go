@@ -20,6 +20,7 @@ const (
 	Message          ActivityType = "message"
 	StarCitizenStart ActivityType = "star_citizen_start"
 	StarCitizenStop  ActivityType = "star_citizen_stop"
+	NameChange       ActivityType = "name_change"
 )
 
 type Meta struct {
