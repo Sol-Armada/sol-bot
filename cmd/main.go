@@ -31,6 +31,7 @@ import (
 var (
 	environment string = ""
 	logger      *slog.Logger
+	cfg         *Config
 )
 
 // Config holds all application configuration
@@ -62,7 +63,7 @@ type FeatureConfig struct {
 func init() {
 	fmt.Println("Starting sol-bot initialization...")
 
-	cfg := loadConfig()
+	cfg = loadConfig()
 	logger = setupLogger(cfg)
 
 	logger.Info("sol-bot starting up",
@@ -262,7 +263,6 @@ func main() {
 	}()
 
 	logger.Info("main function starting")
-	cfg := loadConfig()
 
 	logger.Info("creating application instance")
 	app := &Application{
@@ -274,12 +274,12 @@ func main() {
 	defer func() {
 		logger.Info("shutting down application")
 		app.shutdown()
-		
+
 		// Shutdown hybrid config system
 		logger.Info("shutting down hybrid config")
 		hybridconfig.Get().Shutdown()
 		logger.Info("hybrid config shutdown completed")
-		
+
 		logger.Info("application shutdown completed")
 	}()
 
@@ -320,7 +320,7 @@ func (app *Application) start() error {
 		logger.Warn("initial setup required - starting dashboard only")
 		logger.Warn("bot, scheduler, and monitoring services will not start")
 		logger.Warn("please complete setup at http://localhost:" + hc.GetString("dashboard.port") + "/setup")
-		
+
 		if app.cfg.Features.SystemdIntegration {
 			if err := systemd.Status("Waiting for initial setup..."); err != nil {
 				logger.Warn("failed to set systemd status", "error", err)
@@ -334,13 +334,13 @@ func (app *Application) start() error {
 			return fmt.Errorf("failed to start dashboard: %w", err)
 		}
 		logger.Info("dashboard server started - visit /setup to configure the bot")
-		
+
 		if app.cfg.Features.SystemdIntegration {
 			if err := systemd.Ready(); err != nil {
 				logger.Warn("failed to notify systemd ready", "error", err)
 			}
 		}
-		
+
 		return nil
 	}
 
