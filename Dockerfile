@@ -4,7 +4,7 @@ WORKDIR /src
 
 COPY . .
 
-RUN go build -o ./dist/solbot ./cmd
+RUN CGO_ENABLED=0 go build -o ./dist/solbot ./cmd
 
 FROM alpine:latest
 
