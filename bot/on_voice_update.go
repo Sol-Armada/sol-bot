@@ -35,7 +35,7 @@ func onVoiceUpdate(_ *discordgo.Session, v *discordgo.VoiceStateUpdate) {
 		where = &v.VoiceState.ChannelID
 	case v.VoiceState.ChannelID == "":
 		what = activity.VoiceLeave
-	case v.BeforeUpdate != nil && settings.GetString("FEATURES.ACTIVITY_TRACKING.AFK_CHANNEL_ID") == v.VoiceState.ChannelID:
+	case v.BeforeUpdate != nil && settings.GetStringWithDefault("AFK_CHANNEL_ID", "") == v.VoiceState.ChannelID:
 		what = activity.VoiceAFK
 		where = &v.VoiceState.ChannelID
 	case v.BeforeUpdate != nil && v.VoiceState.ChannelID != "":

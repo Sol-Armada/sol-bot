@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
+	"github.com/sol-armada/sol-bot/settings"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -251,13 +253,23 @@ func (d *Dashboard) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if d.config == nil {
-		http.Error(w, "Configuration system not initialized", http.StatusInternalServerError)
+	// Get config store
+	configStore, ok := d.stores.GetConfigsStore()
+	if !ok {
+		http.Error(w, "Configuration store not available", http.StatusInternalServerError)
 		return
 	}
 
-	// Store the value with its proper type (string, array, boolean, etc.)
-	if err := d.config.SetOverride(req.Key, req.Value, req.UpdatedBy); err != nil {
+	// Store the config override in MongoDB
+	override := bson.M{
+		"name":       req.Key,
+		"value":      req.Value,
+		"override":   true,
+		"updated_by": req.UpdatedBy,
+		"updated_at": time.Now(),
+	}
+
+	if err := configStore.UpsertOverride(override); err != nil {
 		d.logger.Error("failed to set config override", "key", req.Key, "error", err)
 		http.Error(w, fmt.Sprintf("Failed to update config: %v", err), http.StatusInternalServerError)
 		return
@@ -283,12 +295,17 @@ func (d *Dashboard) handleConfigReset(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if d.config == nil {
-		http.Error(w, "Configuration system not initialized", http.StatusInternalServerError)
+	// Get config store
+	configStore, ok := d.stores.GetConfigsStore()
+	if !ok {
+		http.Error(w, "Configuration store not available", http.StatusInternalServerError)
 		return
 	}
 
-	if err := d.config.RemoveOverride(req.Key); err != nil {
+	// Remove the config from MongoDB
+	ctx := context.Background()
+	filter := bson.M{"name": req.Key}
+	if _, err := configStore.DeleteOne(ctx, filter); err != nil {
 		d.logger.Error("failed to remove config override", "key", req.Key, "error", err)
 		http.Error(w, fmt.Sprintf("Failed to reset config: %v", err), http.StatusInternalServerError)
 		return
@@ -300,13 +317,24 @@ func (d *Dashboard) handleConfigReset(w http.ResponseWriter, r *http.Request) {
 
 // handleConfigExport handles exporting all configurations
 func (d *Dashboard) handleConfigExport(w http.ResponseWriter, r *http.Request) {
-	if d.config == nil {
-		http.Error(w, "Configuration system not initialized", http.StatusInternalServerError)
-		return
-	}
+	allSettings := settings.AllSettings()
 
-	allSettings := d.config.GetAllSettings()
-	overrides := d.config.GetAllOverrides()
+	// Get all overrides from MongoDB
+	configStore, ok := d.stores.GetConfigsStore()
+	var overrides []interface{}
+	if ok {
+		ctx := context.Background()
+		cursor, err := configStore.GetAll()
+		if err == nil {
+			defer cursor.Close(ctx)
+			for cursor.Next(ctx) {
+				var doc bson.M
+				if err := cursor.Decode(&doc); err == nil {
+					overrides = append(overrides, doc)
+				}
+			}
+		}
+	}
 
 	exportData := map[string]interface{}{
 		"timestamp": time.Now(),
@@ -340,24 +368,20 @@ func (d *Dashboard) handleSetup(w http.ResponseWriter, r *http.Request) {
 
 // needsSetup checks if initial setup is required
 func (d *Dashboard) needsSetup() bool {
-	if d.config == nil {
-		return false // Can't check, assume setup not needed
-	}
-
 	// Check if setup was completed
-	if d.config.GetBool("setup.completed") {
+	if settings.GetBoolWithDefault("setup_completed", false) {
 		return false
 	}
 
 	// Check critical Discord settings
 	criticalSettings := []string{
-		"discord.client_id",
-		"discord.bot_token",
-		"discord.guild_id",
+		"CLIENT_ID",
+		"BOT_TOKEN",
+		"GUILD_ID",
 	}
 
 	for _, setting := range criticalSettings {
-		value := d.config.GetString(setting)
+		value := os.Getenv(setting)
 		if value == "" {
 			return true // Missing critical setting
 		}

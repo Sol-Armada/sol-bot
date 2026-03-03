@@ -7,7 +7,15 @@ Wants=network-online.target
 Restart=always
 Type=simple
 ExecStart=/opt/solbot-staging
-Environment=
+
+# MongoDB Connection (configure as needed)
+Environment="MONGO_HOST=localhost"
+Environment="MONGO_PORT=27017"
+# Environment="MONGO_USERNAME="
+# Environment="MONGO_PASSWORD="
+Environment="MONGO_DATABASE=solarmada"
+# Environment="MONGO_REPLICA_SET_NAME="
+
 ExecStop=/bin/kill -s SIGINT -$MAINPID & /bin/kill -s SIGINT -$MAINPID
 
 [Install]

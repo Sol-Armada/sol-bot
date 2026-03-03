@@ -2,16 +2,15 @@ package auth
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/pkg/errors"
-	"github.com/sol-armada/sol-bot/settings"
 )
 
 type Access struct {
@@ -20,27 +19,41 @@ type Access struct {
 	RefreshToken string    `json:"refresh_token"`
 }
 
+var redirectUri, clientId, clientSecret string
+
+func init() {
+	redirectUri = os.Getenv("DISCORD_REDIRECT_URI")
+	if redirectUri == "" {
+		panic("DISCORD_REDIRECT_URI environment variable is required")
+	}
+	clientId = os.Getenv("DISCORD_CLIENT_ID")
+	if clientId == "" {
+		panic("DISCORD_CLIENT_ID environment variable is required")
+	}
+	clientSecret = os.Getenv("DISCORD_CLIENT_SECRET")
+	if clientSecret == "" {
+		panic("DISCORD_CLIENT_SECRET environment variable is required")
+	}
+}
+
 func Authenticate(code string) (*Access, error) {
 	logger := slog.Default().With("code", code)
 	logger.Info("creating new member access")
 
-	redirectUri := strings.TrimSuffix(settings.GetString("DISCORD.REDIRECT_URI"), "/")
-	redirectUri = fmt.Sprintf("%s/login", redirectUri)
-
-	data := url.Values{}
-	data.Set("client_id", settings.GetString("DISCORD.CLIENT_ID"))
-	data.Set("client_secret", settings.GetString("DISCORD.CLIENT_SECRET"))
-	data.Set("redirect_uri", redirectUri)
-	data.Set("grant_type", "authorization_code")
-	data.Set("code", code)
-
 	logger.Debug("sending auth request",
-		"client_id", settings.GetString("DISCORD.CLIENT_ID"),
-		"client_secret", settings.GetString("DISCORD.CLIENT_SECRET"),
+		"client_id", clientId,
+		"client_secret", clientSecret,
 		"redirect_uri", redirectUri,
 		"grant_type", "authorization_code",
 		"code", code,
 	)
+
+	data := url.Values{}
+	data.Set("client_id", clientId)
+	data.Set("client_secret", clientSecret)
+	data.Set("redirect_uri", redirectUri)
+	data.Set("grant_type", "authorization_code")
+	data.Set("code", code)
 
 	req, err := http.NewRequest("POST", "https://discord.com/api/v10/oauth2/token", strings.NewReader(data.Encode()))
 	if err != nil {

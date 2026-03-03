@@ -165,8 +165,8 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 	}
 
 	// Cache role IDs for efficiency - moved outside loop
-	recruitRoleID := settings.GetString("DISCORD.ROLE_IDS.RECRUIT")
-	allyRoleID := settings.GetString("DISCORD.ROLE_IDS.ALLY")
+	recruitRoleID := settings.GetStringWithDefault("RECRUIT_ROLE_ID", "")
+	allyRoleID := settings.GetStringWithDefault("ALLY_ROLE_ID", "")
 
 	// Track processing errors
 	var processingErrors []error

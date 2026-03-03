@@ -52,7 +52,7 @@ func Issues(member *members.Member) []string {
 		return issues
 	}
 
-	if member.RSIMember && member.Rank <= ranks.Technician && member.PrimaryOrg != settings.GetString("rsi_org_sid") {
+	if member.RSIMember && member.Rank <= ranks.Technician && member.PrimaryOrg != settings.GetStringWithDefault("rsi_org_sid", "NOTSET") {
 		issues = append(issues, "ranked, but org not set as primary")
 		return issues
 	}

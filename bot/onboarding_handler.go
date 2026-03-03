@@ -103,14 +103,15 @@ Let's chat! Message <@91622043040124928>, Sol Armada's Diplomat and Admiral.
 		msg.Files = files
 	}
 
-	msgs, err := bot.ChannelMessages(settings.GetString("FEATURES.ONBOARDING.INPUT_CHANNEL_ID"), 1, "", "", "")
+	onboardingChannelId := settings.GetStringWithDefault("ONBOARDING_CHANNEL_ID", "")
+	msgs, err := bot.ChannelMessages(onboardingChannelId, 1, "", "", "")
 	if err != nil {
 		return err
 	}
 
 	if len(msgs) == 0 {
 		logger.Debug("no onboarding message found")
-		if _, err := bot.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.INPUT_CHANNEL_ID"), msg); err != nil {
+		if _, err := bot.ChannelMessageSendComplex(onboardingChannelId, msg); err != nil {
 			return err
 		}
 
@@ -469,7 +470,7 @@ SKIP:
 	}
 
 CREATE:
-	msg, err := s.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.OUTPUT_CHANNEL_ID"), &discordgo.MessageSend{
+	msg, err := s.ChannelMessageSendComplex(settings.GetStringWithDefault("ONBOARDING_REPORT_CHANNEL_ID", ""), &discordgo.MessageSend{
 		Content: "Onboarding information for " + i.Member.Mention(),
 		Embeds: []*discordgo.MessageEmbed{
 			{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"time"
@@ -71,7 +72,12 @@ func Setup() error {
 	return nil
 }
 
-func New(name string, submittedBy *members.Member) *Attendance {
+func New(name string, submittedBy *members.Member) (*Attendance, error) {
+	channelId := settings.GetString("attendance_channel_id")
+	if channelId == "" {
+		return nil, fmt.Errorf("could not get attendance channel id")
+	}
+
 	attendance := &Attendance{
 		Id:          xid.New().String(),
 		Name:        name,
@@ -82,10 +88,10 @@ func New(name string, submittedBy *members.Member) *Attendance {
 		Active: true,
 		Status: AttendanceStatusActive,
 
-		ChannelId: settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"),
+		ChannelId: channelId,
 	}
 
-	return attendance
+	return attendance, nil
 }
 
 func Get(id string) (*Attendance, error) {

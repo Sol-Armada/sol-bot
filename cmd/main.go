@@ -15,11 +15,9 @@ import (
 	"github.com/sol-armada/sol-bot/activity"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
-	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/dashboard"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/health"
-	"github.com/sol-armada/sol-bot/hybridconfig"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
@@ -91,47 +89,63 @@ func init() {
 
 // loadConfig initializes and loads application configuration
 func loadConfig() *Config {
-	fmt.Printf("Loading configuration for environment: %s\n", environment)
-
-	configName := "settings"
-	if environment == "staging" {
-		configName = "settings.staging"
-		fmt.Printf("Using staging configuration: %s\n", configName)
-	}
-	settings.SetConfigName(configName)
-
-	// Setup settings paths
-	configPaths := []string{".", "../", "/etc/solbot/"}
-	for _, path := range configPaths {
-		settings.AddConfigPath(path)
-		fmt.Printf("Adding config search path: %s\n", path)
+	// MongoDB connection settings from environment variables (overrides TOML)
+	mongoHost := os.Getenv("MONGO_HOST")
+	if mongoHost == "" {
+		panic("MONGO_HOST environment variable is required")
 	}
 
-	fmt.Printf("Attempting to read configuration file: %s\n", configName)
-	if err := settings.ReadInConfig(); err != nil {
-		fmt.Printf("could not parse configuration: %v\n", err)
-		os.Exit(1)
+	mongoPort := os.Getenv("MONGO_PORT")
+	if mongoPort == "" {
+		mongoPort = os.Getenv("MONGODB_PORT")
 	}
-	fmt.Printf("Configuration loaded successfully\n")
+	var port int
+	if mongoPort != "" {
+		if _, err := fmt.Sscanf(mongoPort, "%d", &port); err != nil {
+			fmt.Printf("Warning: invalid MONGO_PORT value '%s', using default 27017: %v\n", mongoPort, err)
+			port = 27017
+		}
+	} else {
+		port = settings.GetIntWithDefault("mongo.port", 27017)
+	}
+
+	mongoUsername := os.Getenv("MONGO_USERNAME")
+	if mongoUsername == "" {
+		panic("MONGO_USERNAME environment variable is required")
+	}
+
+	mongoPassword := os.Getenv("MONGO_PASSWORD")
+	if mongoPassword == "" {
+		panic("MONGO_PASSWORD environment variable is required")
+	}
+	// URL encode @ symbols in password
+	mongoPassword = strings.ReplaceAll(mongoPassword, "@", `%40`)
+
+	mongoDatabase := os.Getenv("MONGO_DATABASE")
+	if mongoDatabase == "" {
+		panic("MONGO_DATABASE environment variable is required")
+	}
+
+	mongoReplicaSet := os.Getenv("MONGO_REPLICA_SET_NAME")
 
 	return &Config{
 		Environment:          environment,
-		Debug:                settings.GetBool("LOG.DEBUG"),
-		CLI:                  settings.GetBool("LOG.CLI"),
-		LogFile:              settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"),
-		MemberMonitorLogFile: settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
+		Debug:                settings.GetBoolWithDefault("DEBUG", false),
+		CLI:                  settings.GetBoolWithDefault("LOG_CLI", false),
+		LogFile:              settings.GetStringWithDefault("LOG_FILE", "/var/log/solbot/solbot.log"),
+		MemberMonitorLogFile: settings.GetStringWithDefault("LOG_MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
 		MongoConfig: MongoConfig{
-			Host:           settings.GetStringWithDefault("mongo.host", "localhost"),
-			Port:           settings.GetIntWithDefault("mongo.port", 27017),
-			Username:       settings.GetString("MONGO.USERNAME"),
-			Password:       strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`),
-			Database:       settings.GetStringWithDefault("MONGO.DATABASE", "org"),
-			ReplicaSetName: settings.GetString("MONGO.REPLICA_SET_NAME"),
+			Host:           mongoHost,
+			Port:           port,
+			Username:       mongoUsername,
+			Password:       mongoPassword,
+			Database:       mongoDatabase,
+			ReplicaSetName: mongoReplicaSet,
 		},
 		Features: FeatureConfig{
-			MonitorEnable:      settings.GetBool("FEATURES.MONITOR.ENABLE"),
-			AttendanceMonitor:  settings.GetBool("FEATURES.ATTENDANCE.MONITOR"),
-			SystemdIntegration: settings.GetBoolWithDefault("FEATURES.SYSTEMD.ENABLE", true),
+			MonitorEnable:      settings.GetBoolWithDefault("FEATURES_MONITOR_ENABLE", false),
+			AttendanceMonitor:  settings.GetBoolWithDefault("FEATURES_ATTENDANCE_MONITOR", false),
+			SystemdIntegration: settings.GetBoolWithDefault("FEATURES_SYSTEMD_ENABLE", true),
 		},
 	}
 }
@@ -201,26 +215,12 @@ func initializeServices(cfg *Config) error {
 	}
 	logger.Info("database connection established successfully")
 
-	// Initialize hybrid config system (must be after stores, before other services)
-	logger.Info("initializing hybrid configuration system")
-	if err := hybridconfig.Setup(ctx); err != nil {
-		logger.Error("failed to setup hybrid config", "error", err)
-		return fmt.Errorf("failed to setup hybrid config: %w", err)
-	}
-	logger.Info("hybrid configuration system initialized")
-
-	// Initialize settings wrapper to use hybrid config
-	logger.Info("initializing settings wrapper")
-	settings.InitWithHybridConfig(hybridconfig.Get())
-	logger.Info("settings wrapper initialized")
-
 	// Initialize all services
 	services := map[string]func() error{
 		"members":    members.Setup,
 		"attendance": attendance.Setup,
 		"activity":   activity.Setup,
 		"tokens":     tokens.Setup,
-		"config":     config.Setup,
 		"raffles":    raffles.Setup,
 		"giveaways":  giveaway.Setup,
 		"dashboard":  dashboard.Setup,
@@ -274,12 +274,6 @@ func main() {
 	defer func() {
 		logger.Info("shutting down application")
 		app.shutdown()
-
-		// Shutdown hybrid config system
-		logger.Info("shutting down hybrid config")
-		hybridconfig.Get().Shutdown()
-		logger.Info("hybrid config shutdown completed")
-
 		logger.Info("application shutdown completed")
 	}()
 
@@ -309,17 +303,21 @@ func (app *Application) start() error {
 		}
 	}
 
+	clientId := os.Getenv("CLIENT_ID")
+	botToken := os.Getenv("BOT_TOKEN")
+	guildId := os.Getenv("GUILD_ID")
+
 	// Check if initial setup is required
-	hc := hybridconfig.Get()
-	setupNeeded := !hc.GetBool("setup.completed") ||
-		hc.GetString("discord.client_id") == "" ||
-		hc.GetString("discord.bot_token") == "" ||
-		hc.GetString("discord.guild_id") == ""
+	setupNeeded := !settings.GetBoolWithDefault("setup_completed", false) ||
+		clientId == "" ||
+		botToken == "" ||
+		guildId == ""
 
 	if setupNeeded {
 		logger.Warn("initial setup required - starting dashboard only")
 		logger.Warn("bot, scheduler, and monitoring services will not start")
-		logger.Warn("please complete setup at http://localhost:" + hc.GetString("dashboard.port") + "/setup")
+		dashboardPort := settings.GetStringWithDefault("dashboard.port", "8080")
+		logger.Warn("please complete setup at http://localhost:" + dashboardPort + "/setup")
 
 		if app.cfg.Features.SystemdIntegration {
 			if err := systemd.Status("Waiting for initial setup..."); err != nil {

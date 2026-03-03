@@ -64,10 +64,10 @@ func NewClient(config Config) (*RSIClient, error) {
 // NewDefaultClient creates a new RSI client using settings from the config
 func NewDefaultClient() (*RSIClient, error) {
 	config := Config{
-		Token:   settings.GetString("RSI.TOKEN"),
-		Device:  settings.GetString("RSI.DEVICE"),
-		OrgSID:  settings.GetString("rsi_org_sid"),
-		Allies:  settings.GetStringSlice("ALLIES"),
+		Token:   settings.GetString("RSI_TOKEN"),
+		Device:  settings.GetString("RSI_DEVICE"),
+		OrgSID:  settings.GetString("RSI_ORG_SID"),
+		Allies:  settings.GetConfigSlice("ALLIES"),
 		Timeout: 30 * time.Second,
 	}
 

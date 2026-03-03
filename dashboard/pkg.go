@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/sol-armada/sol-bot/hybridconfig"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
 )
@@ -23,7 +22,6 @@ type Dashboard struct {
 	hub       *Hub
 	logger    *slog.Logger
 	stores    *stores.Client
-	config    *hybridconfig.HybridConfig
 }
 
 var dashboard *Dashboard
@@ -33,7 +31,6 @@ func Setup() error {
 	dashboard = &Dashboard{
 		logger: slog.Default().With("component", "dashboard"),
 		stores: stores.Get(),
-		config: hybridconfig.Get(),
 	}
 
 	// Parse templates

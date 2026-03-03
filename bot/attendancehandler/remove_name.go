@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -23,7 +23,7 @@ func removeNameCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 
 	name := data.Options[0].Options[0].StringValue()
 
-	if err := config.RemoveAttendanceName(name); err != nil {
+	if err := settings.RemoveAttendanceName(name); err != nil {
 		return err
 	}
 

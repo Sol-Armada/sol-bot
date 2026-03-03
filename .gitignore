@@ -3,6 +3,7 @@ web/dist
 settings.*
 !settings.example.toml
 .env*
+!.env.example
 *.exe
 web/public/emojis/
 Jenkinsfile

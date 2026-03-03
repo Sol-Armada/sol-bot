@@ -6,5 +6,5 @@ import (
 )
 
 func Allowed(discordMember *discordgo.Member, feature string) bool {
-	return StringSliceContainsOneOf(discordMember.Roles, settings.GetStringSlice("FEATURES."+feature+".ALLOWED_ROLES"))
+	return StringSliceContainsOneOf(discordMember.Roles, settings.GetConfigSlice("FEATURES_"+feature+"_ALLOWED_ROLES"))
 }

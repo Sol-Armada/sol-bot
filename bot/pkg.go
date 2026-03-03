@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 	"time"
 
@@ -76,12 +77,27 @@ var validateButtonHandlers = map[string]Handler{
 
 func New() (*Bot, error) {
 	slog.Info("creating discord bot")
-	b, err := discordgo.New(fmt.Sprintf("Bot %s", settings.GetString("DISCORD.BOT_TOKEN")))
+	botToken := os.Getenv("BOT_TOKEN")
+	if botToken == "" {
+		return nil, errors.New("BOT_TOKEN environment variable is not set")
+	}
+
+	guildId := os.Getenv("GUILD_ID")
+	if guildId == "" {
+		return nil, errors.New("GUILD_ID environment variable is not set")
+	}
+
+	clientId := os.Getenv("CLIENT_ID")
+	if clientId == "" {
+		return nil, errors.New("CLIENT_ID environment variable is not set")
+	}
+
+	b, err := discordgo.New(fmt.Sprintf("Bot %s", botToken))
 	if err != nil {
 		return nil, err
 	}
 
-	if _, err := b.Guild(settings.GetString("DISCORD.GUILD_ID")); err != nil {
+	if _, err := b.Guild(guildId); err != nil {
 		return nil, err
 	}
 
@@ -89,8 +105,8 @@ func New() (*Bot, error) {
 	b.Client.Timeout = 5 * time.Second
 
 	bot = &Bot{
-		GuildId:  settings.GetString("DISCORD.GUILD_ID"),
-		ClientId: settings.GetString("DISCORD.CLIENT_ID"),
+		GuildId:  guildId,
+		ClientId: clientId,
 		logger:   slog.Default(),
 		ctx:      context.Background(),
 		Session:  b,
@@ -217,7 +233,13 @@ func (b *Bot) Setup() error {
 				logger.Error("running command", "command", commandName, "error", err)
 				cmdToStore.Error = err.Error()
 
-				if _, err := b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
+				errorChannelId := settings.GetString("ERROR_CHANNEL_ID")
+				if errorChannelId == "" {
+					logger.Error("ERROR_CHANNEL_ID environment variable is not set")
+					return
+				}
+
+				if _, err := b.ChannelMessageSendComplex(errorChannelId, &discordgo.MessageSend{
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title:       "Error",
@@ -370,15 +392,13 @@ func (b *Bot) Setup() error {
 	})
 
 	// onboarding
-	if settings.GetBool("FEATURES.ONBOARDING.ENABLE") {
-		// watch for on join and leave
-		b.AddHandler(onJoinHandler)
-		b.AddHandler(onLeaveHandler)
-		b.AddHandler(OnNameChangeHandler)
+	// watch for on join and leave
+	b.AddHandler(onJoinHandler)
+	b.AddHandler(onLeaveHandler)
+	b.AddHandler(OnNameChangeHandler)
 
-		if err := setupOnboarding(); err != nil {
-			return errors.Wrap(err, "setting up onboarding")
-		}
+	if err := setupOnboarding(); err != nil {
+		return errors.Wrap(err, "setting up onboarding")
 	}
 
 	// giveaways
@@ -387,9 +407,7 @@ func (b *Bot) Setup() error {
 	}
 
 	// activity tracking
-	if settings.GetBool("FEATURES.ACTIVITY_TRACKING.ENABLE") {
-		b.AddHandler(onVoiceUpdate)
-	}
+	b.AddHandler(onVoiceUpdate)
 
 	b.logger.Debug("opening Discord connection")
 

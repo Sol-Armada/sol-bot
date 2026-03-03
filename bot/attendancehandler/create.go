@@ -9,11 +9,9 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -33,7 +31,7 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 
 	eventName := data.Options[0].StringValue()
 
-	valid, err := config.ValidAttendanceName(eventName)
+	valid, err := settings.ValidAttendanceName(eventName)
 	if err != nil {
 		return errors.Wrap(err, "checking if attendance name is valid")
 	}
@@ -50,7 +48,10 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		exists = true
 	}
 
-	attendance := attdnc.New(eventName, commandMember)
+	attendance, err := attdnc.New(eventName, commandMember)
+	if err != nil {
+		return errors.Wrap(err, "creating attendance record")
+	}
 
 	options := data.Options[1:]
 	for _, option := range options {
@@ -99,9 +100,14 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	content := fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s created", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId)
+	attendanceChannelId := settings.GetString("ATTENDANCE_CHANNEL_ID")
+	if attendanceChannelId == "" {
+		return fmt.Errorf("attendance channel id not set in settings")
+	}
+
+	content := fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s created", i.GuildID, attendanceChannelId, attendance.MessageId)
 	if exists {
-		content = fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId)
+		content = fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, attendanceChannelId, attendance.MessageId)
 	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: content,
@@ -115,7 +121,7 @@ func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance create autocomplete")
 
-	names, err := config.GetAttendanceNames()
+	names, err := settings.GetAttendanceNames()
 	if err != nil {
 		return errors.Wrap(err, "getting names")
 	}
@@ -150,20 +156,12 @@ func TagAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discor
 
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
-	raw, err := config.GetConfig("attendance_tags")
-	if err != nil {
-		return errors.Wrap(err, "getting tags")
-	}
-
-	tags, ok := raw.(bson.A)
-	if !ok {
-		return errors.New("unable to parse tags")
-	}
+	tags := settings.GetConfigSlice("attendance_tags")
 
 	for _, tag := range tags {
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  tag.(string),
-			Value: tag.(string),
+			Name:  tag,
+			Value: tag,
 		})
 	}
 

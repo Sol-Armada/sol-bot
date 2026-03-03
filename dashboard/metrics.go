@@ -5,22 +5,22 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/sol-armada/sol-bot/hybridconfig"
+	"github.com/sol-armada/sol-bot/settings"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // Metrics represents the dashboard metrics
 type Metrics struct {
-	Timestamp time.Time `json:"timestamp"`
-	Health    Health    `json:"health"`
-	Members   Members   `json:"members"`
-	Attendance Attendance `json:"attendance"`
-	Tokens    Tokens    `json:"tokens"`
-	Activity  Activity  `json:"activity"`
-	Raffles   Raffles   `json:"raffles"`
-	Giveaways Giveaways `json:"giveaways"`
-	Configs   []ConfigItem `json:"configs"`
+	Timestamp  time.Time    `json:"timestamp"`
+	Health     Health       `json:"health"`
+	Members    Members      `json:"members"`
+	Attendance Attendance   `json:"attendance"`
+	Tokens     Tokens       `json:"tokens"`
+	Activity   Activity     `json:"activity"`
+	Raffles    Raffles      `json:"raffles"`
+	Giveaways  Giveaways    `json:"giveaways"`
+	Configs    []ConfigItem `json:"configs"`
 }
 
 type Health struct {
@@ -30,39 +30,39 @@ type Health struct {
 }
 
 type Members struct {
-	Total            int            `json:"total"`
-	ByRank           map[string]int `json:"by_rank"`
-	Validated        int            `json:"validated"`
-	Unvalidated      int            `json:"unvalidated"`
-	RecentlyJoined   int            `json:"recently_joined"`   // Last 7 days
-	RecentlyLeft     int            `json:"recently_left"`     // Last 7 days
-	RSIMembers       int            `json:"rsi_members"`
-	BadAffiliations  int            `json:"bad_affiliations"`
-	PendingOnboarding int           `json:"pending_onboarding"`
+	Total             int            `json:"total"`
+	ByRank            map[string]int `json:"by_rank"`
+	Validated         int            `json:"validated"`
+	Unvalidated       int            `json:"unvalidated"`
+	RecentlyJoined    int            `json:"recently_joined"` // Last 7 days
+	RecentlyLeft      int            `json:"recently_left"`   // Last 7 days
+	RSIMembers        int            `json:"rsi_members"`
+	BadAffiliations   int            `json:"bad_affiliations"`
+	PendingOnboarding int            `json:"pending_onboarding"`
 }
 
 type Attendance struct {
-	Active          int     `json:"active"`
-	Recent          []AttendanceRecord `json:"recent"`
-	TotalEvents     int     `json:"total_events"`
-	SuccessfulEvents int    `json:"successful_events"`
-	SuccessRate     float64 `json:"success_rate"`
-	AverageAttendees float64 `json:"average_attendees"`
+	Active           int                `json:"active"`
+	Recent           []AttendanceRecord `json:"recent"`
+	TotalEvents      int                `json:"total_events"`
+	SuccessfulEvents int                `json:"successful_events"`
+	SuccessRate      float64            `json:"success_rate"`
+	AverageAttendees float64            `json:"average_attendees"`
 }
 
 type AttendanceRecord struct {
-	ID           string    `json:"id"`
-	Name         string    `json:"name"`
-	MemberCount  int       `json:"member_count"`
-	Successful   bool      `json:"successful"`
-	DateCreated  time.Time `json:"date_created"`
+	ID          string    `json:"id"`
+	Name        string    `json:"name"`
+	MemberCount int       `json:"member_count"`
+	Successful  bool      `json:"successful"`
+	DateCreated time.Time `json:"date_created"`
 }
 
 type Tokens struct {
-	TotalInCirculation int            `json:"total_in_circulation"`
-	RecentDistributions []TokenDistribution `json:"recent_distributions"`
-	TopHolders         []TokenHolder       `json:"top_holders"`
-	DistributionByReason map[string]int    `json:"distribution_by_reason"`
+	TotalInCirculation   int                 `json:"total_in_circulation"`
+	RecentDistributions  []TokenDistribution `json:"recent_distributions"`
+	TopHolders           []TokenHolder       `json:"top_holders"`
+	DistributionByReason map[string]int      `json:"distribution_by_reason"`
 }
 
 type TokenDistribution struct {
@@ -79,31 +79,31 @@ type TokenHolder struct {
 }
 
 type Activity struct {
-	ActiveToday      int     `json:"active_today"`
-	ActiveThisWeek   int     `json:"active_this_week"`
-	VoiceActivity    int     `json:"voice_activity"`    // Last 24h
-	MessageActivity  int     `json:"message_activity"`  // Last 24h
-	StarCitizenPlaying int   `json:"star_citizen_playing"` // Current
+	ActiveToday        int `json:"active_today"`
+	ActiveThisWeek     int `json:"active_this_week"`
+	VoiceActivity      int `json:"voice_activity"`       // Last 24h
+	MessageActivity    int `json:"message_activity"`     // Last 24h
+	StarCitizenPlaying int `json:"star_citizen_playing"` // Current
 }
 
 type Raffles struct {
-	Active int            `json:"active"`
-	Recent []RaffleInfo   `json:"recent"`
+	Active int          `json:"active"`
+	Recent []RaffleInfo `json:"recent"`
 }
 
 type RaffleInfo struct {
-	ID          string    `json:"id"`
-	Name        string    `json:"name"`
-	Prize       string    `json:"prize"`
-	Entries     int       `json:"entries"`
-	Winners     []string  `json:"winners"`
-	CreatedAt   time.Time `json:"created_at"`
+	ID        string    `json:"id"`
+	Name      string    `json:"name"`
+	Prize     string    `json:"prize"`
+	Entries   int       `json:"entries"`
+	Winners   []string  `json:"winners"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type Giveaways struct {
-	Active   int             `json:"active"`
-	Recent   []GiveawayInfo  `json:"recent"`
-	Upcoming []GiveawayInfo  `json:"upcoming"`
+	Active   int            `json:"active"`
+	Recent   []GiveawayInfo `json:"recent"`
+	Upcoming []GiveawayInfo `json:"upcoming"`
 }
 
 type GiveawayInfo struct {
@@ -261,8 +261,11 @@ func (d *Dashboard) collectMemberMetrics(ctx context.Context) (Members, error) {
 
 	if cur.Next(ctx) {
 		var result struct {
-			Total             []struct{ Count int } `bson:"total"`
-			ByRank            []struct{ ID int; Count int } `bson:"by_rank"`
+			Total  []struct{ Count int } `bson:"total"`
+			ByRank []struct {
+				ID    int
+				Count int
+			} `bson:"by_rank"`
 			Validated         []struct{ Count int } `bson:"validated"`
 			Unvalidated       []struct{ Count int } `bson:"unvalidated"`
 			RecentlyJoined    []struct{ Count int } `bson:"recently_joined"`
@@ -271,7 +274,7 @@ func (d *Dashboard) collectMemberMetrics(ctx context.Context) (Members, error) {
 			BadAffiliations   []struct{ Count int } `bson:"bad_affiliations"`
 			PendingOnboarding []struct{ Count int } `bson:"pending_onboarding"`
 		}
-		
+
 		if err := cur.Decode(&result); err != nil {
 			return metrics, err
 		}
@@ -279,12 +282,12 @@ func (d *Dashboard) collectMemberMetrics(ctx context.Context) (Members, error) {
 		if len(result.Total) > 0 {
 			metrics.Total = result.Total[0].Count
 		}
-		
+
 		for _, rank := range result.ByRank {
 			rankName := getRankName(rank.ID)
 			metrics.ByRank[rankName] = rank.Count
 		}
-		
+
 		if len(result.Validated) > 0 {
 			metrics.Validated = result.Validated[0].Count
 		}
@@ -343,7 +346,7 @@ func (d *Dashboard) collectAttendanceMetrics(ctx context.Context) (Attendance, e
 	cur, err := attendanceStore.Aggregate(ctx, pipeline)
 	if err == nil {
 		defer cur.Close(ctx)
-		
+
 		for cur.Next(ctx) {
 			var record struct {
 				ID          string    `bson:"_id"`
@@ -367,7 +370,7 @@ func (d *Dashboard) collectAttendanceMetrics(ctx context.Context) (Attendance, e
 	// Calculate success rate and average attendees
 	totalCount, _ := attendanceStore.CountDocuments(ctx, bson.D{})
 	successCount, _ := attendanceStore.CountDocuments(ctx, bson.D{{Key: "successful", Value: true}})
-	
+
 	metrics.TotalEvents = int(totalCount)
 	metrics.SuccessfulEvents = int(successCount)
 	if totalCount > 0 {
@@ -405,7 +408,7 @@ func (d *Dashboard) collectTokenMetrics(ctx context.Context) (Tokens, error) {
 	cur, err := tokenStore.Aggregate(ctx, pipeline)
 	if err == nil {
 		defer cur.Close(ctx)
-		
+
 		for cur.Next(ctx) {
 			var record struct {
 				Amount    int       `bson:"amount"`
@@ -446,7 +449,7 @@ func (d *Dashboard) collectTokenMetrics(ctx context.Context) (Tokens, error) {
 	holderCur, err := tokenStore.Aggregate(ctx, holderPipeline)
 	if err == nil {
 		defer holderCur.Close(ctx)
-		
+
 		totalCirculation := 0
 		for holderCur.Next(ctx) {
 			var holder struct {
@@ -478,7 +481,7 @@ func (d *Dashboard) collectActivityMetrics(ctx context.Context) (Activity, error
 	}
 
 	metrics := Activity{}
-	
+
 	now := time.Now()
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
 	weekAgo := now.AddDate(0, 0, -7)
@@ -532,22 +535,22 @@ func (d *Dashboard) collectRaffleMetrics(ctx context.Context) (Raffles, error) {
 	cur, err := raffleStore.Aggregate(ctx, pipeline)
 	if err == nil {
 		defer cur.Close(ctx)
-		
+
 		for cur.Next(ctx) {
 			var raffle struct {
-				ID        string            `bson:"_id"`
-				Name      string            `bson:"name"`
-				Prize     string            `bson:"prize"`
-				Tickets   map[string]int    `bson:"tickets"`
-				Winners   []string          `bson:"winners"`
-				CreatedAt time.Time         `bson:"created_at"`
+				ID        string         `bson:"_id"`
+				Name      string         `bson:"name"`
+				Prize     string         `bson:"prize"`
+				Tickets   map[string]int `bson:"tickets"`
+				Winners   []string       `bson:"winners"`
+				CreatedAt time.Time      `bson:"created_at"`
 			}
 			if err := cur.Decode(&raffle); err == nil {
 				entryCount := 0
 				for _, count := range raffle.Tickets {
 					entryCount += count
 				}
-				
+
 				metrics.Recent = append(metrics.Recent, RaffleInfo{
 					ID:        raffle.ID,
 					Name:      raffle.Name,
@@ -587,7 +590,7 @@ func (d *Dashboard) collectGiveawayMetrics(ctx context.Context) (Giveaways, erro
 	cur, err := giveawayStore.Aggregate(ctx, pipeline)
 	if err == nil {
 		defer cur.Close(ctx)
-		
+
 		for cur.Next(ctx) {
 			var giveaway struct {
 				ID      string                 `bson:"id"`
@@ -604,7 +607,7 @@ func (d *Dashboard) collectGiveawayMetrics(ctx context.Context) (Giveaways, erro
 					EndTime:   giveaway.EndTime,
 					Ended:     giveaway.Ended,
 				}
-				
+
 				if giveaway.Ended {
 					metrics.Recent = append(metrics.Recent, info)
 				} else {
@@ -635,10 +638,6 @@ func getRankName(rank int) string {
 }
 
 func (d *Dashboard) collectConfigMetrics(ctx context.Context) ([]ConfigItem, error) {
-	if d.config == nil {
-		return []ConfigItem{}, nil
-	}
-	
 	// Define all config keys we want to expose in the dashboard
 	configKeys := []struct {
 		Key  string
@@ -648,7 +647,7 @@ func (d *Dashboard) collectConfigMetrics(ctx context.Context) ([]ConfigItem, err
 		{"log.debug", "boolean"},
 		{"log.cli", "boolean"},
 		{"log.file", "string"},
-		
+
 		// Feature configs
 		{"features.monitor.enable", "boolean"},
 		{"features.merit.enable", "boolean"},
@@ -658,44 +657,61 @@ func (d *Dashboard) collectConfigMetrics(ctx context.Context) ([]ConfigItem, err
 		{"features.tokens.enable", "boolean"},
 		{"features.raffles.enable", "boolean"},
 		{"features.giveaways.enable", "boolean"},
-		
+
 		// Discord configs (non-sensitive)
 		{"discord.guild_id", "string"},
 		{"discord.error_channel_id", "string"},
 		{"discord.channels.event_singup", "string"},
-		
+
 		// Attendance configs
 		{"features.attendance.channel_id", "string"},
 		{"features.attendance.allowed_roles", "array"},
-		
+
 		// Onboarding configs
 		{"features.onboarding.input_channel_id", "string"},
 		{"features.onboarding.output_channel_id", "string"},
-		
+
 		// Activity tracking configs
 		{"features.activity_tracking.afk_channel_id", "string"},
-		
+
 		// Dashboard config
 		{"dashboard.port", "string"},
-		
+
 		// Mongo configs (non-sensitive)
 		{"mongo.host", "string"},
 		{"mongo.port", "string"},
 		{"mongo.database", "string"},
-		
+
 		// Org configs
 		{"rsi_org_sid", "string"},
 		{"allies", "array"},
 		{"enemies", "array"},
 		{"ally_role", "string"},
 	}
-	
-	// Get all overrides
-	overridesMap := make(map[string]hybridconfig.ConfigOverride)
-	for _, override := range d.config.GetAllOverrides() {
-		overridesMap[override.Name] = override
+
+	// Get all configs from MongoDB
+	configStore, ok := d.stores.GetConfigsStore()
+	if !ok {
+		return []ConfigItem{}, fmt.Errorf("config store not available")
 	}
-	
+
+	cursor, err := configStore.GetAll()
+	if err != nil {
+		return []ConfigItem{}, err
+	}
+	defer cursor.Close(ctx)
+
+	// Build map of MongoDB configs
+	mongoConfigs := make(map[string]bson.M)
+	for cursor.Next(ctx) {
+		var doc bson.M
+		if err := cursor.Decode(&doc); err == nil {
+			if name, ok := doc["name"].(string); ok {
+				mongoConfigs[name] = doc
+			}
+		}
+	}
+
 	// Build config items
 	configItems := make([]ConfigItem, 0, len(configKeys))
 	for _, ck := range configKeys {
@@ -703,30 +719,36 @@ func (d *Dashboard) collectConfigMetrics(ctx context.Context) ([]ConfigItem, err
 			Key:  ck.Key,
 			Type: ck.Type,
 		}
-		
-		// Get current value
+
+		// Get current value from settings (which checks MongoDB first)
 		switch ck.Type {
 		case "boolean":
-			item.Value = fmt.Sprintf("%v", d.config.GetBool(ck.Key))
-			item.DefaultValue = fmt.Sprintf("%v", d.config.GetDefault(ck.Key))
+			item.Value = fmt.Sprintf("%v", settings.GetBool(ck.Key))
 		case "array":
-			slice := d.config.GetStringSlice(ck.Key)
+			slice := settings.GetConfigSlice(ck.Key)
 			item.Value = fmt.Sprintf("%v", slice)
-			item.DefaultValue = fmt.Sprintf("%v", d.config.GetDefault(ck.Key))
 		default: // string, int
-			item.Value = d.config.GetString(ck.Key)
-			item.DefaultValue = fmt.Sprintf("%v", d.config.GetDefault(ck.Key))
+			item.Value = settings.GetStringWithDefault(ck.Key, "")
 		}
-		
-		// Check if overridden
-		if override, ok := overridesMap[ck.Key]; ok {
-			item.IsOverridden = override.Override
-			item.UpdatedBy = override.UpdatedBy
-			item.UpdatedAt = override.UpdatedAt
+
+		// Check if overridden in MongoDB
+		if mongoDoc, ok := mongoConfigs[ck.Key]; ok {
+			item.IsOverridden = true
+			if updatedBy, ok := mongoDoc["updated_by"].(string); ok {
+				item.UpdatedBy = updatedBy
+			}
+			if updatedAt, ok := mongoDoc["updated_at"].(time.Time); ok {
+				item.UpdatedAt = updatedAt
+			}
+			// Default value would be from TOML, but we don't track it here
+			item.DefaultValue = "(from TOML)"
+		} else {
+			item.IsOverridden = false
+			item.DefaultValue = item.Value
 		}
-		
+
 		configItems = append(configItems, item)
 	}
-	
+
 	return configItems, nil
 }

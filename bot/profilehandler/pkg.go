@@ -112,14 +112,15 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 					return errors.Wrap(err, "getting discord member")
 				}
 
-				if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
+				if slices.Contains(discordMember.Roles, settings.GetStringWithDefault("RECRUIT_ROLE_ID", "")) {
 					logger.Debug("is recruit")
 					otherMember.Rank = ranks.Recruit
 					otherMember.IsAffiliate = false
 					otherMember.IsAlly = false
 					otherMember.IsGuest = false
 				}
-				if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.ALLY")) {
+
+				if slices.Contains(discordMember.Roles, settings.GetStringWithDefault("ALLY_ROLE_ID", "")) {
 					logger.Debug("is ally")
 					otherMember.Rank = ranks.None
 					otherMember.IsAffiliate = false

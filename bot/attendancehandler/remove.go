@@ -67,8 +67,13 @@ func removeMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *d
 		return errors.Wrap(err, "sending attendance message")
 	}
 
+	attendanceChannelId := settings.GetString("ATTENDANCE_CHANNEL_ID")
+	if attendanceChannelId == "" {
+		return fmt.Errorf("attendance channel id not set in settings")
+	}
+
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId),
+		Content: fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, attendanceChannelId, attendance.MessageId),
 		Flags:   discordgo.MessageFlagsEphemeral,
 	})
 

@@ -10,7 +10,7 @@ import (
 )
 
 func OnRoleChange(s *discordgo.Session, m *discordgo.GuildMemberUpdate) error {
-	memberRoleId := settings.GetString("DISCORD.ROLES.RANKS.MEMBER")
+	memberRoleId := settings.GetStringWithDefault("MEMBER_ROLE_ID", "")
 	if !slices.Contains(m.BeforeUpdate.Roles, memberRoleId) && slices.Contains(m.Roles, memberRoleId) {
 		member, err := members.Get(m.User.ID)
 		if err != nil {

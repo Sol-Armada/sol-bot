@@ -9,7 +9,6 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
-	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
@@ -70,10 +69,6 @@ func (c *AttendanceCommand) Name() string {
 }
 
 func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
-	if !settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
-		return nil, nil
-	}
-
 	tags := []string{
 		"FPS",
 		"SALVAGE",
@@ -88,7 +83,7 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		"OTHER",
 	}
 
-	if err := config.SetConfig("attendance_tags", tags); err != nil {
+	if err := settings.SetConfig("attendance_tags", tags); err != nil {
 		return nil, errors.Wrap(err, "setting attendance tags")
 	}
 
@@ -181,23 +176,6 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		Options:     removeFromAttendanceOptions,
 	})
 	// end remove member from attendance record
-
-	// // revert attendance record
-	// subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-	// 	Type:        discordgo.ApplicationCommandOptionSubCommand,
-	// 	Name:        "revert",
-	// 	Description: "revert an attendance record",
-	// 	Options: []*discordgo.ApplicationCommandOption{
-	// 		{
-	// 			Name:         "event",
-	// 			Description:  "The event to revert",
-	// 			Type:         discordgo.ApplicationCommandOptionString,
-	// 			Required:     true,
-	// 			Autocomplete: true,
-	// 		},
-	// 	},
-	// })
-	// // end revert attendance record
 
 	// refresh attendance records
 	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{

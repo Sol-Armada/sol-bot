@@ -16,7 +16,11 @@ func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan str
 	logger = logger.With("func", "bot.MonitorAttendance")
 	logger.Info("monitoring attendance")
 
-	channel := settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
+	attendanceChannelId := settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
+	if attendanceChannelId == "" {
+		logger.Error("attendance channel id not set in settings")
+		return
+	}
 
 	ticker := time.NewTicker(30 * time.Minute)
 	defer ticker.Stop()
@@ -33,7 +37,7 @@ func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan str
 		latestId := ""
 	AGAIN:
 		logger.Debug("checking attendance messages")
-		msgs, err := bot.ChannelMessages(channel, 100, latestId, "", "")
+		msgs, err := bot.ChannelMessages(attendanceChannelId, 100, latestId, "", "")
 		if err != nil {
 			logger.Error("failed to get messages", "error", err)
 			continue
@@ -55,7 +59,7 @@ func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan str
 			id := msg.Embeds[0].Description
 			_, err := attdnc.Get(id)
 			if (err != nil && errors.Is(err, attdnc.ErrAttendanceNotFound)) || id == "" {
-				_ = bot.ChannelMessageDelete(channel, msg.ID)
+				_ = bot.ChannelMessageDelete(attendanceChannelId, msg.ID)
 			}
 		}
 
