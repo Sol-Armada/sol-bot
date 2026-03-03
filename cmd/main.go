@@ -53,8 +53,6 @@ type MongoConfig struct {
 }
 
 type FeatureConfig struct {
-	MonitorEnable      bool
-	AttendanceMonitor  bool
 	SystemdIntegration bool
 }
 
@@ -74,9 +72,8 @@ func init() {
 		"mongo_host", cfg.MongoConfig.Host,
 		"mongo_port", cfg.MongoConfig.Port,
 		"mongo_database", cfg.MongoConfig.Database,
-		"features_monitor_enable", cfg.Features.MonitorEnable,
-		"features_attendance_monitor", cfg.Features.AttendanceMonitor,
-		"features_systemd_integration", cfg.Features.SystemdIntegration)
+		"features_systemd_integration", cfg.Features.SystemdIntegration,
+	)
 
 	if err := initializeServices(cfg); err != nil {
 		logger.Error("failed to initialize services", "error", err)
@@ -118,8 +115,8 @@ func loadConfig() *Config {
 		Environment:          environment,
 		Debug:                settings.GetBoolWithDefault("DEBUG", false),
 		CLI:                  settings.GetBoolWithDefault("LOG_CLI", false),
-		LogFile:              settings.GetStringWithDefault("LOG_FILE", "/var/log/solbot/solbot.log"),
-		MemberMonitorLogFile: settings.GetStringWithDefault("LOG_MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
+		LogFile:              settings.GetStringWithDefault("LOG_FILE", "./solbot.log"),
+		MemberMonitorLogFile: settings.GetStringWithDefault("LOG_MEMBER_MONITOR_FILE", "./mm.log"),
 		MongoConfig: MongoConfig{
 			Host:           mongoHost,
 			Port:           port,
@@ -127,11 +124,6 @@ func loadConfig() *Config {
 			Password:       strings.ReplaceAll(os.Getenv("MONGO_PASSWORD"), "@", `%40`),
 			Database:       mongoDatabase,
 			ReplicaSetName: os.Getenv("MONGO_REPLICA_SET_NAME"),
-		},
-		Features: FeatureConfig{
-			MonitorEnable:      settings.GetBoolWithDefault("FEATURES_MONITOR_ENABLE", false),
-			AttendanceMonitor:  settings.GetBoolWithDefault("FEATURES_ATTENDANCE_MONITOR", false),
-			SystemdIntegration: settings.GetBoolWithDefault("FEATURES_SYSTEMD_ENABLE", true),
 		},
 	}
 }
@@ -462,7 +454,7 @@ func (app *Application) initializeScheduler() error {
 	app.scheduler.Start()
 
 	// Schedule member monitoring if enabled
-	if app.cfg.Features.MonitorEnable {
+	if settings.GetBool("MONITOR_MEMBERS") {
 		logger.Info("scheduling member monitor job")
 		if err := app.scheduleMemberMonitor(); err != nil {
 			logger.Error("failed to schedule member monitor", "error", err)
@@ -595,7 +587,7 @@ func (app *Application) scheduleStatusUpdates() error {
 // startMonitoringServices starts attendance monitoring and systemd watchdog
 func (app *Application) startMonitoringServices() {
 	// Start attendance monitoring if enabled
-	if app.cfg.Features.AttendanceMonitor {
+	if settings.GetBool("MONITOR_ATTENDANCE") {
 		logger.Info("starting attendance monitoring service")
 		go bot.MonitorAttendance(context.Background(), logger, app.stopCh)
 		logger.Info("attendance monitoring service started")
