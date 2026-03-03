@@ -27,8 +27,9 @@ import (
 )
 
 type Bot struct {
-	GuildId  string
-	ClientId string
+	GuildId        string
+	ClientId       string
+	ErrorChannelId string
 
 	store  *stores.CommandsStore
 	logger *slog.Logger
@@ -92,6 +93,11 @@ func New() (*Bot, error) {
 		return nil, errors.New("CLIENT_ID environment variable is not set")
 	}
 
+	errorChannelId := settings.GetString("ERROR_CHANNEL_ID")
+	if errorChannelId == "" {
+		return nil, errors.New("ERROR_CHANNEL_ID environment variable is not set")
+	}
+
 	b, err := discordgo.New(fmt.Sprintf("Bot %s", botToken))
 	if err != nil {
 		return nil, err
@@ -105,11 +111,12 @@ func New() (*Bot, error) {
 	b.Client.Timeout = 5 * time.Second
 
 	bot = &Bot{
-		GuildId:  guildId,
-		ClientId: clientId,
-		logger:   slog.Default(),
-		ctx:      context.Background(),
-		Session:  b,
+		GuildId:        guildId,
+		ClientId:       clientId,
+		ErrorChannelId: errorChannelId,
+		logger:         slog.Default(),
+		ctx:            context.Background(),
+		Session:        b,
 	}
 
 	return bot, nil
@@ -233,13 +240,12 @@ func (b *Bot) Setup() error {
 				logger.Error("running command", "command", commandName, "error", err)
 				cmdToStore.Error = err.Error()
 
-				errorChannelId := settings.GetString("ERROR_CHANNEL_ID")
-				if errorChannelId == "" {
+				if b.ErrorChannelId == "" {
 					logger.Error("ERROR_CHANNEL_ID environment variable is not set")
 					return
 				}
 
-				if _, err := b.ChannelMessageSendComplex(errorChannelId, &discordgo.MessageSend{
+				if _, err := b.ChannelMessageSendComplex(b.ErrorChannelId, &discordgo.MessageSend{
 					Embeds: []*discordgo.MessageEmbed{
 						{
 							Title:       "Error",

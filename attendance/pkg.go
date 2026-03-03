@@ -64,6 +64,10 @@ var (
 var attendanceStore *stores.AttendanceStore
 
 func Setup() error {
+	if settings.GetString("ATTENDANCE_CHANNEL_ID") == "" {
+		return fmt.Errorf("attendance channel id not set in settings")
+	}
+
 	storesClient := stores.Get()
 	as, ok := storesClient.GetAttendanceStore()
 	if !ok {
@@ -74,7 +78,7 @@ func Setup() error {
 }
 
 func New(name string, submittedBy *members.Member) (*Attendance, error) {
-	channelId := settings.GetString("attendance_channel_id")
+	channelId := settings.GetString("ATTENDANCE_CHANNEL_ID")
 	if channelId == "" {
 		return nil, fmt.Errorf("could not get attendance channel id")
 	}

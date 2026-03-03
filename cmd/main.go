@@ -210,7 +210,7 @@ func initializeServices(cfg *Config) error {
 		logger.Info("setting up service", "service", name)
 		if err := setup(); err != nil {
 			logger.Error("failed to setup service", "service", name, "error", err)
-			return fmt.Errorf("failed to setup %s service: %w", name, err)
+			continue
 		}
 		logger.Info("service setup completed", "service", name)
 	}

@@ -16,6 +16,16 @@ import (
 )
 
 func setupOnboarding() error {
+	onboardingChannelId := settings.GetStringWithDefault("ONBOARDING_CHANNEL_ID", "")
+	if onboardingChannelId == "" {
+		return errors.New("onboarding channel id not set in settings")
+	}
+
+	onboardingReportChannelId := settings.GetStringWithDefault("ONBOARDING_REPORT_CHANNEL_ID", "")
+	if onboardingReportChannelId == "" {
+		return errors.New("onboarding report channel id not set in settings")
+	}
+
 	logger := slog.Default()
 
 	logger.Debug("setting up onboarding")
@@ -103,7 +113,6 @@ Let's chat! Message <@91622043040124928>, Sol Armada's Diplomat and Admiral.
 		msg.Files = files
 	}
 
-	onboardingChannelId := settings.GetStringWithDefault("ONBOARDING_CHANNEL_ID", "")
 	msgs, err := bot.ChannelMessages(onboardingChannelId, 1, "", "", "")
 	if err != nil {
 		return err

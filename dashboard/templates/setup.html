@@ -145,115 +145,19 @@
 
         <!-- Progress Steps -->
         <div class="setup-progress">
-            <div class="setup-step active" data-step="1">
-                <div class="step-circle"></div>
-                <div class="step-label">Discord</div>
-            </div>
-            <div class="setup-step" data-step="2">
-                <div class="step-circle"></div>
-                <div class="step-label">MongoDB</div>
-            </div>
-            <div class="setup-step" data-step="3">
+            <div class="setup-step" data-step="1">
                 <div class="step-circle"></div>
                 <div class="step-label">Organization</div>
             </div>
-            <div class="setup-step" data-step="4">
+            <div class="setup-step" data-step="2">
                 <div class="step-circle"></div>
                 <div class="step-label">Complete</div>
             </div>
         </div>
 
-        <!-- Step 1: Discord Configuration -->
-        <article class="setup-content active" data-step="1">
-            <header><strong>Step 1: Discord Bot Configuration</strong></header>
-            <p>Configure your Discord bot credentials. You can obtain these from the <a
-                    href="https://discord.com/developers/applications" target="_blank">Discord Developer Portal</a>.</p>
-
-            <form id="discord-form">
-                <label>
-                    Client ID <span style="color: var(--del-color);">*</span>
-                    <input type="text" name="client_id" placeholder="1234567890123456789" required>
-                    <small class="help-text">Found in your application's OAuth2 settings</small>
-                </label>
-
-                <label>
-                    Client Secret <span style="color: var(--del-color);">*</span>
-                    <input type="password" name="client_secret" placeholder="Your client secret" required>
-                    <small class="help-text">Found in your application's OAuth2 settings (keep this private!)</small>
-                </label>
-
-                <label>
-                    Bot Token <span style="color: var(--del-color);">*</span>
-                    <input type="password" name="bot_token" placeholder="Your bot token" required>
-                    <small class="help-text">Found in your application's Bot settings (keep this private!)</small>
-                </label>
-
-                <label>
-                    Guild ID (Server ID) <span style="color: var(--del-color);">*</span>
-                    <input type="text" name="guild_id" placeholder="1234567890123456789" required>
-                    <small class="help-text">Right-click your Discord server → Copy Server ID (requires Developer Mode
-                        enabled)</small>
-                </label>
-
-                <label>
-                    Error Channel ID
-                    <input type="text" name="error_channel_id" placeholder="1234567890123456789">
-                    <small class="help-text">Channel where bot errors will be reported (optional)</small>
-                </label>
-            </form>
-
-            <details>
-                <summary>How to get Discord credentials</summary>
-                <div class="code-block">
-                    1. Visit <a href="https://discord.com/developers/applications"
-                        target="_blank">discord.com/developers/applications</a><br>
-                    2. Create or select your application<br>
-                    3. In OAuth2 → General, copy your Client ID and Client Secret<br>
-                    4. In Bot settings, copy your Bot Token<br>
-                    5. In Discord, right-click your server → Copy Server ID
-                </div>
-            </details>
-
-            <div class="setup-buttons">
-                <button class="secondary" disabled>Previous</button>
-                <button onclick="nextStep(2)">Next: MongoDB →</button>
-            </div>
-        </article>
-
-        <!-- Step 2: MongoDB Configuration -->
-        <article class="setup-content" data-step="2">
-            <header><strong>Step 2: MongoDB Configuration</strong></header>
-            <p>Configure your MongoDB connection. The bot uses MongoDB to store all data.</p>
-
-            <form id="mongo-form">
-                <label>
-                    Host <span style="color: var(--del-color);">*</span>
-                    <input type="text" name="mongo_host" value="localhost" required>
-                    <small class="help-text">MongoDB server hostname or IP address</small>
-                </label>
-
-                <label>
-                    Port <span style="color: var(--del-color);">*</span>
-                    <input type="text" name="mongo_port" value="27017" required>
-                    <small class="help-text">MongoDB server port (default: 27017)</small>
-                </label>
-
-                <label>
-                    Database Name <span style="color: var(--del-color);">*</span>
-                    <input type="text" name="mongo_database" value="solarmada" required>
-                    <small class="help-text">Name of the database to use</small>
-                </label>
-            </form>
-
-            <div class="setup-buttons">
-                <button class="secondary" onclick="prevStep(1)">← Previous</button>
-                <button onclick="nextStep(3)">Next: Organization →</button>
-            </div>
-        </article>
-
-        <!-- Step 3: Organization Configuration -->
-        <article class="setup-content" data-step="3">
-            <header><strong>Step 3: Organization Settings</strong></header>
+        <!-- Step 1: Organization Configuration -->
+        <article class="setup-content" data-step="1">
+            <header><strong>Step 1: Organization Settings</strong></header>
             <p>Configure your Star Citizen organization details (optional but recommended).</p>
 
             <form id="org-form">
@@ -280,16 +184,39 @@
                     <input type="text" name="enemies" placeholder="ENEMY1, ENEMY2">
                     <small class="help-text">Comma-separated list of enemy organization SIDs</small>
                 </label>
+
+                <label>
+                    Attendance Channel ID
+                    <input type="text" name="attendance_channel_id" placeholder="1234567890123456789">
+                    <small class="help-text">Discord channel ID where attendance will be posted (optional)</small>
+                </label>
+
+                <label>
+                    Onboarding Channel ID
+                    <input type="text" name="onboarding_channel_id" placeholder="1234567890123456789">
+                    <small class="help-text">Discord channel ID for onboarding new members (optional)</small>
+                </label>
+
+                <label>
+                    Onboarding Report Channel ID
+                    <input type="text" name="onboarding_report_channel_id" placeholder="1234567890123456789">
+                    <small class="help-text">Discord channel ID for onboarding reports (optional)</small>
+                </label>
+
+                <label>
+                    Error Logging Channel ID
+                    <input type="text" name="error_channel_id" placeholder="1234567890123456789">
+                    <small class="help-text">Discord channel ID for error logs (optional)</small>
+                </label>
             </form>
 
             <div class="setup-buttons">
-                <button class="secondary" onclick="prevStep(2)">← Previous</button>
-                <button onclick="nextStep(4)">Complete Setup →</button>
+                <button onclick="nextStep(2)">Complete Setup →</button>
             </div>
         </article>
 
         <!-- Step 4: Complete -->
-        <article class="setup-content" data-step="4">
+        <article class="setup-content" data-step="2">
             <header><strong>Setup Complete!</strong></header>
 
             <div class="success-box" id="success-message" style="display: none;">
@@ -322,7 +249,7 @@
             </div>
 
             <div class="setup-buttons">
-                <button class="secondary" onclick="prevStep(3)">← Previous</button>
+                <button class="secondary" onclick="prevStep(1)">← Previous</button>
                 <button id="save-button" onclick="saveConfiguration()">💾 Save & Complete</button>
             </div>
 
@@ -365,7 +292,7 @@
             document.querySelector(`.setup-step[data-step="${currentStep}"]`).classList.add('active');
 
             // Show summary on final step
-            if (currentStep === 4) {
+            if (currentStep === 2) {
                 showSummary();
             }
 
@@ -389,9 +316,7 @@
             let html = '<table><tbody>';
 
             const sections = [
-                { title: 'Discord', keys: ['client_id', 'guild_id', 'error_channel_id'] },
-                { title: 'MongoDB', keys: ['mongo_host', 'mongo_port', 'mongo_database'] },
-                { title: 'Organization', keys: ['rsi_org_sid', 'ally_role', 'allies', 'enemies'] }
+                { title: 'Organization', keys: ['rsi_org_sid', 'ally_role', 'allies', 'enemies', 'attendance_channel_id', 'onboarding_channel_id', 'onboarding_report_channel_id', 'error_channel_id'] }
             ];
 
             sections.forEach(section => {
@@ -421,16 +346,12 @@
             try {
                 // Save all configurations
                 const configs = [
-                    { key: 'discord.client_id', value: configData.client_id },
-                    { key: 'discord.client_secret', value: configData.client_secret },
-                    { key: 'discord.bot_token', value: configData.bot_token },
-                    { key: 'discord.guild_id', value: configData.guild_id },
-                    { key: 'discord.error_channel_id', value: configData.error_channel_id || '' },
-                    { key: 'mongo.host', value: configData.mongo_host },
-                    { key: 'mongo.port', value: configData.mongo_port },
-                    { key: 'mongo.database', value: configData.mongo_database },
                     { key: 'rsi_org_sid', value: configData.rsi_org_sid || '' },
                     { key: 'ally_role', value: configData.ally_role || '' },
+                    { key: 'attendance_channel_id', value: configData.attendance_channel_id || '' },
+                    { key: 'onboarding_channel_id', value: configData.onboarding_channel_id || '' },
+                    { key: 'onboarding_report_channel_id', value: configData.onboarding_report_channel_id || '' },
+                    { key: 'error_channel_id', value: configData.error_channel_id || '' }
                 ];
 
                 // Handle arrays
