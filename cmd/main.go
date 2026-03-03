@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -113,10 +114,10 @@ func loadConfig() *Config {
 
 	return &Config{
 		Environment:          environment,
-		Debug:                settings.GetBoolWithDefault("DEBUG", false),
-		CLI:                  settings.GetBoolWithDefault("LOG_CLI", false),
-		LogFile:              settings.GetStringWithDefault("LOG_FILE", "./solbot.log"),
-		MemberMonitorLogFile: settings.GetStringWithDefault("LOG_MEMBER_MONITOR_FILE", "./mm.log"),
+		Debug:                os.Getenv("DEBUG") == "true",
+		CLI:                  os.Getenv("LOG_CLI") == "true",
+		LogFile:              cmp.Or(os.Getenv("LOG_FILE"), settings.GetStringWithDefault("log_file", "./solbot.log")),
+		MemberMonitorLogFile: cmp.Or(os.Getenv("LOG_MEMBER_MONITOR_FILE"), settings.GetStringWithDefault("log_member_monitor_file", "./mm.log")),
 		MongoConfig: MongoConfig{
 			Host:           mongoHost,
 			Port:           port,
