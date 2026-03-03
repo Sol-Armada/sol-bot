@@ -22,17 +22,17 @@ type Access struct {
 var redirectUri, clientId, clientSecret string
 
 func init() {
-	redirectUri = os.Getenv("DISCORD_REDIRECT_URI")
+	redirectUri = os.Getenv("REDIRECT_URI")
 	if redirectUri == "" {
-		panic("DISCORD_REDIRECT_URI environment variable is required")
+		panic("REDIRECT_URI environment variable is required")
 	}
-	clientId = os.Getenv("DISCORD_CLIENT_ID")
+	clientId = os.Getenv("CLIENT_ID")
 	if clientId == "" {
-		panic("DISCORD_CLIENT_ID environment variable is required")
+		panic("CLIENT_ID environment variable is required")
 	}
-	clientSecret = os.Getenv("DISCORD_CLIENT_SECRET")
+	clientSecret = os.Getenv("CLIENT_SECRET")
 	if clientSecret == "" {
-		panic("DISCORD_CLIENT_SECRET environment variable is required")
+		panic("CLIENT_SECRET environment variable is required")
 	}
 }
 
