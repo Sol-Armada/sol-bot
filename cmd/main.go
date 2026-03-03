@@ -282,48 +282,6 @@ func (app *Application) start() error {
 		}
 	}
 
-	clientId := os.Getenv("CLIENT_ID")
-	botToken := os.Getenv("BOT_TOKEN")
-	guildId := os.Getenv("GUILD_ID")
-
-	// Check if initial setup is required
-	setupNeeded := !settings.GetBoolWithDefault("setup_completed", false) ||
-		clientId == "" ||
-		botToken == "" ||
-		guildId == ""
-
-	if setupNeeded {
-		logger.Warn("initial setup required - starting dashboard only")
-		logger.Warn("bot, scheduler, and monitoring services will not start")
-		dashboardPort := settings.GetStringWithDefault("dashboard.port", "8080")
-		logger.Warn("please complete setup at http://localhost:" + dashboardPort + "/setup")
-
-		if app.cfg.Features.SystemdIntegration {
-			if err := systemd.Status("Waiting for initial setup..."); err != nil {
-				logger.Warn("failed to set systemd status", "error", err)
-			}
-		}
-
-		// Start dashboard only for setup
-		logger.Info("starting dashboard server for initial setup")
-		if err := dashboard.Start(context.Background()); err != nil {
-			logger.Error("failed to start dashboard", "error", err)
-			return fmt.Errorf("failed to start dashboard: %w", err)
-		}
-		logger.Info("dashboard server started - visit /setup to configure the bot")
-
-		if app.cfg.Features.SystemdIntegration {
-			if err := systemd.Ready(); err != nil {
-				logger.Warn("failed to notify systemd ready", "error", err)
-			}
-		}
-
-		return nil
-	}
-
-	// Normal startup with all services
-	logger.Info("setup complete - starting all services")
-
 	// Initialize bot with exponential backoff
 	logger.Info("initializing Discord bot")
 	if err := app.initializeBotWithBackoff(); err != nil {
