@@ -51,7 +51,7 @@ func (a *Activity) Save() error {
 		return errors.New("activity store not initialized")
 	}
 
-	activityMap := map[string]interface{}{}
+	activityMap := map[string]any{}
 	j, _ := json.Marshal(a)
 	_ = json.Unmarshal(j, &activityMap)
 

@@ -96,7 +96,7 @@ func (s *AttendanceStore) Get(id string) (*mongo.Cursor, error) {
 // Returns:
 // - *mongo.Cursor: A cursor to iterate over the retrieved attendance records.
 // - error: An error if the query operation fails.
-func (s *AttendanceStore) List(filter interface{}, limit int, page int) (*mongo.Cursor, error) {
+func (s *AttendanceStore) List(filter any, limit int, page int) (*mongo.Cursor, error) {
 	pipeline := bson.A{
 		bson.D{
 			{Key: "$lookup",

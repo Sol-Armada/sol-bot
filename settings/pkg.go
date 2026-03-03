@@ -3,6 +3,7 @@ package settings
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/sol-armada/sol-bot/stores"
@@ -235,10 +236,8 @@ func NewAttendanceTag(tag string) error {
 		return err
 	}
 
-	for _, t := range tags {
-		if t == tag {
-			return nil
-		}
+	if slices.Contains(tags, tag) {
+		return nil
 	}
 
 	tags = append(tags, strings.ToUpper(strings.ReplaceAll(tag, " ", "-")))
@@ -324,10 +323,8 @@ func NewAttendanceName(name string) error {
 		return err
 	}
 
-	for _, n := range names {
-		if n == name {
-			return nil
-		}
+	if slices.Contains(names, name) {
+		return nil
 	}
 
 	names = append(names, name)

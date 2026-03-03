@@ -58,8 +58,8 @@ type Hub struct {
 
 // Message represents a WebSocket message
 type Message struct {
-	Type string      `json:"type"`
-	Data interface{} `json:"data"`
+	Type string `json:"type"`
+	Data any    `json:"data"`
 }
 
 // NewHub creates a new Hub instance
@@ -178,7 +178,7 @@ func (c *Client) writePump() {
 
 			// Add queued messages to the current websocket message
 			n := len(c.send)
-			for i := 0; i < n; i++ {
+			for range n {
 				_, _ = w.Write([]byte{'\n'})
 				_, _ = w.Write(<-c.send)
 			}

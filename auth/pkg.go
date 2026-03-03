@@ -88,7 +88,7 @@ func Authenticate(code string) (*Access, error) {
 		return nil, errors.New(errMsg.ErrorType)
 	}
 
-	accessMap := map[string]interface{}{}
+	accessMap := map[string]any{}
 	if err := json.NewDecoder(resp.Body).Decode(&accessMap); err != nil {
 		return nil, err
 	}

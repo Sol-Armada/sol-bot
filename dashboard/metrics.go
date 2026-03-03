@@ -121,7 +121,7 @@ type ConfigItem struct {
 	Type         string    `json:"type"`
 	IsOverridden bool      `json:"is_overridden"`
 	UpdatedBy    string    `json:"updated_by,omitempty"`
-	UpdatedAt    time.Time `json:"updated_at,omitempty"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // collectMetrics gathers all dashboard metrics
@@ -593,11 +593,11 @@ func (d *Dashboard) collectGiveawayMetrics(ctx context.Context) (Giveaways, erro
 
 		for cur.Next(ctx) {
 			var giveaway struct {
-				ID      string                 `bson:"id"`
-				Name    string                 `bson:"name"`
-				Items   map[string]interface{} `bson:"items"`
-				EndTime time.Time              `bson:"end_time"`
-				Ended   bool                   `bson:"ended"`
+				ID      string         `bson:"id"`
+				Name    string         `bson:"name"`
+				Items   map[string]any `bson:"items"`
+				EndTime time.Time      `bson:"end_time"`
+				Ended   bool           `bson:"ended"`
 			}
 			if err := cur.Decode(&giveaway); err == nil {
 				info := GiveawayInfo{

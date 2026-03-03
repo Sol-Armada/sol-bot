@@ -21,14 +21,14 @@ func (g *Giveaway) GetEmbed() *discordgo.MessageEmbed {
 			}
 
 			members := item.Members
-			membersStr := ""
+			var membersStr strings.Builder
 			for _, member := range members {
-				membersStr += fmt.Sprintf("<@%s>\n", member)
+				fmt.Fprintf(&membersStr, "<@%s>\n", member)
 			}
 
 			field := &discordgo.MessageEmbedField{
 				Name:   fmt.Sprintf("Prize: %s", item.Name),
-				Value:  membersStr,
+				Value:  membersStr.String(),
 				Inline: true,
 			}
 			feilds = append(feilds, field)

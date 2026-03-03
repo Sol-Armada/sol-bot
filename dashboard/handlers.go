@@ -33,7 +33,7 @@ func (d *Dashboard) handleHome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title":   "Sol-Bot Dashboard",
 		"Page":    "home",
 		"Metrics": metrics,
@@ -55,7 +55,7 @@ func (d *Dashboard) handleMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title":   "Members - Sol-Bot Dashboard",
 		"Page":    "members",
 		"Metrics": metrics,
@@ -77,7 +77,7 @@ func (d *Dashboard) handleAttendance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title":   "Attendance - Sol-Bot Dashboard",
 		"Page":    "attendance",
 		"Metrics": metrics,
@@ -99,7 +99,7 @@ func (d *Dashboard) handleTokens(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title":   "Tokens - Sol-Bot Dashboard",
 		"Page":    "tokens",
 		"Metrics": metrics,
@@ -121,7 +121,7 @@ func (d *Dashboard) handleActivity(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title":   "Activity - Sol-Bot Dashboard",
 		"Page":    "activity",
 		"Metrics": metrics,
@@ -143,7 +143,7 @@ func (d *Dashboard) handleRaffles(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title":   "Raffles & Giveaways - Sol-Bot Dashboard",
 		"Page":    "raffles",
 		"Metrics": metrics,
@@ -197,9 +197,9 @@ func (d *Dashboard) handleMemberSearch(w http.ResponseWriter, r *http.Request) {
 	}
 	defer cur.Close(ctx)
 
-	var members []map[string]interface{}
+	var members []map[string]any
 	for cur.Next(ctx) {
-		var member map[string]interface{}
+		var member map[string]any
 		if err := cur.Decode(&member); err != nil {
 			d.logger.Error("failed to decode member", "error", err)
 			continue
@@ -223,7 +223,7 @@ func (d *Dashboard) handleConfigs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title":   "Configuration - Sol-Bot Dashboard",
 		"Page":    "configs",
 		"Metrics": metrics,
@@ -243,9 +243,9 @@ func (d *Dashboard) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Key       string      `json:"key"`
-		Value     interface{} `json:"value"`
-		UpdatedBy string      `json:"updated_by"`
+		Key       string `json:"key"`
+		Value     any    `json:"value"`
+		UpdatedBy string `json:"updated_by"`
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -321,7 +321,7 @@ func (d *Dashboard) handleConfigExport(w http.ResponseWriter, r *http.Request) {
 
 	// Get all overrides from MongoDB
 	configStore, ok := d.stores.GetConfigsStore()
-	var overrides []interface{}
+	var overrides []any
 	if ok {
 		ctx := context.Background()
 		cursor, err := configStore.GetAll()
@@ -336,7 +336,7 @@ func (d *Dashboard) handleConfigExport(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	exportData := map[string]interface{}{
+	exportData := map[string]any{
 		"timestamp": time.Now(),
 		"settings":  allSettings,
 		"overrides": overrides,
@@ -356,7 +356,7 @@ func (d *Dashboard) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data := map[string]interface{}{
+	data := map[string]any{
 		"Title": "Initial Setup - Sol-Bot Dashboard",
 	}
 
@@ -393,7 +393,7 @@ func (d *Dashboard) needsSetup() bool {
 // handleSetupCheck returns JSON indicating if setup is needed
 func (d *Dashboard) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	json.NewEncoder(w).Encode(map[string]any{
 		"needs_setup": d.needsSetup(),
 	})
 }

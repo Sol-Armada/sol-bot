@@ -261,7 +261,7 @@ func BulkSave(members []Member) error {
 		return nil
 	}
 
-	memberMaps := make([]interface{}, 0, len(members))
+	memberMaps := make([]any, 0, len(members))
 	now := time.Now().UTC()
 
 	for _, member := range members {
@@ -405,8 +405,8 @@ func (m *Member) Delete() error {
 	return membersStore.Delete(m.Id)
 }
 
-func (m *Member) ToMap() map[string]interface{} {
-	r := map[string]interface{}{}
+func (m *Member) ToMap() map[string]any {
+	r := map[string]any{}
 	b, _ := json.Marshal(m)
 	_ = json.Unmarshal(b, &r)
 	return r

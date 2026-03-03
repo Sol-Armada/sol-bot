@@ -57,7 +57,7 @@ func (s *MembersStore) GetList(ids []string) (*mongo.Cursor, error) {
 	})
 }
 
-func (s *MembersStore) GetRandom(max int, maxRank int) ([]map[string]interface{}, error) {
+func (s *MembersStore) GetRandom(max int, maxRank int) ([]map[string]any, error) {
 	cur, err := s.Aggregate(s.ctx, bson.A{
 		bson.D{
 			{Key: "$match",
@@ -77,9 +77,9 @@ func (s *MembersStore) GetRandom(max int, maxRank int) ([]map[string]interface{}
 		return nil, err
 	}
 
-	members := []map[string]interface{}{}
+	members := []map[string]any{}
 	for cur.Next(s.ctx) {
-		member := map[string]interface{}{}
+		member := map[string]any{}
 		if err := cur.Decode(&member); err != nil {
 			return nil, err
 		}
@@ -123,7 +123,7 @@ func (s *MembersStore) Delete(id string) error {
 	return s.FindOneAndDelete(s.ctx, bson.D{{Key: "_id", Value: id}}).Err()
 }
 
-func (s *MembersStore) BulkUpsert(members []interface{}) error {
+func (s *MembersStore) BulkUpsert(members []any) error {
 	if len(members) == 0 {
 		return nil
 	}
@@ -131,7 +131,7 @@ func (s *MembersStore) BulkUpsert(members []interface{}) error {
 	var operations []mongo.WriteModel
 
 	for _, member := range members {
-		memberMap, ok := member.(map[string]interface{})
+		memberMap, ok := member.(map[string]any)
 		if !ok {
 			continue
 		}
