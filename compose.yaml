@@ -1,22 +1,13 @@
 services:
   mongo1:
     image: mongo:latest
-    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
+    container_name: mongo-01
     networks:
-      - sol-bot
+      - sol-bot-network
     volumes:
       - mongo-01-data:/data/db
-      - mongo-01-conf:/data/config
     ports:
       - "27017:27017"
-    healthcheck:
-      test: |
-        echo "try { rs.status() } catch (e) { rs.initiate({_id:'rs0', members:[{_id:0,host:'mongo1:27017'},{_id:1,host:'mongo2:27017'},{_id:2,host:'mongo3:27017'}]}) }" | mongosh --port 27017 --quiet
-        exit 0
-      interval: 5s
-      timeout: 30s
-      start_period: 0s
-      retries: 30
     deploy:
       placement:
         constraints:
@@ -24,14 +15,11 @@ services:
 
   mongo2:
     image: mongo:latest
-    command: ["--replSet", "rs0", "--bind_ip_all"]
-    ports:
-      - "27018:27017"
+    container_name: mongo-02
     networks:
-      - sol-bot
+      - sol-bot-network
     volumes:
       - mongo-02-data:/data/db
-      - mongo-02-conf:/data/config
     deploy:
       placement:
         constraints:
@@ -39,52 +27,48 @@ services:
 
   mongo3:
     image: mongo:latest
-    command: ["--replSet", "rs0", "--bind_ip_all"]
-    ports:
-      - "27019:27017"
+    container_name: mongo-03
     networks:
-      - sol-bot
+      - sol-bot-network
     volumes:
       - mongo-03-data:/data/db
-      - mongo-03-conf:/data/config
     deploy:
       placement:
         constraints:
           - node.hostname == containers-03
 
   sol-bot:
-    image: ghcr.io/sol-armada/sol-bot:v1.11.0-beta-08
+    image: ghcr.io/sol-armada/sol-bot:latest
     container_name: sol-bot
-    ports:
-      - "8081:8080"
     networks:
-      - sol-bot
+      - sol-bot-network
     environment:
-      - REDIRECT_URI=${REDIRECT_URI}
-      - CLIENT_ID=${CLIENT_ID}
-      - CLIENT_SECRET=${CLIENT_SECRET}
-      - BOT_TOKEN=${BOT_TOKEN}
-      - GUILD_ID=${GUILD_ID}
-      - MONGO_HOST=${MONGO_HOST:-mongo1}
-      - MONGO_PORT=${MONGO_PORT:-27017}
-      - MONGO_DATABASE=${MONGO_DATABASE:-org}
-      - MONGO_REPLICA_SET_NAME=${MONGO_REPLICA_SET_NAME}
-      - LOG_CLI=${LOG_CLI}
-      - DEBUG=${DEBUG}
+      # MongoDB Connection Settings
+      MONGO_HOST: mongo1 # or use comma-separated list for replica set: mongo1,mongo2,mongo3
+      MONGO_PORT: 27017
+      # MONGO_USERNAME: ""  # uncomment and set if using authentication
+      # MONGO_PASSWORD: ""  # uncomment and set if using authentication
+      MONGO_DATABASE: solarmada
+      # MONGO_REPLICA_SET_NAME: ""  # uncomment and set if using replica set
+    configs:
+      - source: sol-bot-config
+        target: /app/settings.toml
+    depends_on:
+      - mongo1
+      - mongo2
+      - mongo3
     deploy:
-      mode: replicated
-      replicas: 1
+      mode: global
 
 networks:
-  sol-bot:
-    external: true
+  sol-bot-network:
     driver: overlay
-    attachable: true
 
 volumes:
   mongo-01-data:
   mongo-02-data:
   mongo-03-data:
-  mongo-01-conf:
-  mongo-02-conf:
-  mongo-03-conf:
+
+configs:
+  sol-bot-config:
+    file: ./settings.toml

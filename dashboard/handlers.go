@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/sol-armada/sol-bot/settings"
@@ -15,6 +16,12 @@ import (
 func (d *Dashboard) handleHome(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		http.NotFound(w, r)
+		return
+	}
+
+	// Check if initial setup is needed
+	if d.needsSetup() {
+		http.Redirect(w, r, "/setup", http.StatusTemporaryRedirect)
 		return
 	}
 
@@ -269,7 +276,7 @@ func (d *Dashboard) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("Config updated successfully"))
+	w.Write([]byte("Config updated successfully"))
 }
 
 // handleConfigReset handles resetting a configuration to default
@@ -305,7 +312,7 @@ func (d *Dashboard) handleConfigReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write([]byte("Config reset successfully"))
+	w.Write([]byte("Config reset successfully"))
 }
 
 // handleConfigExport handles exporting all configurations
@@ -339,4 +346,54 @@ func (d *Dashboard) handleConfigExport(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewEncoder(w).Encode(exportData); err != nil {
 		d.logger.Error("failed to encode export data", "error", err)
 	}
+}
+
+// handleSetup renders the initial setup page
+func (d *Dashboard) handleSetup(w http.ResponseWriter, r *http.Request) {
+	// If setup is already complete, redirect to dashboard
+	if !d.needsSetup() {
+		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
+		return
+	}
+
+	data := map[string]any{
+		"Title": "Initial Setup - Sol-Bot Dashboard",
+	}
+
+	if err := d.templates.ExecuteTemplate(w, "setup.html", data); err != nil {
+		d.logger.Error("failed to render setup template", "error", err)
+		http.Error(w, "Failed to render page", http.StatusInternalServerError)
+	}
+}
+
+// needsSetup checks if initial setup is required
+func (d *Dashboard) needsSetup() bool {
+	// Check if setup was completed
+	if settings.GetBoolWithDefault("setup_completed", false) {
+		return false
+	}
+
+	// Check critical Discord settings
+	criticalSettings := []string{
+		"CLIENT_ID",
+		"BOT_TOKEN",
+		"GUILD_ID",
+	}
+
+	for _, setting := range criticalSettings {
+		value := os.Getenv(setting)
+		if value == "" {
+			return true // Missing critical setting
+		}
+	}
+
+	return false
+}
+
+// handleSetupCheck returns JSON indicating if setup is needed
+func (d *Dashboard) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(map[string]any{
+		"needs_setup": d.needsSetup(),
+	})
 }

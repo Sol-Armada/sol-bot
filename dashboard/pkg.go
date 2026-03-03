@@ -100,6 +100,9 @@ func Shutdown(ctx context.Context) error {
 
 // registerRoutes sets up all HTTP routes
 func (d *Dashboard) registerRoutes(mux *http.ServeMux) {
+	// Setup page (must be first, no redirect)
+	mux.HandleFunc("/setup", d.handleSetup)
+	
 	// Pages
 	mux.HandleFunc("/", d.handleHome)
 	mux.HandleFunc("/members", d.handleMembers)
@@ -115,6 +118,7 @@ func (d *Dashboard) registerRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/configs/update", d.handleConfigUpdate)
 	mux.HandleFunc("/api/configs/reset", d.handleConfigReset)
 	mux.HandleFunc("/api/configs/export", d.handleConfigExport)
+	mux.HandleFunc("/api/setup/check", d.handleSetupCheck)
 
 	// WebSocket
 	mux.HandleFunc("/ws", d.handleWebSocket)
