@@ -109,24 +109,10 @@ func loadConfig() *Config {
 		port = settings.GetIntWithDefault("mongo.port", 27017)
 	}
 
-	mongoUsername := os.Getenv("MONGO_USERNAME")
-	if mongoUsername == "" {
-		panic("MONGO_USERNAME environment variable is required")
-	}
-
-	mongoPassword := os.Getenv("MONGO_PASSWORD")
-	if mongoPassword == "" {
-		panic("MONGO_PASSWORD environment variable is required")
-	}
-	// URL encode @ symbols in password
-	mongoPassword = strings.ReplaceAll(mongoPassword, "@", `%40`)
-
 	mongoDatabase := os.Getenv("MONGO_DATABASE")
 	if mongoDatabase == "" {
 		panic("MONGO_DATABASE environment variable is required")
 	}
-
-	mongoReplicaSet := os.Getenv("MONGO_REPLICA_SET_NAME")
 
 	return &Config{
 		Environment:          environment,
@@ -137,10 +123,10 @@ func loadConfig() *Config {
 		MongoConfig: MongoConfig{
 			Host:           mongoHost,
 			Port:           port,
-			Username:       mongoUsername,
-			Password:       mongoPassword,
+			Username:       os.Getenv("MONGO_USERNAME"),
+			Password:       strings.ReplaceAll(os.Getenv("MONGO_PASSWORD"), "@", `%40`),
 			Database:       mongoDatabase,
-			ReplicaSetName: mongoReplicaSet,
+			ReplicaSetName: os.Getenv("MONGO_REPLICA_SET_NAME"),
 		},
 		Features: FeatureConfig{
 			MonitorEnable:      settings.GetBoolWithDefault("FEATURES_MONITOR_ENABLE", false),
