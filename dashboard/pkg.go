@@ -1,15 +1,16 @@
 package dashboard
 
 import (
+	"cmp"
 	"context"
 	"embed"
 	"fmt"
 	"html/template"
 	"log/slog"
 	"net/http"
+	"os"
 	"time"
 
-	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/stores"
 )
 
@@ -55,8 +56,8 @@ func Start(ctx context.Context) error {
 		return fmt.Errorf("dashboard not initialized, call Setup() first")
 	}
 
-	port := settings.GetIntWithDefault("DASHBOARD.PORT", 8080)
-	addr := fmt.Sprintf(":%d", port)
+	port := cmp.Or(os.Getenv("DASHBOARD_PORT"), "8080")
+	addr := fmt.Sprintf(":%s", port)
 
 	mux := http.NewServeMux()
 	dashboard.registerRoutes(mux)
@@ -102,7 +103,7 @@ func Shutdown(ctx context.Context) error {
 func (d *Dashboard) registerRoutes(mux *http.ServeMux) {
 	// Setup page (must be first, no redirect)
 	mux.HandleFunc("/setup", d.handleSetup)
-	
+
 	// Pages
 	mux.HandleFunc("/", d.handleHome)
 	mux.HandleFunc("/members", d.handleMembers)

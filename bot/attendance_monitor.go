@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -16,7 +17,7 @@ func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan str
 	logger = logger.With("func", "bot.MonitorAttendance")
 	logger.Info("monitoring attendance")
 
-	attendanceChannelId := settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
+	attendanceChannelId := settings.GetString("ATTENDANCE_CHANNEL_ID")
 	if attendanceChannelId == "" {
 		logger.Error("attendance channel id not set in settings")
 		return
@@ -31,6 +32,11 @@ func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan str
 			logger.Warn("stopping monitor")
 			return
 		case <-ticker.C:
+		}
+
+		if needsSetup() {
+			logger.Warn("initial setup not complete, skipping attendance check")
+			continue
 		}
 
 		attendanceMessages := []*discordgo.Message{}
@@ -65,4 +71,36 @@ func MonitorAttendance(ctx context.Context, logger *slog.Logger, stop <-chan str
 
 		<-ticker.C
 	}
+}
+
+// needsSetup checks if initial setup is required
+func needsSetup() bool {
+	// Check if setup was completed
+	if settings.GetBoolWithDefault("setup_completed", false) {
+		return false
+	}
+
+	// Check critical Discord settings
+	criticalSettings := []string{
+		"RSI_ORG_ID",
+		"RECRUIT_ROLE_ID",
+		"ALLY_ROLE_ID",
+		"MEMBER_ROLE_ID",
+		"TECHNICIAN_ROLE_ID",
+		"SPECIALIST_ROLE_ID",
+		"LIEUTENANT_ROLE_ID",
+		"COMMANDER_ROLE_ID",
+		"ADMIRAL_ROLE_ID",
+		"RSI_TOKEN",
+		"RSI_DEVICE",
+	}
+
+	for _, setting := range criticalSettings {
+		value := os.Getenv(setting)
+		if value == "" {
+			return true // Missing critical setting
+		}
+	}
+
+	return false
 }

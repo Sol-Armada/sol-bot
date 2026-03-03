@@ -320,15 +320,15 @@ func ValidateDiscordMembers(discordMembers []*discordgo.Member) []*discordgo.Mem
 func hasRankRole(roles []string) bool {
 	return slices.ContainsFunc(roles, func(role string) bool {
 		switch role {
-		case settings.GetString("DISCORD.ROLE_IDS.ALLY"),
-			settings.GetString("DISCORD.ROLE_IDS.RECRUIT"),
-			settings.GetString("DISCORD.ROLE_IDS.AFFILIATE"),
-			settings.GetString("DISCORD.ROLE_IDS.MEMBER"),
-			settings.GetString("DISCORD.ROLE_IDS.TECHNICIAN"),
-			settings.GetString("DISCORD.ROLE_IDS.SPECIALIST"),
-			settings.GetString("DISCORD.ROLE_IDS.LIEUTENANT"),
-			settings.GetString("DISCORD.ROLE_IDS.COMMANDER"),
-			settings.GetString("DISCORD.ROLE_IDS.ADMIRAL"):
+		case settings.GetString("ALLY_ROLE_ID"),
+			settings.GetString("RECRUIT_ROLE_ID"),
+			settings.GetString("AFFILIATE_ROLE_ID"),
+			settings.GetString("MEMBER_ROLE_ID"),
+			settings.GetString("TECHNICIAN_ROLE_ID"),
+			settings.GetString("SPECIALIST_ROLE_ID"),
+			settings.GetString("LIEUTENANT_ROLE_ID"),
+			settings.GetString("COMMANDER_ROLE_ID"),
+			settings.GetString("ADMIRAL_ROLE_ID"):
 			return true
 		default:
 			return false
@@ -513,8 +513,8 @@ func (m *Member) IsOfficer() bool {
 }
 
 func (m *Member) UpdateRoles(discordRoles []string) {
-	recruitRoleID := settings.GetString("DISCORD.ROLE_IDS.RECRUIT")
-	allyRoleID := settings.GetString("DISCORD.ROLE_IDS.ALLY")
+	recruitRoleID := settings.GetString("RECRUIT_ROLE_ID")
+	allyRoleID := settings.GetString("ALLY_ROLE_ID")
 
 	roleMap := createRoleMap(discordRoles)
 

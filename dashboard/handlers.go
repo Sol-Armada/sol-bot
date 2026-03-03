@@ -5,10 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 
 	"github.com/sol-armada/sol-bot/settings"
+	"github.com/sol-armada/sol-bot/utils"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -20,7 +20,7 @@ func (d *Dashboard) handleHome(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Check if initial setup is needed
-	if d.needsSetup() {
+	if utils.NeedsSetup() {
 		http.Redirect(w, r, "/setup", http.StatusTemporaryRedirect)
 		return
 	}
@@ -351,7 +351,7 @@ func (d *Dashboard) handleConfigExport(w http.ResponseWriter, r *http.Request) {
 // handleSetup renders the initial setup page
 func (d *Dashboard) handleSetup(w http.ResponseWriter, r *http.Request) {
 	// If setup is already complete, redirect to dashboard
-	if !d.needsSetup() {
+	if !utils.NeedsSetup() {
 		http.Redirect(w, r, "/", http.StatusTemporaryRedirect)
 		return
 	}
@@ -366,34 +366,10 @@ func (d *Dashboard) handleSetup(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// needsSetup checks if initial setup is required
-func (d *Dashboard) needsSetup() bool {
-	// Check if setup was completed
-	if settings.GetBoolWithDefault("setup_completed", false) {
-		return false
-	}
-
-	// Check critical Discord settings
-	criticalSettings := []string{
-		"CLIENT_ID",
-		"BOT_TOKEN",
-		"GUILD_ID",
-	}
-
-	for _, setting := range criticalSettings {
-		value := os.Getenv(setting)
-		if value == "" {
-			return true // Missing critical setting
-		}
-	}
-
-	return false
-}
-
 // handleSetupCheck returns JSON indicating if setup is needed
 func (d *Dashboard) handleSetupCheck(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"needs_setup": d.needsSetup(),
+		"needs_setup": utils.NeedsSetup(),
 	})
 }
