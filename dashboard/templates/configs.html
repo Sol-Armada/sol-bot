@@ -160,7 +160,7 @@
             const response = await fetch('/api/configs/update', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ key, value, updated_by: updatedBy })
+                body: JSON.stringify({ key, value, updated_by: updatedBy, type: document.getElementById('edit-type-hint').textContent.replace('Type: ', '') })
             });
 
             if (response.ok) {

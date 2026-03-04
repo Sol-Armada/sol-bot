@@ -448,16 +448,12 @@ func (app *Application) initializeScheduler() error {
 	app.scheduler.Start()
 
 	// Schedule member monitoring if enabled
-	if settings.GetBool("MONITOR_MEMBERS") {
-		logger.Info("scheduling member monitor job")
-		if err := app.scheduleMemberMonitor(); err != nil {
-			logger.Error("failed to schedule member monitor", "error", err)
-			return fmt.Errorf("failed to schedule member monitor: %w", err)
-		}
-		logger.Info("member monitor job scheduled successfully")
-	} else {
-		logger.Info("member monitoring disabled")
+	logger.Info("scheduling member monitor job")
+	if err := app.scheduleMemberMonitor(); err != nil {
+		logger.Error("failed to schedule member monitor", "error", err)
+		return fmt.Errorf("failed to schedule member monitor: %w", err)
 	}
+	logger.Info("member monitor job scheduled successfully")
 
 	// Schedule status message updates
 	logger.Info("scheduling status update job")
@@ -509,7 +505,7 @@ func (app *Application) scheduleMemberMonitor() error {
 
 	logger.Info("scheduling member monitor")
 	j, err := app.scheduler.NewJob(
-		gocron.CronJob("*/30 * * * *", false),
+		gocron.CronJob("* * * * *", false),
 		gocron.NewTask(func(ctx context.Context) error {
 			return bot.MemberMonitor(ctx, monitorLogger)
 		}),

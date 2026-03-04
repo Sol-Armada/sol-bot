@@ -643,50 +643,31 @@ func (d *Dashboard) collectConfigMetrics(ctx context.Context) ([]ConfigItem, err
 		Key  string
 		Type string
 	}{
-		// Log configs
-		{"log.debug", "boolean"},
-		{"log.cli", "boolean"},
-		{"log.file", "string"},
-
-		// Feature configs
-		{"features.monitor.enable", "boolean"},
-		{"features.merit.enable", "boolean"},
-		{"features.attendance.enable", "boolean"},
-		{"features.onboarding.enable", "boolean"},
-		{"features.activity_tracking.enable", "boolean"},
-		{"features.tokens.enable", "boolean"},
-		{"features.raffles.enable", "boolean"},
-		{"features.giveaways.enable", "boolean"},
-
-		// Discord configs (non-sensitive)
-		{"discord.guild_id", "string"},
-		{"discord.error_channel_id", "string"},
-		{"discord.channels.event_singup", "string"},
-
 		// Attendance configs
-		{"features.attendance.channel_id", "string"},
-		{"features.attendance.allowed_roles", "array"},
+		{"attendance_channel_id", "string"},
+		{"attendance_allowed_roles", "array"},
 
 		// Onboarding configs
-		{"features.onboarding.input_channel_id", "string"},
-		{"features.onboarding.output_channel_id", "string"},
+		{"onboarding_channel_id", "string"},
+		{"onboarding_report_channel_id", "string"},
 
 		// Activity tracking configs
-		{"features.activity_tracking.afk_channel_id", "string"},
-
-		// Dashboard config
-		{"dashboard.port", "string"},
-
-		// Mongo configs (non-sensitive)
-		{"mongo.host", "string"},
-		{"mongo.port", "string"},
-		{"mongo.database", "string"},
+		{"afk_channel_id", "string"},
 
 		// Org configs
 		{"rsi_org_sid", "string"},
 		{"allies", "array"},
 		{"enemies", "array"},
-		{"ally_role", "string"},
+
+		// Role IDs
+		{"admiral_role_id", "string"},
+		{"commander_role_id", "string"},
+		{"lieutenant_role_id", "string"},
+		{"specialist_role_id", "string"},
+		{"technician_role_id", "string"},
+		{"member_role_id", "string"},
+		{"recruit_role_id", "string"},
+		{"ally_role_id", "string"},
 	}
 
 	// Get all configs from MongoDB
@@ -740,8 +721,6 @@ func (d *Dashboard) collectConfigMetrics(ctx context.Context) ([]ConfigItem, err
 			if updatedAt, ok := mongoDoc["updated_at"].(time.Time); ok {
 				item.UpdatedAt = updatedAt
 			}
-			// Default value would be from TOML, but we don't track it here
-			item.DefaultValue = "(from TOML)"
 		} else {
 			item.IsOverridden = false
 			item.DefaultValue = item.Value
