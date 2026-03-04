@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/sol-armada/sol-bot/settings"
@@ -244,12 +246,42 @@ func (d *Dashboard) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 
 	var req struct {
 		Key       string `json:"key"`
-		Value     any    `json:"value"`
+		Value     string `json:"value"`
 		UpdatedBy string `json:"updated_by"`
+		Type      string `json:"type"` // "string", "number", "boolean"
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	var value any
+	var err error
+	switch req.Type {
+	case "number":
+		value, err = strconv.Atoi(req.Value)
+		if err != nil {
+			http.Error(w, "Invalid value type for number", http.StatusBadRequest)
+			return
+		}
+	case "boolean":
+		value, err = strconv.ParseBool(req.Value)
+		if err != nil {
+			http.Error(w, "Invalid value type for boolean", http.StatusBadRequest)
+			return
+		}
+	case "string":
+		value = req.Value
+	case "array":
+		var arr []string
+		arr = strings.Split(req.Value, ",")
+		for i := range arr {
+			arr[i] = strings.TrimSpace(arr[i])
+		}
+		value = arr
+	default:
+		http.Error(w, "Invalid type specified", http.StatusBadRequest)
 		return
 	}
 
@@ -263,7 +295,7 @@ func (d *Dashboard) handleConfigUpdate(w http.ResponseWriter, r *http.Request) {
 	// Store the config override in MongoDB
 	override := bson.M{
 		"name":       req.Key,
-		"value":      req.Value,
+		"value":      value,
 		"override":   true,
 		"updated_by": req.UpdatedBy,
 		"updated_at": time.Now(),

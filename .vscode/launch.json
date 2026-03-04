@@ -11,6 +11,7 @@
             "mode": "auto",
             "cwd": "${workspaceFolder}",
             "program": "./cmd/",
+            "envFile": "${workspaceFolder}/.env",
         },
     ],
 }

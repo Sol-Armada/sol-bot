@@ -282,15 +282,8 @@ func (app *Application) start() error {
 		}
 	}
 
-	clientId := os.Getenv("CLIENT_ID")
-	botToken := os.Getenv("BOT_TOKEN")
-	guildId := os.Getenv("GUILD_ID")
-
 	// Check if initial setup is required
-	setupNeeded := !settings.GetBoolWithDefault("setup_completed", false) ||
-		clientId == "" ||
-		botToken == "" ||
-		guildId == ""
+	setupNeeded := !settings.GetBoolWithDefault("setup_completed", false)
 
 	if setupNeeded {
 		logger.Warn("initial setup required - starting dashboard only")

@@ -156,7 +156,7 @@
         </div>
 
         <!-- Step 1: Organization Configuration -->
-        <article class="setup-content" data-step="1">
+        <article class="setup-content active" data-step="1">
             <header><strong>Step 1: Organization Settings</strong></header>
             <p>Configure your Star Citizen organization details (optional but recommended).</p>
 
@@ -165,12 +165,6 @@
                     RSI Organization SID
                     <input type="text" name="rsi_org_sid" placeholder="YOURORG">
                     <small class="help-text">Your organization's spectrum identifier (e.g., SOLARMADA)</small>
-                </label>
-
-                <label>
-                    Ally Role ID
-                    <input type="text" name="ally_role" placeholder="1234567890123456789">
-                    <small class="help-text">Discord role ID for ally members</small>
                 </label>
 
                 <label>
@@ -316,7 +310,7 @@
             let html = '<table><tbody>';
 
             const sections = [
-                { title: 'Organization', keys: ['rsi_org_sid', 'ally_role', 'allies', 'enemies', 'attendance_channel_id', 'onboarding_channel_id', 'onboarding_report_channel_id', 'error_channel_id'] }
+                { title: 'Organization', keys: ['rsi_org_sid', 'allies', 'enemies', 'attendance_channel_id', 'onboarding_channel_id', 'onboarding_report_channel_id', 'error_channel_id'] }
             ];
 
             sections.forEach(section => {
@@ -346,27 +340,14 @@
             try {
                 // Save all configurations
                 const configs = [
-                    { key: 'rsi_org_sid', value: configData.rsi_org_sid || '' },
-                    { key: 'ally_role', value: configData.ally_role || '' },
-                    { key: 'attendance_channel_id', value: configData.attendance_channel_id || '' },
-                    { key: 'onboarding_channel_id', value: configData.onboarding_channel_id || '' },
-                    { key: 'onboarding_report_channel_id', value: configData.onboarding_report_channel_id || '' },
-                    { key: 'error_channel_id', value: configData.error_channel_id || '' }
+                    { key: 'rsi_org_sid', value: configData.rsi_org_sid || '', type: 'string' },
+                    { key: 'attendance_channel_id', value: configData.attendance_channel_id || '', type: 'string' },
+                    { key: 'onboarding_channel_id', value: configData.onboarding_channel_id || '', type: 'string' },
+                    { key: 'onboarding_report_channel_id', value: configData.onboarding_report_channel_id || '', type: 'string' },
+                    { key: 'error_channel_id', value: configData.error_channel_id || '', type: 'string' },
+                    { key: 'allies', value: configData.allies || '', type: 'array' },
+                    { key: 'enemies', value: configData.enemies || '', type: 'array' }
                 ];
-
-                // Handle arrays
-                if (configData.allies) {
-                    configs.push({
-                        key: 'allies',
-                        value: configData.allies.split(',').map(s => s.trim()).filter(s => s)
-                    });
-                }
-                if (configData.enemies) {
-                    configs.push({
-                        key: 'enemies',
-                        value: configData.enemies.split(',').map(s => s.trim()).filter(s => s)
-                    });
-                }
 
                 // Save each config
                 for (const config of configs) {
@@ -378,6 +359,7 @@
                         body: JSON.stringify({
                             key: config.key,
                             value: config.value,
+                            type: config.type,
                             updated_by: 'setup_wizard'
                         })
                     });
@@ -392,8 +374,9 @@
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        key: 'setup.completed',
+                        key: 'setup_completed',
                         value: 'true',
+                        type: 'boolean',
                         updated_by: 'setup_wizard'
                     })
                 });
