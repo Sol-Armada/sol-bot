@@ -22,7 +22,10 @@ func stayedSelectHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		return err
 	}
 
-	attendanceMessage := attendance.ToDiscordMessage()
+	attendanceMessage, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return err
+	}
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel:    attendance.ChannelId,

@@ -182,28 +182,11 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 	})
 	// end remove member from attendance record
 
-	// // revert attendance record
-	// subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-	// 	Type:        discordgo.ApplicationCommandOptionSubCommand,
-	// 	Name:        "revert",
-	// 	Description: "revert an attendance record",
-	// 	Options: []*discordgo.ApplicationCommandOption{
-	// 		{
-	// 			Name:         "event",
-	// 			Description:  "The event to revert",
-	// 			Type:         discordgo.ApplicationCommandOptionString,
-	// 			Required:     true,
-	// 			Autocomplete: true,
-	// 		},
-	// 	},
-	// })
-	// // end revert attendance record
-
 	// refresh attendance records
 	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "refresh",
-		Description: "refresh the last 10 attendance records",
+		Description: "refresh the last 3 attendance records",
 	})
 	// end refresh attendance records
 
@@ -227,7 +210,7 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
 		Type:        discordgo.ApplicationCommandOptionSubCommand,
 		Name:        "remove_event_name",
-		Description: "remove an event name to the available list",
+		Description: "remove an event name from the available list",
 		Options: []*discordgo.ApplicationCommandOption{
 			{
 				Name:         "name",

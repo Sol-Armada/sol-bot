@@ -78,6 +78,20 @@ func distributeModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 		return err
 	}
 
+	attendanceMessage, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return err
+	}
+
+	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		Channel:    attendance.ChannelId,
+		ID:         attendance.MessageId,
+		Components: &attendanceMessage.Components,
+		Embeds:     &attendanceMessage.Embeds,
+	}); err != nil {
+		return err
+	}
+
 	for _, msg := range distributedTo {
 		fmt.Fprintf(&content, "\n%s", msg)
 	}

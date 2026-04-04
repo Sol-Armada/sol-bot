@@ -70,7 +70,11 @@ func addMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	attandanceMessage := attendance.ToDiscordMessage()
+	attandanceMessage, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return errors.Wrap(err, "creating attendance message")
+	}
+
 	if _, err := s.ChannelMessageEditEmbeds(attendance.ChannelId, attendance.MessageId, attandanceMessage.Embeds); err != nil {
 		return errors.Wrap(err, "sending attendance message")
 	}

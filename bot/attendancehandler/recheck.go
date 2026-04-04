@@ -33,7 +33,10 @@ func recheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 		return errors.Wrap(err, "rechecking issues for attendance record")
 	}
 
-	message := attendance.ToDiscordMessage()
+	message, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return errors.Wrap(err, "creating attendance message")
+	}
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel: attendance.ChannelId,

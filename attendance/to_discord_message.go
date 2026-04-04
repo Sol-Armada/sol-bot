@@ -9,9 +9,10 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/tokens"
 )
 
-func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
+func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 	name := fmt.Sprintf("Attendees (%d)", len(a.Members))
 	fields := []*discordgo.MessageEmbedField{
 		{
@@ -61,8 +62,17 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			return false
 		})
 
-		fields[1].Value = ""
+		tokenRecords, err := tokens.GetByAttendanceId(a.Id)
+		if err != nil {
+			return nil, err
+		}
 
+		tokenRecordsMap := make(map[string][]tokens.TokenRecord)
+		for _, r := range tokenRecords {
+			tokenRecordsMap[r.MemberId] = append(tokenRecordsMap[r.MemberId], r)
+		}
+
+		var row strings.Builder
 		for i, member := range a.Members {
 			// for every 10 members, make a new field
 			if i%10 == 0 && i != 0 {
@@ -74,20 +84,35 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 			}
 
 			field := fields[len(fields)-1]
-			field.Value += "<@" + member.Id + ">"
+			row.WriteString("<@" + member.Id + ">")
 
-			if a.IsFromStart(member) && a.Tokenable {
-				if a.TheyStayed(member) {
-					field.Value += " 🌟"
-				} else {
-					field.Value += " ⭐"
+			if tokenRecords, ok := tokenRecordsMap[member.Id]; ok {
+				for i, r := range tokenRecords {
+					if i == 0 {
+						row.WriteString(" (")
+					}
+					if r.Amount <= 0 {
+						continue
+					}
+					row.WriteString("" + strconv.Itoa(r.Amount))
+					if i != len(tokenRecords)-1 {
+						row.WriteString(" + ")
+					}
+					if i == len(tokenRecords)-1 {
+						row.WriteString(")")
+					}
 				}
 			}
 
 			// if not the 10th, add a new line
 			if i%10 != 9 {
-				field.Value += "\n"
+				row.WriteString("\n")
 			}
+			fields = append(fields[:len(fields)-1], &discordgo.MessageEmbedField{
+				Name:   field.Name,
+				Value:  row.String(),
+				Inline: true,
+			})
 		}
 	}
 
@@ -131,20 +156,12 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 		})
 	}
 
-	var footer *discordgo.MessageEmbedFooter
-	if a.Tokenable {
-		footer = &discordgo.MessageEmbedFooter{
-			Text: "⭐ joined from the start | 🌟 stayed entire event",
-		}
-	}
-
 	embeds := []*discordgo.MessageEmbed{
 		{
 			Title:       a.Name,
 			Description: a.Id,
 			Timestamp:   a.DateCreated.Format(time.RFC3339),
 			Fields:      fields,
-			Footer:      footer,
 		},
 	}
 
@@ -263,5 +280,5 @@ func (a *Attendance) ToDiscordMessage() *discordgo.MessageSend {
 	return &discordgo.MessageSend{
 		Embeds:     embeds,
 		Components: components,
-	}
+	}, nil
 }

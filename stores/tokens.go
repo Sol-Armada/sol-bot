@@ -113,3 +113,15 @@ func (s *TokenStore) GetByMemberIdAndAttendanceId(memberId, attendanceId string)
 	}
 	return cursor, nil
 }
+
+func (s *TokenStore) GetByAttendanceId(attendanceId string) (*mongo.Cursor, error) {
+	filter := bson.D{
+		{Key: "attendance_id", Value: attendanceId},
+	}
+
+	cursor, err := s.Find(s.ctx, filter)
+	if err != nil {
+		return nil, err
+	}
+	return cursor, nil
+}

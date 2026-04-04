@@ -58,7 +58,10 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 		fmt.Fprintf(&content, "\n<@%s> has received %d Tokens", member.Id, amount)
 	}
 
-	attendanceMessage := attendance.ToDiscordMessage()
+	attendanceMessage, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return err
+	}
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel:    attendance.ChannelId,

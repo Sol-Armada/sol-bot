@@ -88,7 +88,11 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	attandanceMessage := attendance.ToDiscordMessage()
+	attandanceMessage, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return errors.Wrap(err, "creating attendance message")
+	}
+
 	message, err := s.ChannelMessageSendComplex(attendance.ChannelId, attandanceMessage)
 	if err != nil {
 		return errors.Wrap(err, "sending attendance message")

@@ -282,15 +282,6 @@ func (a *Attendance) AddPayout(total, perMember, orgTake int64) error {
 	return a.Save()
 }
 
-func (a *Attendance) IsFromStart(m *members.Member) bool {
-	for _, memberId := range a.FromStart {
-		if memberId == m.Id {
-			return true
-		}
-	}
-	return false
-}
-
 func (a *Attendance) TheyStayed(m *members.Member) bool {
 	for _, memberId := range a.Stayed {
 		if memberId == m.Id {

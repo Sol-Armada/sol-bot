@@ -103,7 +103,11 @@ func AddPayoutModalHandler(ctx context.Context, s *discordgo.Session, i *discord
 		return err
 	}
 
-	m := attendance.ToDiscordMessage()
+	m, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return errors.Wrap(err, "creating attendance message")
+	}
+
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel:    i.ChannelID,
 		ID:         i.Message.ID,

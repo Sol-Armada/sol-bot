@@ -88,6 +88,24 @@ func GetAllGrouped() (map[string][]TokenRecord, error) {
 	return tokenRecords, nil
 }
 
+func GetByAttendanceId(attendanceId string) ([]TokenRecord, error) {
+	cur, err := tokenStore.GetByAttendanceId(attendanceId)
+	if err != nil {
+		return nil, err
+	}
+
+	var tokenRecords []TokenRecord
+	for cur.Next(context.TODO()) {
+		var d TokenRecord
+		if err := cur.Decode(&d); err != nil {
+			return nil, err
+		}
+		tokenRecords = append(tokenRecords, d)
+	}
+
+	return tokenRecords, nil
+}
+
 func GetByMemberIdAndAttendanceId(memberId, attendanceId string) ([]TokenRecord, error) {
 	cur, err := tokenStore.GetByMemberIdAndAttendanceId(memberId, attendanceId)
 	if err != nil {

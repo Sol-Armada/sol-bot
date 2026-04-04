@@ -32,7 +32,11 @@ func recordButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		return errors.Wrap(err, "recording attendance for attendance record")
 	}
 
-	attendanceMessage := attendance.ToDiscordMessage()
+	attendanceMessage, err := attendance.ToDiscordMessage()
+	if err != nil {
+		return errors.Wrap(err, "creating attendance message")
+	}
+
 	_, _ = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel:    attendance.ChannelId,
 		ID:         attendance.MessageId,

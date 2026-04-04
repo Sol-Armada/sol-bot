@@ -36,7 +36,11 @@ func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}
 
 	for idx, a := range attendance {
-		msg := a.ToDiscordMessage()
+		msg, err := a.ToDiscordMessage()
+		if err != nil {
+			return errors.Wrap(err, "creating attendance message")
+		}
+
 		if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 			Channel:    a.ChannelId,
 			ID:         a.MessageId,
