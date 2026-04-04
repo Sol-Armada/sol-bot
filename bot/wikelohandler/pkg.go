@@ -261,3 +261,7 @@ func (w *WikeloCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		Type:        discordgo.ChatApplicationCommand,
 	}, nil
 }
+
+func (c *WikeloCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

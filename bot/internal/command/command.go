@@ -20,6 +20,7 @@ type Command struct {
 type ApplicationCommand interface {
 	Name() string
 	Setup() (*discordgo.ApplicationCommand, error)
+	SetupAliases() ([]*discordgo.ApplicationCommand, error)
 
 	OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error
 	OnAfter(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error

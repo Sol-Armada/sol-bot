@@ -40,6 +40,7 @@ type StoreRegistry struct {
 	kanban     *KanbanStore
 	commands   *CommandsStore
 	giveaways  *GiveawaysStore
+	blueprints *BlueprintStore
 }
 
 // Store accessor methods
@@ -103,6 +104,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 	kanbanStore := newKanbanStore(ctx, mongoClient, database)
 	commandsStore := newCommandsStore(ctx, mongoClient, database)
 	giveawaysStore := newGiveawaysStore(ctx, mongoClient, database)
+	BlueprintStore := newBlueprintStore(ctx, mongoClient, database)
 
 	storeRegistry := &StoreRegistry{
 		members:    membersStore,
@@ -115,6 +117,7 @@ func New(ctx context.Context, host string, port int, username, password, databas
 		kanban:     kanbanStore,
 		commands:   commandsStore,
 		giveaways:  giveawaysStore,
+		blueprints: BlueprintStore,
 	}
 
 	newClient := &Client{

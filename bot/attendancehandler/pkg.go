@@ -248,6 +248,10 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 	}, nil
 }
 
+func (c *AttendanceCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}
+
 func (c *AttendanceCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return nil
 }

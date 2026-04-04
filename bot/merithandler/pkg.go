@@ -117,3 +117,7 @@ func (m *MeritCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		},
 	}, nil
 }
+
+func (c *MeritCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

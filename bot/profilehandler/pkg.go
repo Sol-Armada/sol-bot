@@ -322,3 +322,7 @@ func (c *ProfileCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		},
 	}, nil
 }
+
+func (c *ProfileCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

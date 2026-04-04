@@ -159,3 +159,7 @@ func (r *RaffleCommand) OnError(ctx context.Context, s *discordgo.Session, i *di
 func (r *RaffleCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	return nil
 }
+
+func (c *RaffleCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

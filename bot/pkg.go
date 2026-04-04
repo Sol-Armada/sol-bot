@@ -10,6 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
+	"github.com/sol-armada/sol-bot/bot/blueprinthandler"
 	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
 	helphandler "github.com/sol-armada/sol-bot/bot/helpHandler"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
@@ -48,11 +49,16 @@ var commands = map[string]command.ApplicationCommand{
 	"tokens":     tokenshandler.New(),
 	"help":       helphandler.New(),
 	"rankups":    rankupshandler.New(),
+	"blueprint":  blueprinthandler.New(),
 
 	// "merit":      merithandler.New(),
 	// "demerit":    demerithandler.New(),
 	// "wikelo":     wikelohandler.New(),
 	// "yourelate":  yourelatehandler.New(),
+}
+
+var aliases = map[string]command.ApplicationCommand{
+	"bp": commands["blueprint"],
 }
 
 var onboardingButtonHanlders = map[string]Handler{
@@ -147,6 +153,25 @@ func (b *Bot) Setup() error {
 
 		if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, cmdData); err != nil {
 			return errors.Wrap(err, "creating command")
+		}
+
+		aliases, err := cmd.SetupAliases()
+		if err != nil {
+			return errors.Wrap(err, "setting up command aliases")
+		}
+
+		if len(aliases) > 0 {
+			continue
+		}
+
+		b.logger.Debug("setting up command aliases", "command", cmd.Name(), "aliases", len(aliases))
+
+		for _, alias := range aliases {
+			b.logger.Debug("creating command alias", "command", cmd.Name(), "alias", alias.Name)
+
+			if _, err := b.ApplicationCommandCreate(b.ClientId, b.GuildId, alias); err != nil {
+				return errors.Wrap(err, "creating command alias")
+			}
 		}
 	}
 
@@ -255,6 +280,44 @@ func (b *Bot) Setup() error {
 
 			return
 		}
+
+		if cmd, ok := aliases[commandName]; ok {
+			if err := command.RunCommand(ctx, cmd, s, i); err != nil {
+				logger.Error("running command alias", "alias", commandName, "error", err)
+				if _, err := b.ChannelMessageSendComplex(settings.GetString("DISCORD.ERROR_CHANNEL_ID"), &discordgo.MessageSend{
+					Embeds: []*discordgo.MessageEmbed{
+						{
+							Title:       "Error",
+							Description: err.Error(),
+							Fields: []*discordgo.MessageEmbedField{
+								{Name: "Who ran the command", Value: i.Member.User.Mention(), Inline: false},
+								{Name: "Command Alias", Value: commandName, Inline: true},
+							},
+						},
+					},
+				}); err != nil {
+					logger.Error("sending error message", "error", err)
+					return
+				}
+
+				if i.Type != discordgo.InteractionMessageComponent {
+					msg, err := s.InteractionResponse(i.Interaction)
+					if err != nil {
+						logger.Error("getting interaction response", "error", err)
+						return
+					}
+
+					if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
+						Content: new("I ran into an error! You didn't do anything wrong. I have notified the right people and hopfully this gets fixed."),
+					}); err != nil {
+						logger.Error("editing followup message", "error", err)
+					}
+				}
+			}
+			return
+		}
+
+		logger.Warn("no command found for interaction", "interaction_type", i.Type, "command_name", commandName)
 
 		switch i.Type {
 		case discordgo.InteractionMessageComponent:

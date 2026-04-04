@@ -175,6 +175,10 @@ func (g *GiveawayCommand) Setup() (*discordgo.ApplicationCommand, error) {
 	}, nil
 }
 
+func (c *GiveawayCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}
+
 func checkExists(ctx context.Context, i *discordgo.InteractionCreate) bool {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("giveaway check exists")

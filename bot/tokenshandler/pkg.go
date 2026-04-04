@@ -176,3 +176,7 @@ func (t *TokensCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		Options:     tokensCommandOptions,
 	}, nil
 }
+
+func (c *TokensCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

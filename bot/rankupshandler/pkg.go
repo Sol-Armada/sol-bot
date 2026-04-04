@@ -179,3 +179,7 @@ func (r *RankupsCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		Description: "Rank up your RSI profile",
 	}, nil
 }
+
+func (c *RankupsCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

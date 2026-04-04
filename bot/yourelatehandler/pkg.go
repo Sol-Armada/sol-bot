@@ -151,3 +151,7 @@ func (y *YoureLateCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		},
 	}, nil
 }
+
+func (c *YoureLateCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

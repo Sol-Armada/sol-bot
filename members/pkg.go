@@ -52,6 +52,8 @@ type Member struct {
 	Merits   []*Merit   `json:"merits" bson:"merits"`
 	Demerits []*Demerit `json:"demerits" bson:"demerits"`
 
+	BlueprintIds []string `json:"blueprintIds" bson:"blueprintIds"`
+
 	// onboarding info
 	OnboardedAt *time.Time     `json:"onboarded_at" bson:"onboarded_at"`
 	Age         int            `json:"age" bson:"age"`
@@ -185,6 +187,29 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 
 func List(page int) ([]Member, error) {
 	cur, err := membersStore.List(bson.D{{Key: "is_bot", Value: bson.D{{Key: "$eq", Value: false}}}}, page, 100)
+	if err != nil {
+		return nil, err
+	}
+
+	members := []Member{}
+
+	for cur.Next(context.Background()) {
+		member := Member{}
+		if err := cur.Decode(&member); err != nil {
+			return nil, err
+		}
+		members = append(members, member)
+	}
+
+	return members, nil
+}
+
+func ListByBlueprint(blueprintId string) ([]Member, error) {
+	cur, err := membersStore.List(bson.D{
+		{Key: "blueprintIds", Value: bson.D{
+			{Key: "$in", Value: []string{blueprintId}},
+		}},
+	}, 0, 0)
 	if err != nil {
 		return nil, err
 	}

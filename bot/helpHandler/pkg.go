@@ -136,3 +136,7 @@ func (h *HelpCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		Type:        discordgo.ChatApplicationCommand,
 	}, nil
 }
+
+func (c *HelpCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}

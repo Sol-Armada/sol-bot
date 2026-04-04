@@ -117,3 +117,7 @@ func (d *DemeritCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		},
 	}, nil
 }
+
+func (c *DemeritCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
+	return nil, nil
+}
