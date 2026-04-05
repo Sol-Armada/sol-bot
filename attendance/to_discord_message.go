@@ -81,6 +81,7 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 					Value:  "",
 					Inline: true,
 				})
+				row.Reset()
 			}
 
 			field := fields[len(fields)-1]
