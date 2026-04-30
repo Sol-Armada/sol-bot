@@ -8,12 +8,14 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/go-co-op/gocron/v2"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
 	"github.com/sol-armada/sol-bot/bot/blueprinthandler"
 	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
 	helphandler "github.com/sol-armada/sol-bot/bot/helpHandler"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
+	"github.com/sol-armada/sol-bot/bot/jobs"
 	"github.com/sol-armada/sol-bot/bot/profilehandler"
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/rankupshandler"
@@ -33,6 +35,8 @@ type Bot struct {
 	store  *stores.CommandsStore
 	logger *slog.Logger
 	ctx    context.Context
+
+	schedular *gocron.Scheduler
 
 	*discordgo.Session
 }
@@ -462,7 +466,34 @@ func (b *Bot) Setup() error {
 	}
 
 	b.logger.Debug("Discord connection opened successfully")
+
+	go b.startJobs()
+
 	return nil
+}
+
+func (b *Bot) startJobs() {
+	s, err := gocron.NewScheduler()
+	if err != nil {
+		b.logger.Error("failed to create scheduler", "error", err)
+		return
+	}
+	b.schedular = &s
+
+	for _, job := range jobs.Jobs {
+		if _, err = s.NewJob(
+			gocron.CronJob("0 0 * * *", false),
+			gocron.NewTask(
+				job.Run(b.ctx, b.Session),
+				job.Name,
+			),
+		); err != nil {
+			b.logger.Error("failed to create job", "job", job.Name, "error", err)
+			return
+		}
+	}
+
+	s.Start()
 }
 
 func (b *Bot) Close() error {

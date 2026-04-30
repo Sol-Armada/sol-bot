@@ -11,10 +11,6 @@ type Setting struct {
 var setting *Setting
 
 func init() {
-	Reset()
-}
-
-func Reset() {
 	setting = &Setting{viper.New()}
 }
 

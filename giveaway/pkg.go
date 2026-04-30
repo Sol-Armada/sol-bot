@@ -32,6 +32,11 @@ var giveaways = map[string]*Giveaway{}
 
 var giveawayStore *stores.GiveawaysStore
 
+var (
+	ErrGiveawayNotFound      = errors.New("giveaway not found")
+	ErrUnableToUnpinGiveaway = errors.New("unable to unpin giveaway message")
+)
+
 func Setup() error {
 	storesClient := stores.Get()
 	gs, ok := storesClient.GetGiveawaysStore()
@@ -205,17 +210,9 @@ func (g *Giveaway) End() error {
 		return errors.Join(err, errors.New("failed to send giveaway end message"))
 	}
 
-	if err := g.sess.ChannelMessagePin(msg.ChannelID, msg.ID); err != nil {
-		return errors.Join(err, errors.New("failed to pin giveaway end message"))
-	}
-
-	if err := g.sess.ChannelMessageDelete(g.ChannelId, g.EmbedMessageId); err != nil {
-		return errors.Join(err, errors.New("failed to delete giveaway embeded message"))
-	}
-
-	if err := g.sess.ChannelMessageDelete(g.ChannelId, g.InputMessageId); err != nil {
-		return errors.Join(err, errors.New("failed to delete giveaway input message"))
-	}
+	_ = g.sess.ChannelMessagePin(msg.ChannelID, msg.ID)
+	_ = g.sess.ChannelMessageDelete(g.ChannelId, g.EmbedMessageId)
+	_ = g.sess.ChannelMessageDelete(g.ChannelId, g.InputMessageId)
 
 	return SaveGiveaways()
 }
