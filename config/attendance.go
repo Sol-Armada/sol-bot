@@ -4,13 +4,13 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/sol-armada/sol-bot/database/stores"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 func GetAttendanceTags() ([]string, error) {
-	c, ok := stores.Get().GetConfigsStore()
+	c, ok := mongodb.Get().GetConfigsStore()
 	if !ok {
 		return nil, errors.New("could not get configs store")
 	}
@@ -29,7 +29,7 @@ func GetAttendanceTags() ([]string, error) {
 }
 
 func NewAttendanceTag(tag string) error {
-	c, ok := stores.Get().GetConfigsStore()
+	c, ok := mongodb.Get().GetConfigsStore()
 	if !ok {
 		return errors.New("could not get configs store")
 	}
@@ -85,7 +85,7 @@ func ValidAttendanceName(name string) (bool, error) {
 }
 
 func NewAttendanceName(name string) error {
-	c, ok := stores.Get().GetConfigsStore()
+	c, ok := mongodb.Get().GetConfigsStore()
 	if !ok {
 		return errors.New("could not get configs store")
 	}
@@ -106,7 +106,7 @@ func NewAttendanceName(name string) error {
 }
 
 func RemoveAttendanceName(name string) error {
-	c, ok := stores.Get().GetConfigsStore()
+	c, ok := mongodb.Get().GetConfigsStore()
 	if !ok {
 		return errors.New("could not get configs store")
 	}

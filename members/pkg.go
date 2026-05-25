@@ -16,9 +16,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/auth"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/settings"
-	"github.com/sol-armada/sol-bot/database/stores"
 	"go.mongodb.org/mongo-driver/bson"
 )
 
@@ -98,10 +98,10 @@ var (
 	MemberNotFound MemberError = errors.New("member not found")
 )
 
-var membersStore *stores.MembersStore
+var membersStore *mongodb.MembersStore
 
 func Setup() error {
-	storesClient := stores.Get()
+	storesClient := mongodb.Get()
 	ms, ok := storesClient.GetMembersStore()
 	if !ok {
 		return errors.New("members store not found")

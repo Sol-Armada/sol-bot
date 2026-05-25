@@ -12,8 +12,8 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/database/stores"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -33,14 +33,14 @@ type Raffle struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
-var rafflesStore *stores.RaffleStore
+var rafflesStore *mongodb.RaffleStore
 
 var (
 	ErrNoEntries error = errors.New("no entries in raffle")
 )
 
 func Setup() error {
-	storesClient := stores.Get()
+	storesClient := mongodb.Get()
 	rs, ok := storesClient.GetRafflesStore()
 	if !ok {
 		return errors.New("raffles store not found")

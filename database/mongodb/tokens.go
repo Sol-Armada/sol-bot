@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 type TokenStore struct {
-	*store
+	*mongodb
 }
 
 const TOKENS Collection = "tokens"
@@ -21,7 +21,7 @@ func newTokensStore(ctx context.Context, client *mongo.Client, database string) 
 			MetaField: new("member_id"),
 		},
 	})
-	s := &store{
+	s := &mongodb{
 		Collection: client.Database(database).Collection(string(TOKENS)),
 		ctx:        ctx,
 	}

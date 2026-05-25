@@ -3,13 +3,13 @@ package config
 import (
 	"errors"
 
-	"github.com/sol-armada/sol-bot/database/stores"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 )
 
-var configStore *stores.ConfigsStore
+var configStore *mongodb.ConfigsStore
 
 func Setup() error {
-	storesClient := stores.Get()
+	storesClient := mongodb.Get()
 	cs, ok := storesClient.GetConfigsStore()
 	if !ok {
 		return errors.New("config store not found")

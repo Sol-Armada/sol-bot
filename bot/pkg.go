@@ -20,10 +20,10 @@ import (
 	"github.com/sol-armada/sol-bot/bot/rankupshandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/customerrors"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
-	"github.com/sol-armada/sol-bot/database/stores"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -31,7 +31,7 @@ type Bot struct {
 	GuildId  string
 	ClientId string
 
-	store  *stores.CommandsStore
+	store  *mongodb.CommandsStore
 	logger *slog.Logger
 	ctx    context.Context
 
@@ -121,7 +121,7 @@ func GetBot() (*Bot, error) {
 
 func (b *Bot) Setup() error {
 	var ok bool
-	b.store, ok = stores.Get().GetCommandsStore()
+	b.store, ok = mongodb.Get().GetCommandsStore()
 	if !ok {
 		return errors.New("failed to get commands store")
 	}

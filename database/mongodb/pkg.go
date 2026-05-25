@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 
 type Collection string
 
-type store struct {
+type mongodb struct {
 	*mongo.Collection
 	ctx context.Context
 }

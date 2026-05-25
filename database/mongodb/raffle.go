@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -9,14 +9,14 @@ import (
 )
 
 type RaffleStore struct {
-	*store
+	*mongodb
 }
 
 const RAFFLES Collection = "raffles"
 
 func newRafflesStore(ctx context.Context, client *mongo.Client, database string) *RaffleStore {
 	_ = client.Database(database).CreateCollection(ctx, string(RAFFLES))
-	s := &store{
+	s := &mongodb{
 		Collection: client.Database(database).Collection(string(RAFFLES)),
 		ctx:        ctx,
 	}

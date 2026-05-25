@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sol-armada/sol-bot/database/stores"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 )
 
 var healthy bool = false
@@ -13,7 +13,7 @@ var healthy bool = false
 func Monitor() {
 	logger := slog.Default().With("func", "health.Monitor")
 	for {
-		s := stores.Get()
+		s := mongodb.Get()
 		ctx := context.Background()
 		if !s.Connected(ctx) {
 			logger.Warn("not connected to storage")
