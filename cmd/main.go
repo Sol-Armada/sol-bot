@@ -21,7 +21,7 @@ import (
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 	"github.com/sol-armada/sol-bot/systemd"
 	"github.com/sol-armada/sol-bot/tokens"
 )

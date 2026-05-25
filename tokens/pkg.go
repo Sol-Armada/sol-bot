@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/xid"
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 )
 
 type Reason string

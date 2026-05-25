@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 )
 
 type ActivityType string

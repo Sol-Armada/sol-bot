@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 )
 
 var healthy bool = false

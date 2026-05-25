@@ -10,7 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 )
 
 type Giveaway struct {
