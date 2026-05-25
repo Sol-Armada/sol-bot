@@ -13,7 +13,6 @@ import (
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
 	"github.com/sol-armada/sol-bot/bot/blueprinthandler"
 	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
-	helphandler "github.com/sol-armada/sol-bot/bot/helpHandler"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/bot/jobs"
 	"github.com/sol-armada/sol-bot/bot/profilehandler"
@@ -51,7 +50,6 @@ var commands = map[string]command.ApplicationCommand{
 	"raffle":     rafflehandler.New(),
 	"giveaway":   giveawayhandler.New(),
 	"tokens":     tokenshandler.New(),
-	"help":       helphandler.New(),
 	"rankups":    rankupshandler.New(),
 	"blueprint":  blueprinthandler.New(),
 
