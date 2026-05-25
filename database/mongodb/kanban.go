@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -9,14 +9,14 @@ import (
 )
 
 type KanbanStore struct {
-	*store
+	*mongodb
 }
 
 const KANBAN Collection = "kanban"
 
 func newKanbanStore(ctx context.Context, client *mongo.Client, database string) *KanbanStore {
 	_ = client.Database(database).CreateCollection(ctx, string(KANBAN))
-	s := &store{
+	s := &mongodb{
 		Collection: client.Database(database).Collection(string(KANBAN)),
 		ctx:        ctx,
 	}

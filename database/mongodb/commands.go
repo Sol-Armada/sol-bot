@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 type CommandsStore struct {
-	*store
+	*mongodb
 }
 
 const COMMANDS Collection = "commands"
@@ -21,7 +21,7 @@ func newCommandsStore(ctx context.Context, client *mongo.Client, database string
 			MetaField: new("meta"),
 		},
 	})
-	s := &store{
+	s := &mongodb{
 		Collection: client.Database(database).Collection(string(COMMANDS)),
 		ctx:        ctx,
 	}

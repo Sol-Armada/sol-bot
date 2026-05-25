@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/rs/xid"
-	"github.com/sol-armada/sol-bot/database/stores"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 )
 
 type Reason string
@@ -30,10 +30,10 @@ type TokenRecord struct {
 	CreatedAt    time.Time `json:"created_at" bson:"created_at"`
 }
 
-var tokenStore *stores.TokenStore
+var tokenStore *mongodb.TokenStore
 
 func Setup() error {
-	storesClient := stores.Get()
+	storesClient := mongodb.Get()
 	ts, ok := storesClient.GetTokensStore()
 	if !ok {
 		return errors.New("token store not found")

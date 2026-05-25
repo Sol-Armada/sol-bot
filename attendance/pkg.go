@@ -10,9 +10,9 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
-	"github.com/sol-armada/sol-bot/database/stores"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
@@ -59,10 +59,10 @@ var (
 	ErrAttendanceNotFound = errors.New("attendance not found")
 )
 
-var attendanceStore *stores.AttendanceStore
+var attendanceStore *mongodb.AttendanceStore
 
 func Setup() error {
-	storesClient := stores.Get()
+	storesClient := mongodb.Get()
 	as, ok := storesClient.GetAttendanceStore()
 	if !ok {
 		return errors.New("attendance store not found")

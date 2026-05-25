@@ -5,8 +5,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/database/stores"
 )
 
 type ActivityType string
@@ -34,10 +34,10 @@ type Activity struct {
 	Meta Meta            `json:"meta"`
 }
 
-var activityStore *stores.ActivityStore
+var activityStore *mongodb.ActivityStore
 
 func Setup() error {
-	storesClient := stores.Get()
+	storesClient := mongodb.Get()
 	as, ok := storesClient.GetActivityStore()
 	if !ok {
 		return errors.New("activity store not found")

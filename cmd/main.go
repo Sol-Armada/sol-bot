@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -16,12 +17,13 @@ import (
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
 	"github.com/sol-armada/sol-bot/config"
+	"github.com/sol-armada/sol-bot/database"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
-	"github.com/sol-armada/sol-bot/database/stores"
 	"github.com/sol-armada/sol-bot/systemd"
 	"github.com/sol-armada/sol-bot/tokens"
 )
@@ -38,17 +40,8 @@ type Config struct {
 	CLI                  bool
 	LogFile              string
 	MemberMonitorLogFile string
-	MongoConfig          MongoConfig
+	Database             database.Config
 	Features             FeatureConfig
-}
-
-type MongoConfig struct {
-	Host           string
-	Port           int
-	Username       string
-	Password       string
-	Database       string
-	ReplicaSetName string
 }
 
 type FeatureConfig struct {
@@ -70,9 +63,7 @@ func init() {
 		"version", "unknown") // You could add a version variable later
 
 	logger.Info("configuration loaded successfully",
-		"mongo_host", cfg.MongoConfig.Host,
-		"mongo_port", cfg.MongoConfig.Port,
-		"mongo_database", cfg.MongoConfig.Database,
+		"db_driver", cfg.Database.SelectedDriver(),
 		"features_monitor_enable", cfg.Features.MonitorEnable,
 		"features_attendance_monitor", cfg.Features.AttendanceMonitor,
 		"features_systemd_integration", cfg.Features.SystemdIntegration)
@@ -117,13 +108,27 @@ func loadConfig() *Config {
 		CLI:                  settings.GetBool("LOG.CLI"),
 		LogFile:              settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"),
 		MemberMonitorLogFile: settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
-		MongoConfig: MongoConfig{
-			Host:           settings.GetStringWithDefault("mongo.host", "localhost"),
-			Port:           settings.GetIntWithDefault("mongo.port", 27017),
-			Username:       settings.GetString("MONGO.USERNAME"),
-			Password:       strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`),
-			Database:       settings.GetStringWithDefault("MONGO.DATABASE", "org"),
-			ReplicaSetName: settings.GetString("MONGO.REPLICA_SET_NAME"),
+		Database: database.Config{
+			Driver: database.Driver(strings.ToLower(settings.GetStringWithDefault("database.driver", string(database.DriverMongo)))),
+			Mongo: database.MongoConfig{
+				Host:           settings.GetStringWithDefault("mongo.host", "localhost"),
+				Port:           settings.GetIntWithDefault("mongo.port", 27017),
+				Username:       settings.GetString("MONGO.USERNAME"),
+				Password:       strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`),
+				Database:       settings.GetStringWithDefault("MONGO.DATABASE", "org"),
+				ReplicaSetName: settings.GetString("MONGO.REPLICA_SET_NAME"),
+			},
+			Postgres: database.PostgresConfig{
+				Host:           settings.GetStringWithDefault("postgres.host", "localhost"),
+				Port:           settings.GetIntWithDefault("postgres.port", 5432),
+				Username:       settings.GetString("POSTGRES.USERNAME"),
+				Password:       settings.GetString("POSTGRES.PASSWORD"),
+				Database:       settings.GetStringWithDefault("POSTGRES.DATABASE", "org"),
+				SSLMode:        settings.GetStringWithDefault("POSTGRES.SSL_MODE", "disable"),
+				MaxConns:       int32(settings.GetIntWithDefault("POSTGRES.MAX_CONNS", 10)),
+				MinConns:       int32(settings.GetIntWithDefault("POSTGRES.MIN_CONNS", 1)),
+				ConnectTimeout: parseDurationWithDefault("POSTGRES.CONNECT_TIMEOUT", 5*time.Second),
+			},
 		},
 		Features: FeatureConfig{
 			MonitorEnable:      settings.GetBool("FEATURES.MONITOR.ENABLE"),
@@ -131,6 +136,15 @@ func loadConfig() *Config {
 			SystemdIntegration: settings.GetBoolWithDefault("FEATURES.SYSTEMD.ENABLE", true),
 		},
 	}
+}
+
+func parseDurationWithDefault(key string, fallback time.Duration) time.Duration {
+	raw := settings.GetStringWithDefault(key, fallback.String())
+	value, err := time.ParseDuration(raw)
+	if err != nil {
+		return fallback
+	}
+	return value
 }
 
 // setupLogger creates and configures the application logger
@@ -179,22 +193,32 @@ func initializeServices(cfg *Config) error {
 
 	// Initialize database connection
 	logger.Info("initializing database connection",
-		"host", cfg.MongoConfig.Host,
-		"port", cfg.MongoConfig.Port,
-		"database", cfg.MongoConfig.Database,
-		"replica_set", cfg.MongoConfig.ReplicaSetName)
+		"driver", cfg.Database.SelectedDriver())
 
-	if _, err := stores.New(
-		ctx,
-		cfg.MongoConfig.Host,
-		cfg.MongoConfig.Port,
-		cfg.MongoConfig.Username,
-		cfg.MongoConfig.Password,
-		cfg.MongoConfig.Database,
-		cfg.MongoConfig.ReplicaSetName,
-	); err != nil {
-		logger.Error("failed to create storage client", "error", err)
-		return fmt.Errorf("failed to create storage client: %w", err)
+	switch cfg.Database.SelectedDriver() {
+	case database.DriverMongo:
+		if _, err := mongodb.New(
+			ctx,
+			cfg.Database.Mongo.Host,
+			cfg.Database.Mongo.Port,
+			cfg.Database.Mongo.Username,
+			cfg.Database.Mongo.Password,
+			cfg.Database.Mongo.Database,
+			cfg.Database.Mongo.ReplicaSetName,
+		); err != nil {
+			logger.Error("failed to create storage client", "error", err)
+			return fmt.Errorf("failed to create storage client: %w", err)
+		}
+	case database.DriverPostgres:
+		pgClient, err := database.NewPostgres(ctx, cfg.Database.Postgres)
+		if err != nil {
+			logger.Error("failed to initialize postgres client", "error", err)
+			return fmt.Errorf("failed to initialize postgres client: %w", err)
+		}
+		pgClient.Close()
+		return errors.New("postgres backend is initialized but store implementations are not migrated yet; use database.driver=mongo")
+	default:
+		return fmt.Errorf("unsupported database.driver: %s", cfg.Database.SelectedDriver())
 	}
 	logger.Info("database connection established successfully")
 

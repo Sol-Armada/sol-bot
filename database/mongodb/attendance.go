@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -11,14 +11,14 @@ import (
 )
 
 type AttendanceStore struct {
-	*store
+	*mongodb
 }
 
 const ATTENDANCE Collection = "attendance"
 
 func newAttendanceStore(ctx context.Context, client *mongo.Client, database string) *AttendanceStore {
 	_ = client.Database(database).CreateCollection(ctx, string(ATTENDANCE))
-	s := &store{
+	s := &mongodb{
 		Collection: client.Database(database).Collection(string(ATTENDANCE)),
 		ctx:        ctx,
 	}

@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 )
 
 type ActivityStore struct {
-	*store
+	*mongodb
 }
 
 const ACTIVITY Collection = "activity"
@@ -20,7 +20,7 @@ func newActivityStore(ctx context.Context, client *mongo.Client, database string
 			MetaField: new("meta"),
 		},
 	})
-	s := &store{
+	s := &mongodb{
 		Collection: client.Database(database).Collection(string(ACTIVITY)),
 		ctx:        ctx,
 	}

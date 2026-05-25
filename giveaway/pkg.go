@@ -10,7 +10,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/database/stores"
+	"github.com/sol-armada/sol-bot/database/mongodb"
 )
 
 type Giveaway struct {
@@ -30,7 +30,7 @@ type Giveaway struct {
 
 var giveaways = map[string]*Giveaway{}
 
-var giveawayStore *stores.GiveawaysStore
+var giveawayStore *mongodb.GiveawaysStore
 
 var (
 	ErrGiveawayNotFound      = errors.New("giveaway not found")
@@ -38,7 +38,7 @@ var (
 )
 
 func Setup() error {
-	storesClient := stores.Get()
+	storesClient := mongodb.Get()
 	gs, ok := storesClient.GetGiveawaysStore()
 	if !ok {
 		return errors.New("failed to get giveaways store")

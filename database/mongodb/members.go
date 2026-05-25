@@ -1,4 +1,4 @@
-package stores
+package mongodb
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 )
 
 type MembersStore struct {
-	*store
+	*mongodb
 }
 
 const MEMBERS Collection = "members"
@@ -17,7 +17,7 @@ const MEMBERS Collection = "members"
 func newMembersStore(ctx context.Context, client *mongo.Client, database string) *MembersStore {
 	// Note: CreateCollection ignores "collection already exists" errors
 	_ = client.Database(database).CreateCollection(ctx, string(MEMBERS))
-	s := &store{
+	s := &mongodb{
 		Collection: client.Database(database).Collection(string(MEMBERS)),
 		ctx:        ctx,
 	}
