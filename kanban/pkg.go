@@ -1,7 +1,7 @@
 package kanban
 
 import (
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 )
 
 var kanbanStore *stores.KanbanStore

@@ -18,7 +18,7 @@ import (
 	"github.com/sol-armada/sol-bot/auth"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/settings"
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 	"go.mongodb.org/mongo-driver/bson"
 )
 

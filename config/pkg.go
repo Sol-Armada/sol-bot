@@ -3,7 +3,7 @@ package config
 import (
 	"errors"
 
-	"github.com/sol-armada/sol-bot/stores"
+	"github.com/sol-armada/sol-bot/database/stores"
 )
 
 var configStore *stores.ConfigsStore
