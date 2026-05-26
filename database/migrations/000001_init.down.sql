@@ -1,3 +1,6 @@
+DROP TABLE IF EXISTS raffles;
+DROP TABLE IF EXISTS giveaways;
+DROP TABLE IF EXISTS activity_logs;
 DROP TABLE IF EXISTS tokens;
 DROP TABLE IF EXISTS attendance_participants;
 DROP TABLE IF EXISTS attendance_payouts;

@@ -93,6 +93,7 @@ TRUNCATE TABLE
 	attendance,
 	member_blueprints,
 	members
+RESTART IDENTITY CASCADE
 `)
 	return err
 }
@@ -169,6 +170,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 	defer cur.Close(ctx)
 
 	count := 0
+	memberExistsCache := map[string]bool{}
 	for cur.Next(ctx) {
 		var doc bson.M
 		if err := cur.Decode(&doc); err != nil {
@@ -189,12 +191,28 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 			dateUpdated = dateCreated
 		}
 
+		submittedByID := memberIDField(doc["submitted_by"])
+		if submittedByID != "" {
+			if exists, ok := memberExistsCache[submittedByID]; ok {
+				if !exists {
+					submittedByID = ""
+				}
+			} else {
+				_, err := q.GetMember(ctx, submittedByID)
+				exists := err == nil
+				memberExistsCache[submittedByID] = exists
+				if !exists {
+					submittedByID = ""
+				}
+			}
+		}
+
 		payoutsTotal, payoutsPerMember, payoutsOrgTake, hasPayout := payoutsFromDoc(doc["payouts"])
 
 		err := q.UpsertAttendance(ctx, dbgen.UpsertAttendanceParams{
 			ID:          id,
 			Name:        asString(doc["name"]),
-			SubmittedBy: toPgText(memberIDField(doc["submitted_by"])),
+			SubmittedBy: toPgText(submittedByID),
 			Recorded:    asBool(doc["recorded"]),
 			Successful:  asBool(doc["successful"]),
 			Active:      asBool(doc["active"]),
@@ -265,6 +283,22 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 		}
 
 		for memberID, flags := range participantMap {
+			if memberID == "" {
+				continue
+			}
+			if exists, ok := memberExistsCache[memberID]; ok {
+				if !exists {
+					continue
+				}
+			} else {
+				_, err := q.GetMember(ctx, memberID)
+				exists := err == nil
+				memberExistsCache[memberID] = exists
+				if !exists {
+					continue
+				}
+			}
+
 			err := q.UpsertAttendanceParticipant(ctx, dbgen.UpsertAttendanceParticipantParams{
 				AttendanceID:   id,
 				MemberID:       memberID,
@@ -295,6 +329,8 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 	defer cur.Close(ctx)
 
 	count := 0
+	memberExistsCache := map[string]bool{}
+	attendanceExistsCache := map[string]bool{}
 	for cur.Next(ctx) {
 		var doc bson.M
 		if err := cur.Decode(&doc); err != nil {
@@ -306,14 +342,63 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 			continue
 		}
 
+		memberID := asString(doc["member_id"])
+		if memberID == "" {
+			continue
+		}
+		if exists, ok := memberExistsCache[memberID]; ok {
+			if !exists {
+				continue
+			}
+		} else {
+			_, err := q.GetMember(ctx, memberID)
+			exists := err == nil
+			memberExistsCache[memberID] = exists
+			if !exists {
+				continue
+			}
+		}
+
+		attendanceID := asString(doc["attendance_id"])
+		if attendanceID != "" {
+			if exists, ok := attendanceExistsCache[attendanceID]; ok {
+				if !exists {
+					attendanceID = ""
+				}
+			} else {
+				_, err := q.GetAttendanceByID(ctx, attendanceID)
+				exists := err == nil
+				attendanceExistsCache[attendanceID] = exists
+				if !exists {
+					attendanceID = ""
+				}
+			}
+		}
+
+		giverID := asString(doc["giver_id"])
+		if giverID != "" {
+			if exists, ok := memberExistsCache[giverID]; ok {
+				if !exists {
+					giverID = ""
+				}
+			} else {
+				_, err := q.GetMember(ctx, giverID)
+				exists := err == nil
+				memberExistsCache[giverID] = exists
+				if !exists {
+					giverID = ""
+				}
+			}
+		}
+
 		err := q.InsertToken(ctx, dbgen.InsertTokenParams{
 			ID:           id,
-			MemberID:     asString(doc["member_id"]),
+			MemberID:     memberID,
 			Amount:       int32(asInt(doc["amount"])),
 			Reason:       asString(doc["reason"]),
-			AttendanceID: toPgText(asString(doc["attendance_id"])),
+			AttendanceID: toPgText(attendanceID),
 			Comment:      toPgText(asString(doc["comment"])),
-			GiverID:      toPgText(asString(doc["giver_id"])),
+			GiverID:      toPgText(giverID),
 			CreatedAt:    toPgTs(asTimeWithDefault(doc["created_at"], time.Now().UTC())),
 		})
 		if err != nil {

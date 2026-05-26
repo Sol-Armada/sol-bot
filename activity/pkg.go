@@ -1,11 +1,13 @@
 package activity
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"time"
 
-	"github.com/sol-armada/sol-bot/database/mongodb"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/sol-armada/sol-bot/database/postgresql"
 	"github.com/sol-armada/sol-bot/members"
 )
 
@@ -34,20 +36,19 @@ type Activity struct {
 	Meta Meta            `json:"meta"`
 }
 
-var activityStore *mongodb.ActivityStore
+var activityPool *pgxpool.Pool
 
 func Setup() error {
-	storesClient := mongodb.Get()
-	as, ok := storesClient.GetActivityStore()
-	if !ok {
-		return errors.New("activity store not found")
+	pg := postgresql.Get()
+	if pg == nil {
+		return errors.New("postgresql client not initialized")
 	}
-	activityStore = as
+	activityPool = pg.Pool
 	return nil
 }
 
 func (a *Activity) Save() error {
-	if activityStore == nil {
+	if activityPool == nil {
 		return errors.New("activity store not initialized")
 	}
 
@@ -60,5 +61,17 @@ func (a *Activity) Save() error {
 	// convert when to mongo datetime
 	activityMap["when"] = a.When.UTC()
 
-	return activityStore.Create(activityMap)
+	_, err := activityPool.Exec(context.Background(), `
+		INSERT INTO activity_logs (who_id, occurred_at, what, where_text)
+		VALUES ($1, $2, $3, $4)
+	`, a.Who.Id, a.When.UTC(), string(a.Meta.What), stringifyWhere(a.Meta.Where))
+	return err
+}
+
+func stringifyWhere(v any) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return ""
+	}
+	return string(b)
 }

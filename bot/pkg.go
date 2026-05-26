@@ -20,7 +20,6 @@ import (
 	"github.com/sol-armada/sol-bot/bot/rankupshandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/customerrors"
-	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
@@ -31,7 +30,6 @@ type Bot struct {
 	GuildId  string
 	ClientId string
 
-	store  *mongodb.CommandsStore
 	logger *slog.Logger
 	ctx    context.Context
 

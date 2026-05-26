@@ -76,3 +76,50 @@ CREATE TABLE tokens (
 CREATE INDEX idx_tokens_member_id ON tokens (member_id);
 CREATE INDEX idx_tokens_attendance_id ON tokens (attendance_id);
 CREATE INDEX idx_tokens_created_at ON tokens (created_at DESC);
+
+CREATE TABLE activity_logs (
+	id BIGSERIAL PRIMARY KEY,
+	who_id TEXT REFERENCES members (id) ON DELETE SET NULL,
+	occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	what TEXT NOT NULL,
+	where_text TEXT NOT NULL DEFAULT ''
+);
+
+CREATE INDEX idx_activity_logs_who_id ON activity_logs (who_id);
+CREATE INDEX idx_activity_logs_occurred_at ON activity_logs (occurred_at DESC);
+
+CREATE TABLE giveaways (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	items_json TEXT NOT NULL DEFAULT '{}',
+	attendance_id TEXT REFERENCES attendance (id) ON DELETE SET NULL,
+	end_time TIMESTAMPTZ,
+	ended BOOLEAN NOT NULL DEFAULT FALSE,
+	channel_id TEXT NOT NULL DEFAULT '',
+	embed_message_id TEXT NOT NULL DEFAULT '',
+	input_message_id TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_giveaways_attendance_id ON giveaways (attendance_id);
+CREATE INDEX idx_giveaways_ended ON giveaways (ended);
+
+CREATE TABLE raffles (
+	id TEXT PRIMARY KEY,
+	name TEXT NOT NULL,
+	attendance_id TEXT REFERENCES attendance (id) ON DELETE SET NULL,
+	prize TEXT NOT NULL,
+	quantity INTEGER NOT NULL DEFAULT 1,
+	tickets_json TEXT NOT NULL DEFAULT '{}',
+	winners TEXT[] NOT NULL DEFAULT '{}',
+	ended BOOLEAN NOT NULL DEFAULT FALSE,
+	test BOOLEAN NOT NULL DEFAULT FALSE,
+	channel_id TEXT NOT NULL DEFAULT '',
+	message_id TEXT NOT NULL DEFAULT '',
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_raffles_attendance_id ON raffles (attendance_id);
+CREATE INDEX idx_raffles_created_at ON raffles (created_at DESC);

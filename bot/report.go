@@ -1,29 +1,20 @@
 package bot
 
 import (
-	"fmt"
-
 	"github.com/bwmarrin/discordgo"
 )
 
 func (b *Bot) WeeklyReport() (*discordgo.MessageEmbed, error) {
-	commands, err := b.store.CountsByName()
-	if err != nil {
-		return nil, err
-	}
-
 	embed := &discordgo.MessageEmbed{
 		Title:       "Weekly Command Usage Report",
-		Description: "Here are the counts of commands used in the past week:",
+		Description: "Command usage persistence is temporarily disabled during PostgreSQL cutover.",
 		Fields:      []*discordgo.MessageEmbedField{},
 	}
 
-	for name, count := range commands {
-		embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
-			Name:   name,
-			Value:  fmt.Sprint(count),
-			Inline: true,
-		})
-	}
+	embed.Fields = append(embed.Fields, &discordgo.MessageEmbedField{
+		Name:   "Status",
+		Value:  "Not available",
+		Inline: false,
+	})
 	return embed, nil
 }

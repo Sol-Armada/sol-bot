@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/sol-armada/sol-bot/members"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Card struct {
@@ -67,5 +66,5 @@ func (c *Card) toJson() ([]byte, error) {
 		jsonMap["created_by"] = c.CreatedBy.Id
 	}
 
-	return bson.Marshal(jsonMap)
+	return json.Marshal(jsonMap)
 }
