@@ -201,14 +201,12 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		chunkEnd := min(chunkStart+memberProcessingChunkSize, len(discordMembers))
 
 		chunk := discordMembers[chunkStart:chunkEnd]
-		// chunkMembersToSave := make([]members.Member, 0, len(chunk))
 
 		logger.Debug("processing chunk", "start", chunkStart, "end", chunkEnd, "size", len(chunk))
 		upsertStatusMessage("member_monitor", fmt.Sprintf("Updating members... (%d/%d)", chunkEnd, len(discordMembers)))
 
 		// Process each member in the chunk
 		processedMembers := processChunkMembers(ctx, chunk, chunkStart, recruitRoleID, allyRoleID, rsiBackoff, logger, &processingErrors)
-		// chunkMembersToSave = append(chunkMembersToSave, processedMembers...)
 
 		// Save chunk in batch
 		if len(processedMembers) > 0 {
