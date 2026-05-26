@@ -1,7 +1,13 @@
 DROP TABLE IF EXISTS raffles;
 DROP TABLE IF EXISTS giveaways;
+DROP TABLE IF EXISTS blueprint_docs;
+DROP TABLE IF EXISTS kanban_cards;
+DROP TABLE IF EXISTS sos_tickets;
+DROP TABLE IF EXISTS command_logs;
 DROP TABLE IF EXISTS activity_logs;
 DROP TABLE IF EXISTS tokens;
+DROP TABLE IF EXISTS attendance_names;
+DROP TABLE IF EXISTS attendance_tags;
 DROP TABLE IF EXISTS attendance_participants;
 DROP TABLE IF EXISTS attendance_payouts;
 DROP TABLE IF EXISTS attendance;

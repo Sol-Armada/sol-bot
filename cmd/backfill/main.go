@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,14 +22,21 @@ import (
 )
 
 type MigrationReport struct {
-	membersProcessed          int
-	attendanceProcessed       int
-	attendanceSkipped         int
-	attendanceNulledSubmitted int
-	tokensProcessed           int
-	tokensSkipped             int
-	tokensNulledGiver         int
-	tokensNulledAttendance    int
+	membersProcessed              int
+	configTagsProcessed           int
+	configNamesProcessed          int
+	commandsProcessed             int
+	sosProcessed                  int
+	kanbanProcessed               int
+	blueprintsProcessed           int
+	attendanceProcessed           int
+	attendanceSkipped             int
+	attendanceNulledSubmitted     int
+	attendanceParticipantsSkipped int
+	tokensProcessed               int
+	tokensSkipped                 int
+	tokensNulledGiver             int
+	tokensNulledAttendance        int
 }
 
 func (m *MigrationReport) print() {
@@ -36,10 +44,21 @@ func (m *MigrationReport) print() {
 	fmt.Printf("Members:\n")
 	fmt.Printf("  Processed: %d\n\n", m.membersProcessed)
 
+	fmt.Printf("Attendance Config:\n")
+	fmt.Printf("  Tags migrated: %d\n", m.configTagsProcessed)
+	fmt.Printf("  Names migrated: %d\n\n", m.configNamesProcessed)
+
+	fmt.Printf("Other Collections:\n")
+	fmt.Printf("  Commands migrated: %d\n", m.commandsProcessed)
+	fmt.Printf("  SOS tickets migrated: %d\n", m.sosProcessed)
+	fmt.Printf("  Kanban cards migrated: %d\n", m.kanbanProcessed)
+	fmt.Printf("  Blueprint docs migrated: %d\n\n", m.blueprintsProcessed)
+
 	fmt.Printf("Attendance:\n")
 	fmt.Printf("  Processed: %d\n", m.attendanceProcessed)
 	fmt.Printf("  Skipped (FK violation): %d\n", m.attendanceSkipped)
-	fmt.Printf("  Nulled submitted_by field: %d\n\n", m.attendanceNulledSubmitted)
+	fmt.Printf("  Nulled submitted_by field: %d\n", m.attendanceNulledSubmitted)
+	fmt.Printf("  Skipped participants (missing member FK): %d\n\n", m.attendanceParticipantsSkipped)
 
 	fmt.Printf("Tokens:\n")
 	fmt.Printf("  Processed: %d\n", m.tokensProcessed)
@@ -62,6 +81,7 @@ func main() {
 	pgDSN := flag.String("pg-dsn", envOrDefault("POSTGRES_DSN", ""), "PostgreSQL DSN")
 	truncate := flag.Bool("truncate", false, "Truncate destination tables before backfill")
 	report := flag.Bool("report", true, "Print detailed migration report (default: true)")
+	applySchema := flag.Bool("apply-schema", false, "Apply initial schema (000001_init.up.sql) before backfill")
 	flag.Parse()
 
 	if strings.TrimSpace(*pgDSN) == "" {
@@ -88,6 +108,17 @@ func main() {
 		log.Fatalf("ping postgres: %v", err)
 	}
 
+	if *applySchema {
+		if err := applyInitialSchema(ctx, pgPool); err != nil {
+			log.Fatalf("apply schema: %v", err)
+		}
+		log.Println("initial schema applied")
+	}
+
+	if err := ensureRequiredSchema(ctx, pgPool); err != nil {
+		log.Fatal(err)
+	}
+
 	queries := dbgen.New(pgPool)
 	mdb := mongoClient.Database(*mongoDB)
 	rep := &MigrationReport{}
@@ -104,6 +135,36 @@ func main() {
 		log.Fatalf("backfill members: %v", err)
 	}
 	log.Printf("members backfilled: %d", membersCount)
+
+	configsCount, err := backfillConfigs(ctx, mdb, queries, rep)
+	if err != nil {
+		log.Fatalf("backfill attendance configs: %v", err)
+	}
+	log.Printf("attendance config values backfilled: %d", configsCount)
+
+	commandsCount, err := backfillCommands(ctx, mdb, queries, rep)
+	if err != nil {
+		log.Fatalf("backfill commands: %v", err)
+	}
+	log.Printf("commands backfilled: %d", commandsCount)
+
+	sosCount, err := backfillSOSTickets(ctx, mdb, queries, rep)
+	if err != nil {
+		log.Fatalf("backfill sos tickets: %v", err)
+	}
+	log.Printf("sos tickets backfilled: %d", sosCount)
+
+	kanbanCount, err := backfillKanbanCards(ctx, mdb, queries, rep)
+	if err != nil {
+		log.Fatalf("backfill kanban cards: %v", err)
+	}
+	log.Printf("kanban cards backfilled: %d", kanbanCount)
+
+	blueprintsCount, err := backfillBlueprintDocs(ctx, mdb, queries, rep)
+	if err != nil {
+		log.Fatalf("backfill blueprint docs: %v", err)
+	}
+	log.Printf("blueprint docs backfilled: %d", blueprintsCount)
 
 	attendanceCount, err := backfillAttendance(ctx, mdb, queries, rep)
 	if err != nil {
@@ -124,11 +185,90 @@ func main() {
 	}
 }
 
+func ensureRequiredSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	requiredTables := []string{
+		"members",
+		"member_blueprints",
+		"attendance",
+		"attendance_payouts",
+		"attendance_participants",
+		"attendance_tags",
+		"attendance_names",
+		"tokens",
+		"command_logs",
+		"sos_tickets",
+		"kanban_cards",
+		"blueprint_docs",
+	}
+
+	missing := make([]string, 0)
+	for _, table := range requiredTables {
+		var regclass *string
+		err := pool.QueryRow(ctx, "SELECT to_regclass($1)", "public."+table).Scan(&regclass)
+		if err != nil {
+			return fmt.Errorf("check required table %q: %w", table, err)
+		}
+		if regclass == nil {
+			missing = append(missing, table)
+		}
+	}
+
+	if len(missing) > 0 {
+		return fmt.Errorf(
+			"postgres schema is missing required tables: %s\nrun migrations first, or rerun with --apply-schema",
+			strings.Join(missing, ", "),
+		)
+	}
+
+	return nil
+}
+
+func applyInitialSchema(ctx context.Context, pool *pgxpool.Pool) error {
+	migrationPaths := []string{
+		"database/migrations/000001_init.up.sql",
+		"../database/migrations/000001_init.up.sql",
+		filepath.Join(filepath.Dir(os.Args[0]), "database/migrations/000001_init.up.sql"),
+	}
+
+	var sqlBytes []byte
+	var readErr error
+	usedPath := ""
+	for _, path := range migrationPaths {
+		sqlBytes, readErr = os.ReadFile(path)
+		if readErr == nil {
+			usedPath = path
+			break
+		}
+	}
+	if len(sqlBytes) == 0 {
+		if readErr == nil {
+			readErr = errors.New("migration file not found")
+		}
+		return fmt.Errorf("read initial schema SQL: %w", readErr)
+	}
+
+	ddl := string(sqlBytes)
+	ddl = strings.ReplaceAll(ddl, "CREATE TABLE ", "CREATE TABLE IF NOT EXISTS ")
+	ddl = strings.ReplaceAll(ddl, "CREATE INDEX ", "CREATE INDEX IF NOT EXISTS ")
+
+	if _, err := pool.Exec(ctx, ddl); err != nil {
+		return fmt.Errorf("execute initial schema from %s: %w", usedPath, err)
+	}
+
+	return nil
+}
+
 func truncateAll(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `
 TRUNCATE TABLE
+	command_logs,
+	sos_tickets,
+	kanban_cards,
+	blueprint_docs,
 	attendance_participants,
 	attendance_payouts,
+	attendance_names,
+	attendance_tags,
 	tokens,
 	attendance,
 	member_blueprints,
@@ -201,6 +341,272 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries,
 	}
 	rep.membersProcessed = count
 	return count, nil
+}
+
+func backfillConfigs(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+	if err := q.DeleteAllAttendanceTags(ctx); err != nil {
+		return 0, fmt.Errorf("delete attendance tags: %w", err)
+	}
+	if err := q.DeleteAllAttendanceNames(ctx); err != nil {
+		return 0, fmt.Errorf("delete attendance names: %w", err)
+	}
+
+	tags, err := readMongoConfigList(ctx, mdb, "attendance_tags")
+	if err != nil {
+		return 0, err
+	}
+	names, err := readMongoConfigList(ctx, mdb, "attendance_names")
+	if err != nil {
+		return 0, err
+	}
+
+	tagCount := 0
+	seenTags := map[string]struct{}{}
+	for _, tag := range tags {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			continue
+		}
+		if _, exists := seenTags[tag]; exists {
+			continue
+		}
+		seenTags[tag] = struct{}{}
+		if err := q.InsertAttendanceTag(ctx, tag); err != nil {
+			return tagCount, fmt.Errorf("insert attendance tag %q: %w", tag, err)
+		}
+		tagCount++
+	}
+
+	nameCount := 0
+	seenNames := map[string]struct{}{}
+	for _, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			continue
+		}
+		key := strings.ToLower(name)
+		if _, exists := seenNames[key]; exists {
+			continue
+		}
+		seenNames[key] = struct{}{}
+		if err := q.InsertAttendanceName(ctx, name); err != nil {
+			return tagCount + nameCount, fmt.Errorf("insert attendance name %q: %w", name, err)
+		}
+		nameCount++
+	}
+
+	rep.configTagsProcessed = tagCount
+	rep.configNamesProcessed = nameCount
+	return tagCount + nameCount, nil
+}
+
+func readMongoConfigList(ctx context.Context, mdb *mongo.Database, key string) ([]string, error) {
+	var doc bson.M
+	err := mdb.Collection("configs").FindOne(ctx, bson.M{"name": key}).Decode(&doc)
+	if err != nil {
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("read mongo config %s: %w", key, err)
+	}
+
+	return asStringSlice(doc["value"]), nil
+}
+
+func backfillCommands(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+	cur, err := mdb.Collection("commands").Find(ctx, bson.D{})
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	count := 0
+	for cur.Next(ctx) {
+		var doc bson.M
+		if err := cur.Decode(&doc); err != nil {
+			return count, err
+		}
+
+		optionsJSON := "[]"
+		if optionsValue, ok := doc["options"]; ok {
+			if raw, err := bson.MarshalExtJSON(optionsValue, false, false); err == nil {
+				optionsJSON = string(raw)
+			}
+		}
+
+		err := q.InsertCommandLog(ctx, dbgen.InsertCommandLogParams{
+			Name:            asString(doc["name"]),
+			OccurredAt:      toPgTs(asTimeWithDefault(doc["when"], time.Now().UTC())),
+			UserID:          asString(doc["user"]),
+			InteractionType: int32(asInt(doc["type"])),
+			ButtonID:        asString(doc["button_id"]),
+			ErrorText:       asString(doc["error"]),
+			OptionsJson:     optionsJSON,
+		})
+		if err != nil {
+			return count, fmt.Errorf("insert command log: %w", err)
+		}
+
+		count++
+	}
+
+	if err := cur.Err(); err != nil {
+		return count, err
+	}
+	rep.commandsProcessed = count
+	return count, nil
+}
+
+func backfillSOSTickets(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+	cur, err := mdb.Collection("sos").Find(ctx, bson.D{})
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	count := 0
+	for cur.Next(ctx) {
+		var doc bson.M
+		if err := cur.Decode(&doc); err != nil {
+			return count, err
+		}
+
+		id := idFromAny(doc["_id"])
+		if id == "" {
+			continue
+		}
+
+		payloadJSON, err := bsonDocToJSON(doc)
+		if err != nil {
+			return count, fmt.Errorf("marshal sos ticket %s: %w", id, err)
+		}
+
+		err = q.UpsertSOSTicket(ctx, dbgen.UpsertSOSTicketParams{
+			ID:          id,
+			MemberID:    asString(doc["member_id"]),
+			PayloadJson: payloadJSON,
+			UpdatedAt:   toPgTs(time.Now().UTC()),
+		})
+		if err != nil {
+			return count, fmt.Errorf("upsert sos ticket %s: %w", id, err)
+		}
+
+		count++
+	}
+
+	if err := cur.Err(); err != nil {
+		return count, err
+	}
+	rep.sosProcessed = count
+	return count, nil
+}
+
+func backfillKanbanCards(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+	cur, err := mdb.Collection("kanban").Find(ctx, bson.D{})
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	count := 0
+	for cur.Next(ctx) {
+		var doc bson.M
+		if err := cur.Decode(&doc); err != nil {
+			return count, err
+		}
+
+		id := idFromAny(doc["_id"])
+		if id == "" {
+			continue
+		}
+
+		payloadJSON, err := bsonDocToJSON(doc)
+		if err != nil {
+			return count, fmt.Errorf("marshal kanban card %s: %w", id, err)
+		}
+
+		err = q.UpsertKanbanCard(ctx, dbgen.UpsertKanbanCardParams{
+			ID:          id,
+			PayloadJson: payloadJSON,
+			UpdatedAt:   toPgTs(time.Now().UTC()),
+		})
+		if err != nil {
+			return count, fmt.Errorf("upsert kanban card %s: %w", id, err)
+		}
+
+		count++
+	}
+
+	if err := cur.Err(); err != nil {
+		return count, err
+	}
+	rep.kanbanProcessed = count
+	return count, nil
+}
+
+func backfillBlueprintDocs(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+	cur, err := mdb.Collection("blueprint").Find(ctx, bson.D{})
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	count := 0
+	for cur.Next(ctx) {
+		var doc bson.M
+		if err := cur.Decode(&doc); err != nil {
+			return count, err
+		}
+
+		id := idFromAny(doc["_id"])
+		if id == "" {
+			continue
+		}
+
+		payloadJSON, err := bsonDocToJSON(doc)
+		if err != nil {
+			return count, fmt.Errorf("marshal blueprint doc %s: %w", id, err)
+		}
+
+		err = q.UpsertBlueprintDoc(ctx, dbgen.UpsertBlueprintDocParams{
+			ID:          id,
+			PayloadJson: payloadJSON,
+			UpdatedAt:   toPgTs(time.Now().UTC()),
+		})
+		if err != nil {
+			return count, fmt.Errorf("upsert blueprint doc %s: %w", id, err)
+		}
+
+		count++
+	}
+
+	if err := cur.Err(); err != nil {
+		return count, err
+	}
+	rep.blueprintsProcessed = count
+	return count, nil
+}
+
+func bsonDocToJSON(doc bson.M) (string, error) {
+	raw, err := bson.MarshalExtJSON(doc, false, false)
+	if err != nil {
+		return "", err
+	}
+	return string(raw), nil
+}
+
+func idFromAny(v any) string {
+	switch t := v.(type) {
+	case primitive.ObjectID:
+		return t.Hex()
+	case *primitive.ObjectID:
+		if t == nil {
+			return ""
+		}
+		return t.Hex()
+	default:
+		return asString(v)
+	}
 }
 
 func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
@@ -375,6 +781,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 	rep.attendanceProcessed = count
 	rep.attendanceSkipped = skipped
 	rep.attendanceNulledSubmitted = nulledSubmitted
+	rep.attendanceParticipantsSkipped = participantsSkipped
 	return count, nil
 }
 

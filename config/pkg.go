@@ -1,35 +1,53 @@
 package config
 
 import (
+	"context"
 	"errors"
+	"fmt"
+
+	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 )
 
-// Temporary stub: config data has been migrated out of database.
-// TODO: Either migrate configs to postgres or maintain them in settings files/in-memory only.
+var configQueries *dbgen.Queries
 
 func Setup() error {
-	// No-op; configs not stored in database anymore.
+	pg := postgresql.Get()
+	if pg == nil || pg.Pool == nil || pg.Queries == nil {
+		return errors.New("postgresql client not initialized")
+	}
+	configQueries = pg.Queries
 	return nil
 }
 
 func GetConfig(config string) (any, error) {
-	// Stub implementation; return empty or known defaults.
 	switch config {
 	case "attendance_tags":
-		// Return empty array for now; handlers should tolerate this.
-		return []string{}, nil
+		return GetAttendanceTags()
 	case "attendance_names":
-		return []string{}, nil
+		return GetAttendanceNames()
 	default:
-		return nil, errors.New("config " + config + " not found (configs removed from database)")
+		return nil, errors.New("config " + config + " not found")
 	}
 }
 
 func SetConfig(config string, value any) error {
-	// No-op stub.
-	_ = config
-	_ = value
-	return errors.New("SetConfig not supported (configs removed from database)")
+	switch config {
+	case "attendance_tags":
+		tags, err := toStringList(value)
+		if err != nil {
+			return err
+		}
+		return replaceAttendanceTags(tags)
+	case "attendance_names":
+		names, err := toStringList(value)
+		if err != nil {
+			return err
+		}
+		return replaceAttendanceNames(names)
+	default:
+		return errors.New("config " + config + " not found")
+	}
 }
 
 func GetConfigWithDefault[T any](config string, defaultValue T) (T, error) {
@@ -41,4 +59,50 @@ func GetConfigWithDefault[T any](config string, defaultValue T) (T, error) {
 		return typed, nil
 	}
 	return defaultValue, nil
+}
+
+func queries() (*dbgen.Queries, error) {
+	if configQueries == nil {
+		return nil, errors.New("config service not initialized")
+	}
+	return configQueries, nil
+}
+
+func withTx(fn func(qtx *dbgen.Queries) error) error {
+	pg := postgresql.Get()
+	if pg == nil || pg.Pool == nil || pg.Queries == nil {
+		return errors.New("postgresql client not initialized")
+	}
+
+	ctx := context.Background()
+	tx, err := pg.Pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx)
+
+	if err := fn(pg.Queries.WithTx(tx)); err != nil {
+		return err
+	}
+
+	return tx.Commit(ctx)
+}
+
+func toStringList(value any) ([]string, error) {
+	switch v := value.(type) {
+	case []string:
+		return v, nil
+	case []any:
+		out := make([]string, 0, len(v))
+		for _, item := range v {
+			s, ok := item.(string)
+			if !ok {
+				return nil, fmt.Errorf("expected string config item, got %T", item)
+			}
+			out = append(out, s)
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("expected []string config value, got %T", value)
+	}
 }

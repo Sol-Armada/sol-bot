@@ -8,6 +8,14 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ActivityLog struct {
+	ID         int64              `json:"id"`
+	WhoID      pgtype.Text        `json:"who_id"`
+	OccurredAt pgtype.Timestamptz `json:"occurred_at"`
+	What       string             `json:"what"`
+	WhereText  string             `json:"where_text"`
+}
+
 type Attendance struct {
 	ID          string             `json:"id"`
 	Name        string             `json:"name"`
@@ -21,6 +29,11 @@ type Attendance struct {
 	MessageID   string             `json:"message_id"`
 	DateCreated pgtype.Timestamptz `json:"date_created"`
 	DateUpdated pgtype.Timestamptz `json:"date_updated"`
+}
+
+type AttendanceName struct {
+	Name      string             `json:"name"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type AttendanceParticipant struct {
@@ -41,6 +54,48 @@ type AttendancePayout struct {
 	DateUpdated  pgtype.Timestamptz `json:"date_updated"`
 }
 
+type AttendanceTag struct {
+	Tag       string             `json:"tag"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type BlueprintDoc struct {
+	ID          string             `json:"id"`
+	PayloadJson string             `json:"payload_json"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CommandLog struct {
+	ID              int64              `json:"id"`
+	Name            string             `json:"name"`
+	OccurredAt      pgtype.Timestamptz `json:"occurred_at"`
+	UserID          string             `json:"user_id"`
+	InteractionType int32              `json:"interaction_type"`
+	ButtonID        string             `json:"button_id"`
+	ErrorText       string             `json:"error_text"`
+	OptionsJson     string             `json:"options_json"`
+}
+
+type Giveaway struct {
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	ItemsJson      string             `json:"items_json"`
+	AttendanceID   pgtype.Text        `json:"attendance_id"`
+	EndTime        pgtype.Timestamptz `json:"end_time"`
+	Ended          bool               `json:"ended"`
+	ChannelID      string             `json:"channel_id"`
+	EmbedMessageID string             `json:"embed_message_id"`
+	InputMessageID string             `json:"input_message_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type KanbanCard struct {
+	ID          string             `json:"id"`
+	PayloadJson string             `json:"payload_json"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Member struct {
 	ID          string             `json:"id"`
 	Name        string             `json:"name"`
@@ -56,6 +111,29 @@ type Member struct {
 type MemberBlueprint struct {
 	MemberID    string `json:"member_id"`
 	BlueprintID string `json:"blueprint_id"`
+}
+
+type Raffle struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	AttendanceID pgtype.Text        `json:"attendance_id"`
+	Prize        string             `json:"prize"`
+	Quantity     int32              `json:"quantity"`
+	TicketsJson  string             `json:"tickets_json"`
+	Winners      []string           `json:"winners"`
+	Ended        bool               `json:"ended"`
+	Test         bool               `json:"test"`
+	ChannelID    string             `json:"channel_id"`
+	MessageID    string             `json:"message_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SosTicket struct {
+	ID          string             `json:"id"`
+	MemberID    string             `json:"member_id"`
+	PayloadJson string             `json:"payload_json"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Token struct {
