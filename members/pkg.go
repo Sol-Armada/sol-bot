@@ -279,8 +279,8 @@ func (m *Member) Delete() error {
 	return membersBackend.Delete(m.Id)
 }
 
-func (m *Member) ToMap() map[string]interface{} {
-	r := map[string]interface{}{}
+func (m *Member) ToMap() map[string]any {
+	r := map[string]any{}
 	b, _ := json.Marshal(m)
 	_ = json.Unmarshal(b, &r)
 	return r
