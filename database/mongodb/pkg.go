@@ -12,11 +12,6 @@ import (
 
 type Collection string
 
-type mongodb struct {
-	*mongo.Collection
-	ctx context.Context
-}
-
 // Config holds the database connection configuration
 type Config struct {
 	Host           string
@@ -28,36 +23,8 @@ type Config struct {
 	ConnectTimeout time.Duration
 }
 
-// StoreRegistry provides type-safe access to all stores
-type StoreRegistry struct {
-	members    *MembersStore
-	attendance *AttendanceStore
-	configs    *ConfigsStore
-	activity   *ActivityStore
-	sos        *SOSStore
-	tokens     *TokenStore
-	raffles    *RaffleStore
-	kanban     *KanbanStore
-	commands   *CommandsStore
-	giveaways  *GiveawaysStore
-	blueprints *BlueprintStore
-}
-
-// Store accessor methods
-func (s *StoreRegistry) Members() *MembersStore       { return s.members }
-func (s *StoreRegistry) Attendance() *AttendanceStore { return s.attendance }
-func (s *StoreRegistry) Configs() *ConfigsStore       { return s.configs }
-func (s *StoreRegistry) Activity() *ActivityStore     { return s.activity }
-func (s *StoreRegistry) SOS() *SOSStore               { return s.sos }
-func (s *StoreRegistry) Tokens() *TokenStore          { return s.tokens }
-func (s *StoreRegistry) Raffles() *RaffleStore        { return s.raffles }
-func (s *StoreRegistry) Kanban() *KanbanStore         { return s.kanban }
-func (s *StoreRegistry) Commands() *CommandsStore     { return s.commands }
-func (s *StoreRegistry) Giveaways() *GiveawaysStore   { return s.giveaways }
-
 type Client struct {
 	*mongo.Client
-	stores   *StoreRegistry
 	database *mongo.Database
 }
 
@@ -93,36 +60,8 @@ func New(ctx context.Context, host string, port int, username, password, databas
 
 	db := mongoClient.Database(database)
 
-	// Initialize stores
-	membersStore := newMembersStore(ctx, mongoClient, database)
-	configsStore := newConfigsStore(ctx, mongoClient, database)
-	attendanceStore := newAttendanceStore(ctx, mongoClient, database)
-	activityStore := newActivityStore(ctx, mongoClient, database)
-	sosStore := newSOSStore(ctx, mongoClient, database)
-	tokensStore := newTokensStore(ctx, mongoClient, database)
-	rafflesStore := newRafflesStore(ctx, mongoClient, database)
-	kanbanStore := newKanbanStore(ctx, mongoClient, database)
-	commandsStore := newCommandsStore(ctx, mongoClient, database)
-	giveawaysStore := newGiveawaysStore(ctx, mongoClient, database)
-	BlueprintStore := newBlueprintStore(ctx, mongoClient, database)
-
-	storeRegistry := &StoreRegistry{
-		members:    membersStore,
-		configs:    configsStore,
-		attendance: attendanceStore,
-		activity:   activityStore,
-		sos:        sosStore,
-		tokens:     tokensStore,
-		raffles:    rafflesStore,
-		kanban:     kanbanStore,
-		commands:   commandsStore,
-		giveaways:  giveawaysStore,
-		blueprints: BlueprintStore,
-	}
-
 	newClient := &Client{
 		Client:   mongoClient,
-		stores:   storeRegistry,
 		database: db,
 	}
 
@@ -138,39 +77,6 @@ func New(ctx context.Context, host string, port int, username, password, databas
 
 func Get() *Client {
 	return client
-}
-
-// Stores returns the store registry for type-safe access
-func (c *Client) Stores() *StoreRegistry {
-	return c.stores
-}
-
-// GetCollection is deprecated, use Stores() instead
-func (c *Client) GetCollection(collection Collection) (any, bool) {
-	switch collection {
-	case MEMBERS:
-		return c.stores.members, true
-	case CONFIGS:
-		return c.stores.configs, true
-	case ATTENDANCE:
-		return c.stores.attendance, true
-	case ACTIVITY:
-		return c.stores.activity, true
-	case SOS:
-		return c.stores.sos, true
-	case TOKENS:
-		return c.stores.tokens, true
-	case RAFFLES:
-		return c.stores.raffles, true
-	case KANBAN:
-		return c.stores.kanban, true
-	case COMMANDS:
-		return c.stores.commands, true
-	case GIVEAWAYS:
-		return c.stores.giveaways, true
-	default:
-		return nil, false
-	}
 }
 
 func (c *Client) Disconnect(ctx context.Context) error {

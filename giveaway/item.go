@@ -34,12 +34,7 @@ func (i *Item) RemoveMember(memberId string) {
 }
 
 func (i *Item) HasMember(memberId string) bool {
-	for _, mid := range i.Members {
-		if mid == memberId {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(i.Members, memberId)
 }
 
 func (i *Item) SelectWinners() {

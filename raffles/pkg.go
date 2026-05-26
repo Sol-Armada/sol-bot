@@ -86,9 +86,9 @@ func Get(id string) (*Raffle, error) {
 	}
 
 	var (
-		raffle                                                       Raffle
-		ticketsJSON                                                  string
-		attendanceID                                                 *string
+		raffle       Raffle
+		ticketsJSON  string
+		attendanceID *string
 	)
 	err := rafflesPool.QueryRow(context.Background(), `
 		SELECT id, name, attendance_id, prize, quantity, tickets_json, winners,
@@ -248,15 +248,15 @@ func (r *Raffle) GetTickets() string {
 		return a.Amount - b.Amount
 	})
 
-	tickets := ""
+	var tickets strings.Builder
 	for _, ticket := range sorted {
-		tickets += fmt.Sprintf("<@%s>", ticket.MemberId)
+		tickets.WriteString(fmt.Sprintf("<@%s>", ticket.MemberId))
 		if len(r.Winners) != 0 {
-			tickets += fmt.Sprintf(" | %d", ticket.Amount)
+			tickets.WriteString(fmt.Sprintf(" | %d", ticket.Amount))
 		}
-		tickets += "\n"
+		tickets.WriteString("\n")
 	}
-	return tickets
+	return tickets.String()
 }
 
 func (r *Raffle) GetLatest() (*Raffle, error) {
@@ -320,10 +320,8 @@ func (r *Raffle) MemberWonLast(id string) (bool, error) {
 		return false, nil
 	}
 
-	for _, winnerId := range latestRaffle.Winners {
-		if winnerId == id {
-			return true, nil
-		}
+	if slices.Contains(latestRaffle.Winners, id) {
+		return true, nil
 	}
 
 	return false, nil

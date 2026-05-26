@@ -3,6 +3,7 @@ package attendance
 import (
 	"errors"
 	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,25 +29,25 @@ type Payouts struct {
 }
 
 type Participant struct {
-	Member          *members.Member `json:"member"`
-	JoinedAtStart   bool            `json:"joined_at_start"`
-	StayedUntilEnd  bool            `json:"stayed_until_end"`
-	HasIssue        bool            `json:"has_issue"`
+	Member         *members.Member `json:"member"`
+	JoinedAtStart  bool            `json:"joined_at_start"`
+	StayedUntilEnd bool            `json:"stayed_until_end"`
+	HasIssue       bool            `json:"has_issue"`
 }
 
 type Attendance struct {
-	Id          string            `json:"id" bson:"_id"`
-	Name        string            `json:"name"`
-	SubmittedBy *members.Member   `json:"submitted_by" bson:"submitted_by"`
-	Members     []*members.Member `json:"members"`
-	Participants []Participant    `json:"participants"`
-	WithIssues  []*members.Member `json:"with_issues" bson:"with_issues"`
-	Recorded    bool              `json:"recorded"`
-	Payouts     *Payouts          `json:"payouts" bson:"payouts"`
-	Successful  bool              `json:"successful" bson:"successful"`
-	Active      bool              `json:"active" bson:"active"`
-	Tokenable   bool              `json:"tokenable" bson:"tokenable"`
-	Status      Status            `json:"status" bson:"status"`
+	Id           string            `json:"id" bson:"_id"`
+	Name         string            `json:"name"`
+	SubmittedBy  *members.Member   `json:"submitted_by" bson:"submitted_by"`
+	Members      []*members.Member `json:"members"`
+	Participants []Participant     `json:"participants"`
+	WithIssues   []*members.Member `json:"with_issues" bson:"with_issues"`
+	Recorded     bool              `json:"recorded"`
+	Payouts      *Payouts          `json:"payouts" bson:"payouts"`
+	Successful   bool              `json:"successful" bson:"successful"`
+	Active       bool              `json:"active" bson:"active"`
+	Tokenable    bool              `json:"tokenable" bson:"tokenable"`
+	Status       Status            `json:"status" bson:"status"`
 
 	FromStart []string `json:"from_start" bson:"from_start"`
 	Stayed    []string `json:"stayed" bson:"stayed"`
@@ -223,12 +224,7 @@ func (a *Attendance) AddPayout(total, perMember, orgTake int64) error {
 }
 
 func (a *Attendance) TheyStayed(m *members.Member) bool {
-	for _, memberId := range a.Stayed {
-		if memberId == m.Id {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(a.Stayed, m.Id)
 }
 
 func (a *Attendance) GetMember(id string) (*members.Member, bool) {
