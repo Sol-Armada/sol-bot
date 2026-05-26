@@ -21,14 +21,14 @@ import (
 )
 
 type MigrationReport struct {
-	membersProcessed         int
-	attendanceProcessed      int
-	attendanceSkipped        int
+	membersProcessed          int
+	attendanceProcessed       int
+	attendanceSkipped         int
 	attendanceNulledSubmitted int
-	tokensProcessed          int
-	tokensSkipped            int
-	tokensNulledGiver        int
-	tokensNulledAttendance   int
+	tokensProcessed           int
+	tokensSkipped             int
+	tokensNulledGiver         int
+	tokensNulledAttendance    int
 }
 
 func (m *MigrationReport) print() {
@@ -371,7 +371,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 	if err := cur.Err(); err != nil {
 		return count, err
 	}
-	
+
 	rep.attendanceProcessed = count
 	rep.attendanceSkipped = skipped
 	rep.attendanceNulledSubmitted = nulledSubmitted
@@ -490,7 +490,7 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, 
 	if err := cur.Err(); err != nil {
 		return count, err
 	}
-	
+
 	rep.tokensProcessed = count
 	rep.tokensSkipped = skipped
 	rep.tokensNulledGiver = nulledGiver
