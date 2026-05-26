@@ -12,12 +12,16 @@ import (
 
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
+	"github.com/sol-armada/sol-bot/activity"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
+	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/systemd"
 	"github.com/sol-armada/sol-bot/tokens"
@@ -104,15 +108,7 @@ func loadConfig() *Config {
 		LogFile:              settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"),
 		MemberMonitorLogFile: settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
 		Database: database.Config{
-			Driver: database.Driver(strings.ToLower(settings.GetStringWithDefault("database.driver", string(database.DriverMongo)))),
-			Mongo: database.MongoConfig{
-				Host:           settings.GetStringWithDefault("mongo.host", "localhost"),
-				Port:           settings.GetIntWithDefault("mongo.port", 27017),
-				Username:       settings.GetString("MONGO.USERNAME"),
-				Password:       strings.ReplaceAll(settings.GetString("MONGO.PASSWORD"), "@", `%40`),
-				Database:       settings.GetStringWithDefault("MONGO.DATABASE", "org"),
-				ReplicaSetName: settings.GetString("MONGO.REPLICA_SET_NAME"),
-			},
+			Driver: database.Driver(strings.ToLower(settings.GetStringWithDefault("database.driver", string(database.DriverPostgres)))),
 			Postgres: database.PostgresConfig{
 				Host:           settings.GetStringWithDefault("postgres.host", "localhost"),
 				Port:           settings.GetIntWithDefault("postgres.port", 5432),
@@ -205,11 +201,15 @@ func initializeServices(cfg *Config) error {
 		"members":    members.Setup,
 		"attendance": attendance.Setup,
 		"tokens":     tokens.Setup,
+		"activity":   activity.Setup,
+		"giveaway":   giveaway.Setup,
+		"raffles":    raffles.Setup,
+		"config":     config.Setup,
 	}
 
 	logger.Warn("postgres cutover is active",
-		"enabled_services", "members, attendance, tokens",
-		"disabled_services", "activity, config, raffles, giveaways")
+		"enabled_services", "members, attendance, tokens, activity, config, raffles, giveaway",
+		"disabled_services", "kanban")
 
 	logger.Info("initializing services", "count", len(services))
 	for name, setup := range services {

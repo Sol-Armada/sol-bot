@@ -1,16 +1,22 @@
 package kanban
 
-import (
-	"github.com/sol-armada/sol-bot/database/mongodb"
-)
+import "errors"
 
-var kanbanStore *mongodb.KanbanStore
-
-func init() {
-	storesClient := mongodb.Get()
-	ks, ok := storesClient.GetKanbanStore()
-	if !ok {
-		panic("kanban store not found")
-	}
-	kanbanStore = ks
+type memoryKanbanStore struct {
+	data map[string][]byte
 }
+
+func (s *memoryKanbanStore) Get(id string) ([]byte, error) {
+	b, ok := s.data[id]
+	if !ok {
+		return nil, errors.New("kanban card not found")
+	}
+	return b, nil
+}
+
+func (s *memoryKanbanStore) Upsert(id string, payload []byte) error {
+	s.data[id] = payload
+	return nil
+}
+
+var kanbanStore = &memoryKanbanStore{data: map[string][]byte{}}

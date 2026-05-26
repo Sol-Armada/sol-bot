@@ -9,32 +9,20 @@ import (
 type Driver string
 
 const (
-	DriverMongo    Driver = "mongo"
 	DriverPostgres Driver = "postgres"
 )
 
 // Config is the top-level database configuration shared by all backends.
 type Config struct {
 	Driver   Driver
-	Mongo    MongoConfig
 	Postgres PostgresConfig
 }
 
 func (c Config) SelectedDriver() Driver {
 	if c.Driver == "" {
-		return DriverMongo
+		return DriverPostgres
 	}
 	return c.Driver
-}
-
-// MongoConfig keeps legacy MongoDB connection settings while migration is in progress.
-type MongoConfig struct {
-	Host           string
-	Port           int
-	Username       string
-	Password       string
-	Database       string
-	ReplicaSetName string
 }
 
 // PostgresConfig contains PostgreSQL connection settings for the new backend.

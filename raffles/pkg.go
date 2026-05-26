@@ -3,6 +3,7 @@ package raffles
 import (
 	"context"
 	"crypto/rand"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
@@ -11,10 +12,11 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/xid"
-	"github.com/sol-armada/sol-bot/database/mongodb"
+	"github.com/sol-armada/sol-bot/database/postgresql"
 	"github.com/sol-armada/sol-bot/members"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Raffle struct {
@@ -33,19 +35,18 @@ type Raffle struct {
 	UpdatedAt   time.Time      `json:"updated_at"`
 }
 
-var rafflesStore *mongodb.RaffleStore
+var rafflesPool *pgxpool.Pool
 
 var (
 	ErrNoEntries error = errors.New("no entries in raffle")
 )
 
 func Setup() error {
-	storesClient := mongodb.Get()
-	rs, ok := storesClient.GetRafflesStore()
-	if !ok {
-		return errors.New("raffles store not found")
+	pg := postgresql.Get()
+	if pg == nil {
+		return errors.New("postgresql client not initialized")
 	}
-	rafflesStore = rs
+	rafflesPool = pg.Pool
 
 	return nil
 }
@@ -80,18 +81,83 @@ func New(name, attendanceId, prize string, test bool) *Raffle {
 }
 
 func Get(id string) (*Raffle, error) {
-	raffle := &Raffle{}
-
-	if err := rafflesStore.Get(id).Decode(raffle); err != nil {
-		return nil, err
+	if rafflesPool == nil {
+		return nil, errors.New("raffles store not initialized")
 	}
 
-	return raffle, nil
+	var (
+		raffle                                                       Raffle
+		ticketsJSON                                                  string
+		attendanceID                                                 *string
+	)
+	err := rafflesPool.QueryRow(context.Background(), `
+		SELECT id, name, attendance_id, prize, quantity, tickets_json, winners,
+			ended, test, channel_id, message_id, created_at, updated_at
+		FROM raffles
+		WHERE id = $1
+	`, id).Scan(
+		&raffle.Id,
+		&raffle.Name,
+		&attendanceID,
+		&raffle.Prize,
+		&raffle.Quantity,
+		&ticketsJSON,
+		&raffle.Winners,
+		&raffle.Ended,
+		&raffle.Test,
+		&raffle.ChannelId,
+		&raffle.MessageId,
+		&raffle.CreatedAt,
+		&raffle.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	if attendanceID != nil {
+		raffle.AttedanceId = *attendanceID
+	}
+	if err := json.Unmarshal([]byte(ticketsJSON), &raffle.Tickets); err != nil {
+		raffle.Tickets = map[string]int{}
+	}
+	if raffle.Tickets == nil {
+		raffle.Tickets = map[string]int{}
+	}
+
+	return &raffle, nil
 }
 
 func (r *Raffle) Save() error {
+	if rafflesPool == nil {
+		return errors.New("raffles store not initialized")
+	}
 	r.UpdatedAt = time.Now().UTC()
-	return rafflesStore.Upsert(r.Id, r)
+	ticketsJSON, err := json.Marshal(r.Tickets)
+	if err != nil {
+		return err
+	}
+	if r.CreatedAt.IsZero() {
+		r.CreatedAt = r.UpdatedAt
+	}
+	_, err = rafflesPool.Exec(context.Background(), `
+		INSERT INTO raffles (
+			id, name, attendance_id, prize, quantity, tickets_json, winners,
+			ended, test, channel_id, message_id, created_at, updated_at
+		)
+		VALUES ($1, $2, NULLIF($3, ''), $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		ON CONFLICT (id) DO UPDATE
+		SET name = EXCLUDED.name,
+			attendance_id = EXCLUDED.attendance_id,
+			prize = EXCLUDED.prize,
+			quantity = EXCLUDED.quantity,
+			tickets_json = EXCLUDED.tickets_json,
+			winners = EXCLUDED.winners,
+			ended = EXCLUDED.ended,
+			test = EXCLUDED.test,
+			channel_id = EXCLUDED.channel_id,
+			message_id = EXCLUDED.message_id,
+			updated_at = EXCLUDED.updated_at
+	`, r.Id, r.Name, r.AttedanceId, r.Prize, r.Quantity, string(ticketsJSON), r.Winners, r.Ended, r.Test, r.ChannelId, r.MessageId, r.CreatedAt.UTC(), r.UpdatedAt.UTC())
+	return err
 }
 
 func (r *Raffle) SetMessage(message *discordgo.Message) *Raffle {
@@ -194,21 +260,50 @@ func (r *Raffle) GetTickets() string {
 }
 
 func (r *Raffle) GetLatest() (*Raffle, error) {
-	latestRaffle := &Raffle{}
-	cur, err := rafflesStore.GetLatest()
-	if err != nil && err != mongo.ErrNoDocuments {
+	if rafflesPool == nil {
+		return nil, errors.New("raffles store not initialized")
+	}
+
+	var (
+		latestRaffle Raffle
+		ticketsJSON  string
+		attendanceID *string
+	)
+	err := rafflesPool.QueryRow(context.TODO(), `
+		SELECT id, name, attendance_id, prize, quantity, tickets_json, winners,
+			ended, test, channel_id, message_id, created_at, updated_at
+		FROM raffles
+		ORDER BY created_at DESC
+		LIMIT 1
+	`).Scan(
+		&latestRaffle.Id,
+		&latestRaffle.Name,
+		&attendanceID,
+		&latestRaffle.Prize,
+		&latestRaffle.Quantity,
+		&ticketsJSON,
+		&latestRaffle.Winners,
+		&latestRaffle.Ended,
+		&latestRaffle.Test,
+		&latestRaffle.ChannelId,
+		&latestRaffle.MessageId,
+		&latestRaffle.CreatedAt,
+		&latestRaffle.UpdatedAt,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
 		return nil, err
 	}
-
-	if !cur.Next(context.TODO()) {
-		return nil, nil
+	if attendanceID != nil {
+		latestRaffle.AttedanceId = *attendanceID
+	}
+	if err := json.Unmarshal([]byte(ticketsJSON), &latestRaffle.Tickets); err != nil {
+		latestRaffle.Tickets = map[string]int{}
 	}
 
-	if err := cur.Decode(latestRaffle); err != nil {
-		return nil, err
-	}
-
-	return latestRaffle, nil
+	return &latestRaffle, nil
 }
 
 func (r *Raffle) MemberWonLast(id string) (bool, error) {
@@ -234,5 +329,9 @@ func (r *Raffle) MemberWonLast(id string) (bool, error) {
 	return false, nil
 }
 func (r *Raffle) Delete() error {
-	return rafflesStore.Delete(r.Id)
+	if rafflesPool == nil {
+		return errors.New("raffles store not initialized")
+	}
+	_, err := rafflesPool.Exec(context.Background(), `DELETE FROM raffles WHERE id = $1`, r.Id)
+	return err
 }

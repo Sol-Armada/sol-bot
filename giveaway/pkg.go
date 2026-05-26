@@ -2,15 +2,17 @@ package giveaway
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/database/mongodb"
+	"github.com/sol-armada/sol-bot/database/postgresql"
 )
 
 type Giveaway struct {
@@ -30,7 +32,7 @@ type Giveaway struct {
 
 var giveaways = map[string]*Giveaway{}
 
-var giveawayStore *mongodb.GiveawaysStore
+var giveawayPool *pgxpool.Pool
 
 var (
 	ErrGiveawayNotFound      = errors.New("giveaway not found")
@@ -38,35 +40,69 @@ var (
 )
 
 func Setup() error {
-	storesClient := mongodb.Get()
-	gs, ok := storesClient.GetGiveawaysStore()
-	if !ok {
-		return errors.New("failed to get giveaways store")
+	pg := postgresql.Get()
+	if pg == nil {
+		return errors.New("postgresql client not initialized")
 	}
-	giveawayStore = gs
+	giveawayPool = pg.Pool
 	return nil
 }
 
 func Load(s *discordgo.Session) error {
-	cur, err := giveawayStore.GetAll()
+	if giveawayPool == nil {
+		return errors.New("giveaway store not initialized")
+	}
+
+	rows, err := giveawayPool.Query(context.Background(), `
+		SELECT id, name, items_json, attendance_id, end_time, ended,
+			channel_id, embed_message_id, input_message_id, created_at, updated_at
+		FROM giveaways
+	`)
 	if err != nil {
 		return errors.Join(err, errors.New("failed to get giveaways from store"))
 	}
-	defer cur.Close(context.Background())
-
-	var gList []*Giveaway
-	if err := cur.All(context.Background(), &gList); err != nil {
-		return errors.Join(err, errors.New("failed to decode giveaways from store"))
-	}
+	defer rows.Close()
 
 	giveaways = make(map[string]*Giveaway)
-	for _, g := range gList {
+	for rows.Next() {
+		var (
+			id, name, itemsJSON, channelID, embedMessageID, inputMessageID string
+			attendanceID                                                   *string
+			endTime                                                        *time.Time
+			ended                                                          bool
+			createdAt, updatedAt                                           time.Time
+		)
+		if err := rows.Scan(&id, &name, &itemsJSON, &attendanceID, &endTime, &ended, &channelID, &embedMessageID, &inputMessageID, &createdAt, &updatedAt); err != nil {
+			return err
+		}
+
+		items := map[string]*Item{}
+		if err := json.Unmarshal([]byte(itemsJSON), &items); err != nil {
+			items = map[string]*Item{}
+		}
+
+		g := &Giveaway{
+			Id:             id,
+			Name:           name,
+			Items:          items,
+			EndTime:        zeroIfNilTime(endTime),
+			Ended:          ended,
+			ChannelId:      channelID,
+			EmbedMessageId: embedMessageID,
+			InputMessageId: inputMessageID,
+			sess:           s,
+		}
+		if attendanceID != nil {
+			g.AttendanceId = *attendanceID
+		}
 		giveaways[g.Id] = g
 	}
 
-	for _, g := range giveaways {
-		g.sess = s
+	if err := rows.Err(); err != nil {
+		return err
+	}
 
+	for _, g := range giveaways {
 		if err := g.UpdateMessage(); err != nil {
 			slog.Error("failed to update giveaway message", "error", err)
 		}
@@ -124,12 +160,16 @@ func GetGiveaway(id string) *Giveaway {
 }
 
 func SaveGiveaways() error {
-	giveawaysAny := make(map[string]any)
-	for id, giveaway := range giveaways {
-		giveawaysAny[id] = giveaway
+	if giveawayPool == nil {
+		return errors.New("giveaway store not initialized")
 	}
 
-	return giveawayStore.UpsertAll(giveawaysAny)
+	for _, giveaway := range giveaways {
+		if err := saveGiveaway(giveaway); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (g *Giveaway) CanParticipate(memberId string) bool {
@@ -215,4 +255,46 @@ func (g *Giveaway) End() error {
 	_ = g.sess.ChannelMessageDelete(g.ChannelId, g.InputMessageId)
 
 	return SaveGiveaways()
+}
+
+func saveGiveaway(g *Giveaway) error {
+	if giveawayPool == nil {
+		return errors.New("giveaway store not initialized")
+	}
+	if g == nil {
+		return nil
+	}
+	now := time.Now().UTC()
+	if g.EndTime.IsZero() {
+		g.EndTime = now
+	}
+	itemsJSON, err := json.Marshal(g.Items)
+	if err != nil {
+		return err
+	}
+	_, err = giveawayPool.Exec(context.Background(), `
+		INSERT INTO giveaways (
+			id, name, items_json, attendance_id, end_time, ended,
+			channel_id, embed_message_id, input_message_id, created_at, updated_at
+		)
+		VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7, $8, $9, COALESCE($10, NOW()), $11)
+		ON CONFLICT (id) DO UPDATE
+		SET name = EXCLUDED.name,
+			items_json = EXCLUDED.items_json,
+			attendance_id = EXCLUDED.attendance_id,
+			end_time = EXCLUDED.end_time,
+			ended = EXCLUDED.ended,
+			channel_id = EXCLUDED.channel_id,
+			embed_message_id = EXCLUDED.embed_message_id,
+			input_message_id = EXCLUDED.input_message_id,
+			updated_at = EXCLUDED.updated_at
+	`, g.Id, g.Name, string(itemsJSON), g.AttendanceId, g.EndTime.UTC(), g.Ended, g.ChannelId, g.EmbedMessageId, g.InputMessageId, now, now)
+	return err
+}
+
+func zeroIfNilTime(t *time.Time) time.Time {
+	if t == nil {
+		return time.Time{}
+	}
+	return t.UTC()
 }
