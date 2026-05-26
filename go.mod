@@ -6,6 +6,7 @@ require (
 	github.com/bwmarrin/discordgo v0.29.1-0.20260214123928-f43dd94faaac
 	github.com/go-co-op/gocron/v2 v2.21.1
 	github.com/google/uuid v1.6.0
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/lithammer/fuzzysearch v1.1.8
 	go.mongodb.org/mongo-driver v1.17.3
 	golang.org/x/exp v0.0.0-20221126150942-6ab00d035af9
@@ -31,7 +32,6 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
-	github.com/jackc/pgx/v5 v5.9.2 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/jonboulle/clockwork v0.5.0 // indirect
 	github.com/kennygrant/sanitize v1.2.4 // indirect

@@ -10,6 +10,11 @@ ORDER BY date_created DESC
 OFFSET sqlc.arg(offset_rows)::int
 LIMIT sqlc.arg(limit_rows)::int;
 
+-- name: ListAllAttendance :many
+SELECT *
+FROM attendance
+ORDER BY date_created DESC;
+
 -- name: ListActiveAttendance :many
 SELECT *
 FROM attendance

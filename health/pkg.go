@@ -5,7 +5,7 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/sol-armada/sol-bot/database/mongodb"
+	"github.com/sol-armada/sol-bot/database/postgresql"
 )
 
 var healthy bool = false
@@ -13,16 +13,20 @@ var healthy bool = false
 func Monitor() {
 	logger := slog.Default().With("func", "health.Monitor")
 	for {
-		s := mongodb.Get()
-		ctx := context.Background()
-		if !s.Connected(ctx) {
-			logger.Warn("not connected to storage")
-			healthy = false
-			goto WAIT
+		connected := false
+		s := postgresql.Get()
+		if s == nil || s.Pool == nil {
+			logger.Warn("postgres client not initialized")
+		} else {
+			ctx := context.Background()
+			if err := s.Pool.Ping(ctx); err != nil {
+				logger.Warn("not connected to storage")
+			} else {
+				connected = true
+			}
 		}
 
-		healthy = true
-	WAIT:
+		healthy = connected
 		time.Sleep(10 * time.Second)
 	}
 }

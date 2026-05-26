@@ -226,3 +226,39 @@ func (q *Queries) ListTokensByMemberAndAttendance(ctx context.Context, arg ListT
 	}
 	return items, nil
 }
+
+const listTokensSince = `-- name: ListTokensSince :many
+SELECT id, member_id, amount, reason, attendance_id, comment, giver_id, created_at
+FROM tokens
+WHERE created_at > $1
+ORDER BY created_at ASC
+`
+
+func (q *Queries) ListTokensSince(ctx context.Context, createdAfter pgtype.Timestamptz) ([]Token, error) {
+	rows, err := q.db.Query(ctx, listTokensSince, createdAfter)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.MemberID,
+			&i.Amount,
+			&i.Reason,
+			&i.AttendanceID,
+			&i.Comment,
+			&i.GiverID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

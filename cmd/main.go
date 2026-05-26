@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -13,16 +12,12 @@ import (
 
 	"github.com/go-co-op/gocron/v2"
 	"github.com/google/uuid"
-	"github.com/sol-armada/sol-bot/activity"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
-	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/database"
-	"github.com/sol-armada/sol-bot/database/mongodb"
-	"github.com/sol-armada/sol-bot/giveaway"
+	"github.com/sol-armada/sol-bot/database/postgresql"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/raffles"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/systemd"
 	"github.com/sol-armada/sol-bot/tokens"
@@ -195,43 +190,26 @@ func initializeServices(cfg *Config) error {
 	logger.Info("initializing database connection",
 		"driver", cfg.Database.SelectedDriver())
 
-	switch cfg.Database.SelectedDriver() {
-	case database.DriverMongo:
-		if _, err := mongodb.New(
-			ctx,
-			cfg.Database.Mongo.Host,
-			cfg.Database.Mongo.Port,
-			cfg.Database.Mongo.Username,
-			cfg.Database.Mongo.Password,
-			cfg.Database.Mongo.Database,
-			cfg.Database.Mongo.ReplicaSetName,
-		); err != nil {
-			logger.Error("failed to create storage client", "error", err)
-			return fmt.Errorf("failed to create storage client: %w", err)
-		}
-	case database.DriverPostgres:
-		pgClient, err := database.NewPostgres(ctx, cfg.Database.Postgres)
-		if err != nil {
-			logger.Error("failed to initialize postgres client", "error", err)
-			return fmt.Errorf("failed to initialize postgres client: %w", err)
-		}
-		pgClient.Close()
-		return errors.New("postgres backend is initialized but store implementations are not migrated yet; use database.driver=mongo")
-	default:
+	if cfg.Database.SelectedDriver() != database.DriverPostgres {
 		return fmt.Errorf("unsupported database.driver: %s", cfg.Database.SelectedDriver())
+	}
+
+	if _, err := postgresql.New(ctx, cfg.Database.Postgres); err != nil {
+		logger.Error("failed to initialize postgres client", "error", err)
+		return fmt.Errorf("failed to initialize postgres client: %w", err)
 	}
 	logger.Info("database connection established successfully")
 
-	// Initialize all services
+	// Initialize PostgreSQL-migrated services only.
 	services := map[string]func() error{
 		"members":    members.Setup,
 		"attendance": attendance.Setup,
-		"activity":   activity.Setup,
 		"tokens":     tokens.Setup,
-		"config":     config.Setup,
-		"raffles":    raffles.Setup,
-		"giveaways":  giveaway.Setup,
 	}
+
+	logger.Warn("postgres cutover is active",
+		"enabled_services", "members, attendance, tokens",
+		"disabled_services", "activity, config, raffles, giveaways")
 
 	logger.Info("initializing services", "count", len(services))
 	for name, setup := range services {

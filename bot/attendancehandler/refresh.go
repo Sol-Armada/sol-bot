@@ -10,7 +10,6 @@ import (
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/utils"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -25,7 +24,7 @@ func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discord
 		return nil
 	}
 
-	attendance, err := attdnc.List(bson.D{}, 3, 1)
+	attendance, err := attdnc.List(nil, 3, 1)
 	if err != nil {
 		return errors.Wrap(err, "getting attendance records")
 	}
