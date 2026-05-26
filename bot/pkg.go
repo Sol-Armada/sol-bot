@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"maps"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/go-co-op/gocron/v2"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/bot/attendancehandler"
 	"github.com/sol-armada/sol-bot/bot/blueprinthandler"
@@ -22,6 +24,8 @@ import (
 	"github.com/sol-armada/sol-bot/bot/rankupshandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/customerrors"
+	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
@@ -120,18 +124,10 @@ func GetBot() (*Bot, error) {
 }
 
 func (b *Bot) Setup() error {
-	// TODO: Migrate commands store to postgres or make it optional.
-	// For now, skip commands store to allow postgres-only operation.
-	// var ok bool
-	// mongoClient := mongodb.Get()
-	// if mongoClient == nil {
-	// 	return errors.New("commands store is not migrated to postgres yet")
-	// }
-	//
-	// b.store, ok = mongoClient.GetCommandsStore()
-	// if !ok {
-	// 	return errors.New("failed to get commands store")
-	// }
+	pg := postgresql.Get()
+	if pg == nil || pg.Queries == nil {
+		return errors.New("postgresql client not initialized")
+	}
 
 	b.logger.Debug("setting up handlers and commands")
 
@@ -282,11 +278,24 @@ func (b *Bot) Setup() error {
 				}
 			}
 			if i.Type != discordgo.InteractionApplicationCommandAutocomplete {
-				// TODO: Uncomment when commands store migrated to postgres.
-				// if err := b.store.Create(cmdToStore); err != nil {
-				// 	logger.Error("creating command record", "command", commandName, "error", err)
-				// }
-				_ = cmdToStore // Suppress unused warning
+				optionsJSON := "[]"
+				if len(cmdToStore.Options) > 0 {
+					if raw, err := json.Marshal(cmdToStore.Options); err == nil {
+						optionsJSON = string(raw)
+					}
+				}
+
+				if err := pg.Queries.InsertCommandLog(ctx, dbgen.InsertCommandLogParams{
+					Name:            cmdToStore.Name,
+					OccurredAt:      toPgTs(cmdToStore.When),
+					UserID:          cmdToStore.User,
+					InteractionType: int32(cmdToStore.Type),
+					ButtonID:        cmdToStore.ButtonId,
+					ErrorText:       cmdToStore.Error,
+					OptionsJson:     optionsJSON,
+				}); err != nil {
+					logger.Error("creating command record", "command", commandName, "error", err)
+				}
 			}
 
 			return
@@ -536,4 +545,11 @@ func (b *Bot) UpdateCustomStatus(status string) error {
 		status = "ready to serve"
 	}
 	return b.Session.UpdateCustomStatus(status)
+}
+
+func toPgTs(v time.Time) pgtype.Timestamptz {
+	if v.IsZero() {
+		return pgtype.Timestamptz{}
+	}
+	return pgtype.Timestamptz{Time: v.UTC(), Valid: true}
 }

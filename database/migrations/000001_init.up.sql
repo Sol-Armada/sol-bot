@@ -62,6 +62,16 @@ CREATE INDEX idx_attendance_participants_member_id ON attendance_participants (m
 CREATE INDEX idx_attendance_participants_stayed ON attendance_participants (attendance_id, stayed_until_end);
 CREATE INDEX idx_attendance_participants_issues ON attendance_participants (attendance_id, has_issue);
 
+CREATE TABLE attendance_tags (
+	tag TEXT PRIMARY KEY,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE attendance_names (
+	name TEXT PRIMARY KEY,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE tokens (
 	id TEXT PRIMARY KEY,
 	member_id TEXT NOT NULL REFERENCES members (id) ON DELETE RESTRICT,
@@ -87,6 +97,41 @@ CREATE TABLE activity_logs (
 
 CREATE INDEX idx_activity_logs_who_id ON activity_logs (who_id);
 CREATE INDEX idx_activity_logs_occurred_at ON activity_logs (occurred_at DESC);
+
+CREATE TABLE command_logs (
+	id BIGSERIAL PRIMARY KEY,
+	name TEXT NOT NULL,
+	occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	user_id TEXT NOT NULL DEFAULT '',
+	interaction_type INTEGER NOT NULL DEFAULT 0,
+	button_id TEXT NOT NULL DEFAULT '',
+	error_text TEXT NOT NULL DEFAULT '',
+	options_json TEXT NOT NULL DEFAULT '[]'
+);
+
+CREATE INDEX idx_command_logs_occurred_at ON command_logs (occurred_at DESC);
+CREATE INDEX idx_command_logs_name_occurred_at ON command_logs (name, occurred_at DESC);
+
+CREATE TABLE sos_tickets (
+	id TEXT PRIMARY KEY,
+	member_id TEXT NOT NULL DEFAULT '',
+	payload_json TEXT NOT NULL DEFAULT '{}',
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_sos_tickets_member_id ON sos_tickets (member_id);
+
+CREATE TABLE kanban_cards (
+	id TEXT PRIMARY KEY,
+	payload_json TEXT NOT NULL DEFAULT '{}',
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE blueprint_docs (
+	id TEXT PRIMARY KEY,
+	payload_json TEXT NOT NULL DEFAULT '{}',
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
 
 CREATE TABLE giveaways (
 	id TEXT PRIMARY KEY,
