@@ -20,6 +20,40 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
+type MigrationReport struct {
+	membersProcessed         int
+	attendanceProcessed      int
+	attendanceSkipped        int
+	attendanceNulledSubmitted int
+	tokensProcessed          int
+	tokensSkipped            int
+	tokensNulledGiver        int
+	tokensNulledAttendance   int
+}
+
+func (m *MigrationReport) print() {
+	fmt.Println("\n========== MIGRATION REPORT ==========")
+	fmt.Printf("Members:\n")
+	fmt.Printf("  Processed: %d\n\n", m.membersProcessed)
+
+	fmt.Printf("Attendance:\n")
+	fmt.Printf("  Processed: %d\n", m.attendanceProcessed)
+	fmt.Printf("  Skipped (FK violation): %d\n", m.attendanceSkipped)
+	fmt.Printf("  Nulled submitted_by field: %d\n\n", m.attendanceNulledSubmitted)
+
+	fmt.Printf("Tokens:\n")
+	fmt.Printf("  Processed: %d\n", m.tokensProcessed)
+	fmt.Printf("  Skipped (missing member_id): %d\n", m.tokensSkipped)
+	if m.tokensNulledGiver > 0 {
+		fmt.Printf("  Nulled giver_id field: %d\n", m.tokensNulledGiver)
+	}
+	if m.tokensNulledAttendance > 0 {
+		fmt.Printf("  Nulled attendance_id field: %d\n", m.tokensNulledAttendance)
+	}
+
+	fmt.Println("\n========== END REPORT ==========")
+}
+
 func main() {
 	ctx := context.Background()
 
@@ -27,6 +61,7 @@ func main() {
 	mongoDB := flag.String("mongo-db", envOrDefault("MONGO_DATABASE", "org"), "MongoDB database name")
 	pgDSN := flag.String("pg-dsn", envOrDefault("POSTGRES_DSN", ""), "PostgreSQL DSN")
 	truncate := flag.Bool("truncate", false, "Truncate destination tables before backfill")
+	report := flag.Bool("report", true, "Print detailed migration report (default: true)")
 	flag.Parse()
 
 	if strings.TrimSpace(*pgDSN) == "" {
@@ -55,6 +90,7 @@ func main() {
 
 	queries := dbgen.New(pgPool)
 	mdb := mongoClient.Database(*mongoDB)
+	rep := &MigrationReport{}
 
 	if *truncate {
 		if err := truncateAll(ctx, pgPool); err != nil {
@@ -63,25 +99,29 @@ func main() {
 		log.Println("destination tables truncated")
 	}
 
-	membersCount, err := backfillMembers(ctx, mdb, queries)
+	membersCount, err := backfillMembers(ctx, mdb, queries, rep)
 	if err != nil {
 		log.Fatalf("backfill members: %v", err)
 	}
 	log.Printf("members backfilled: %d", membersCount)
 
-	attendanceCount, err := backfillAttendance(ctx, mdb, queries)
+	attendanceCount, err := backfillAttendance(ctx, mdb, queries, rep)
 	if err != nil {
 		log.Fatalf("backfill attendance: %v", err)
 	}
 	log.Printf("attendance backfilled: %d", attendanceCount)
 
-	tokensCount, err := backfillTokens(ctx, mdb, queries)
+	tokensCount, err := backfillTokens(ctx, mdb, queries, rep)
 	if err != nil {
 		log.Fatalf("backfill tokens: %v", err)
 	}
 	log.Printf("tokens backfilled: %d", tokensCount)
 
 	log.Println("backfill completed")
+
+	if *report {
+		rep.print()
+	}
 }
 
 func truncateAll(ctx context.Context, pool *pgxpool.Pool) error {
@@ -98,7 +138,7 @@ RESTART IDENTITY CASCADE
 	return err
 }
 
-func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) (int, error) {
+func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
 	cur, err := mdb.Collection("members").Find(ctx, bson.D{})
 	if err != nil {
 		return 0, err
@@ -159,10 +199,11 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries)
 	if err := cur.Err(); err != nil {
 		return count, err
 	}
+	rep.membersProcessed = count
 	return count, nil
 }
 
-func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) (int, error) {
+func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
 	cur, err := mdb.Collection("attendance").Find(ctx, bson.D{})
 	if err != nil {
 		return 0, err
@@ -170,6 +211,9 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 	defer cur.Close(ctx)
 
 	count := 0
+	skipped := 0
+	nulledSubmitted := 0
+	participantsSkipped := 0
 	memberExistsCache := map[string]bool{}
 	for cur.Next(ctx) {
 		var doc bson.M
@@ -192,10 +236,12 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 		}
 
 		submittedByID := memberIDField(doc["submitted_by"])
+		submittedByWasNulled := false
 		if submittedByID != "" {
 			if exists, ok := memberExistsCache[submittedByID]; ok {
 				if !exists {
 					submittedByID = ""
+					submittedByWasNulled = true
 				}
 			} else {
 				_, err := q.GetMember(ctx, submittedByID)
@@ -203,6 +249,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 				memberExistsCache[submittedByID] = exists
 				if !exists {
 					submittedByID = ""
+					submittedByWasNulled = true
 				}
 			}
 		}
@@ -225,6 +272,10 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 		})
 		if err != nil {
 			return count, fmt.Errorf("upsert attendance %s: %w", id, err)
+		}
+
+		if submittedByWasNulled {
+			nulledSubmitted++
 		}
 
 		if hasPayout {
@@ -288,6 +339,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 			}
 			if exists, ok := memberExistsCache[memberID]; ok {
 				if !exists {
+					participantsSkipped++
 					continue
 				}
 			} else {
@@ -295,6 +347,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 				exists := err == nil
 				memberExistsCache[memberID] = exists
 				if !exists {
+					participantsSkipped++
 					continue
 				}
 			}
@@ -318,10 +371,14 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 	if err := cur.Err(); err != nil {
 		return count, err
 	}
+	
+	rep.attendanceProcessed = count
+	rep.attendanceSkipped = skipped
+	rep.attendanceNulledSubmitted = nulledSubmitted
 	return count, nil
 }
 
-func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) (int, error) {
+func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
 	cur, err := mdb.Collection("tokens").Find(ctx, bson.D{})
 	if err != nil {
 		return 0, err
@@ -329,6 +386,9 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 	defer cur.Close(ctx)
 
 	count := 0
+	skipped := 0
+	nulledGiver := 0
+	nulledAttendance := 0
 	memberExistsCache := map[string]bool{}
 	attendanceExistsCache := map[string]bool{}
 	for cur.Next(ctx) {
@@ -348,6 +408,7 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 		}
 		if exists, ok := memberExistsCache[memberID]; ok {
 			if !exists {
+				skipped++
 				continue
 			}
 		} else {
@@ -355,15 +416,18 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 			exists := err == nil
 			memberExistsCache[memberID] = exists
 			if !exists {
+				skipped++
 				continue
 			}
 		}
 
 		attendanceID := asString(doc["attendance_id"])
+		attendanceWasNulled := false
 		if attendanceID != "" {
 			if exists, ok := attendanceExistsCache[attendanceID]; ok {
 				if !exists {
 					attendanceID = ""
+					attendanceWasNulled = true
 				}
 			} else {
 				_, err := q.GetAttendanceByID(ctx, attendanceID)
@@ -371,15 +435,18 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 				attendanceExistsCache[attendanceID] = exists
 				if !exists {
 					attendanceID = ""
+					attendanceWasNulled = true
 				}
 			}
 		}
 
 		giverID := asString(doc["giver_id"])
+		giverWasNulled := false
 		if giverID != "" {
 			if exists, ok := memberExistsCache[giverID]; ok {
 				if !exists {
 					giverID = ""
+					giverWasNulled = true
 				}
 			} else {
 				_, err := q.GetMember(ctx, giverID)
@@ -387,6 +454,7 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 				memberExistsCache[giverID] = exists
 				if !exists {
 					giverID = ""
+					giverWasNulled = true
 				}
 			}
 		}
@@ -409,12 +477,24 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries) 
 			return count, fmt.Errorf("insert token %s: %w", id, err)
 		}
 
+		if attendanceWasNulled {
+			nulledAttendance++
+		}
+		if giverWasNulled {
+			nulledGiver++
+		}
+
 		count++
 	}
 
 	if err := cur.Err(); err != nil {
 		return count, err
 	}
+	
+	rep.tokensProcessed = count
+	rep.tokensSkipped = skipped
+	rep.tokensNulledGiver = nulledGiver
+	rep.tokensNulledAttendance = nulledAttendance
 	return count, nil
 }
 
