@@ -11,14 +11,14 @@ import (
 )
 
 type Querier interface {
-	AddAttendanceIssue(ctx context.Context, arg AddAttendanceIssueParams) error
-	AddAttendanceMember(ctx context.Context, arg AddAttendanceMemberParams) error
 	AddMemberBlueprint(ctx context.Context, arg AddMemberBlueprintParams) error
 	CountRecordedMemberAttendanceAfterJoin(ctx context.Context, memberID string) (int32, error)
 	CountUniqueAttendanceMembersSince(ctx context.Context, since pgtype.Timestamptz) (int32, error)
 	DeleteAttendance(ctx context.Context, id string) error
+	DeleteAttendancePayout(ctx context.Context, attendanceID string) error
 	DeleteMember(ctx context.Context, id string) error
 	GetAttendanceByID(ctx context.Context, id string) (Attendance, error)
+	GetAttendancePayout(ctx context.Context, attendanceID string) (AttendancePayout, error)
 	GetMember(ctx context.Context, id string) (Member, error)
 	GetMemberIDs(ctx context.Context) ([]string, error)
 	GetTokenBalances(ctx context.Context) ([]GetTokenBalancesRow, error)
@@ -27,9 +27,8 @@ type Querier interface {
 	ListActiveAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
 	ListAllAttendance(ctx context.Context) ([]Attendance, error)
 	ListAllTokens(ctx context.Context) ([]Token, error)
-	ListAttendanceIssueIDs(ctx context.Context, attendanceID string) ([]string, error)
-	ListAttendanceMemberIDs(ctx context.Context, attendanceID string) ([]string, error)
 	ListAttendancePage(ctx context.Context, arg ListAttendancePageParams) ([]Attendance, error)
+	ListAttendanceParticipants(ctx context.Context, attendanceID string) ([]AttendanceParticipant, error)
 	ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]Member, error)
 	ListMembersByIDs(ctx context.Context, ids []string) ([]Member, error)
 	ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]Member, error)
@@ -38,10 +37,11 @@ type Querier interface {
 	ListTokensByAttendanceID(ctx context.Context, attendanceID pgtype.Text) ([]Token, error)
 	ListTokensByMemberAndAttendance(ctx context.Context, arg ListTokensByMemberAndAttendanceParams) ([]Token, error)
 	ListTokensSince(ctx context.Context, createdAfter pgtype.Timestamptz) ([]Token, error)
-	ReplaceAttendanceIssues(ctx context.Context, attendanceID string) error
-	ReplaceAttendanceMembers(ctx context.Context, attendanceID string) error
+	ReplaceAttendanceParticipants(ctx context.Context, attendanceID string) error
 	ReplaceMemberBlueprints(ctx context.Context, memberID string) error
 	UpsertAttendance(ctx context.Context, arg UpsertAttendanceParams) error
+	UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error
+	UpsertAttendancePayout(ctx context.Context, arg UpsertAttendancePayoutParams) error
 	UpsertMember(ctx context.Context, arg UpsertMemberParams) error
 }
 

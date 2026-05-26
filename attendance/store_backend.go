@@ -130,8 +130,6 @@ func (b *postgresAttendanceBackend) Upsert(a *Attendance) error {
 		Active:      a.Active,
 		Tokenable:   a.Tokenable,
 		Status:      string(a.Status),
-		FromStart:   a.FromStart,
-		Stayed:      a.Stayed,
 		ChannelID:   a.ChannelId,
 		MessageID:   a.MessageId,
 		DateCreated: toPgTs(a.DateCreated),
@@ -140,34 +138,89 @@ func (b *postgresAttendanceBackend) Upsert(a *Attendance) error {
 	if a.SubmittedBy != nil {
 		params.SubmittedBy = toPgText(a.SubmittedBy.Id)
 	}
-	if a.Payouts != nil {
-		params.PayoutsTotal = toPgInt8(a.Payouts.Total)
-		params.PayoutsPerMember = toPgInt8(a.Payouts.PerMember)
-		params.PayoutsOrgTake = toPgInt8(a.Payouts.OrgTake)
-	}
-
 	if err := qtx.UpsertAttendance(ctx, params); err != nil {
 		return err
 	}
-	if err := qtx.ReplaceAttendanceMembers(ctx, a.Id); err != nil {
+
+	if a.Payouts == nil {
+		if err := qtx.DeleteAttendancePayout(ctx, a.Id); err != nil {
+			return err
+		}
+	} else {
+		if err := qtx.UpsertAttendancePayout(ctx, dbgen.UpsertAttendancePayoutParams{
+			AttendanceID: a.Id,
+			Total:        a.Payouts.Total,
+			PerMember:    a.Payouts.PerMember,
+			OrgTake:      a.Payouts.OrgTake,
+			DateUpdated:  toPgTs(a.DateUpdated),
+		}); err != nil {
+			return err
+		}
+	}
+
+	if err := qtx.ReplaceAttendanceParticipants(ctx, a.Id); err != nil {
 		return err
 	}
+
+	type participantFlags struct {
+		JoinedAtStart  bool
+		StayedUntilEnd bool
+		HasIssue       bool
+	}
+	participantMap := map[string]participantFlags{}
+
 	for _, m := range a.Members {
 		if m == nil || m.Id == "" {
 			continue
 		}
-		if err := qtx.AddAttendanceMember(ctx, dbgen.AddAttendanceMemberParams{AttendanceID: a.Id, MemberID: m.Id}); err != nil {
-			return err
-		}
+		flags := participantMap[m.Id]
+		participantMap[m.Id] = flags
 	}
-	if err := qtx.ReplaceAttendanceIssues(ctx, a.Id); err != nil {
-		return err
+	for _, memberID := range a.FromStart {
+		if memberID == "" {
+			continue
+		}
+		flags := participantMap[memberID]
+		flags.JoinedAtStart = true
+		participantMap[memberID] = flags
+	}
+	for _, memberID := range a.Stayed {
+		if memberID == "" {
+			continue
+		}
+		flags := participantMap[memberID]
+		flags.StayedUntilEnd = true
+		participantMap[memberID] = flags
 	}
 	for _, m := range a.WithIssues {
 		if m == nil || m.Id == "" {
 			continue
 		}
-		if err := qtx.AddAttendanceIssue(ctx, dbgen.AddAttendanceIssueParams{AttendanceID: a.Id, MemberID: m.Id}); err != nil {
+		flags := participantMap[m.Id]
+		flags.HasIssue = true
+		participantMap[m.Id] = flags
+	}
+
+	for _, p := range a.Participants {
+		if p.Member == nil || p.Member.Id == "" {
+			continue
+		}
+		flags := participantMap[p.Member.Id]
+		flags.JoinedAtStart = flags.JoinedAtStart || p.JoinedAtStart
+		flags.StayedUntilEnd = flags.StayedUntilEnd || p.StayedUntilEnd
+		flags.HasIssue = flags.HasIssue || p.HasIssue
+		participantMap[p.Member.Id] = flags
+	}
+
+	for memberID, flags := range participantMap {
+		if err := qtx.UpsertAttendanceParticipant(ctx, dbgen.UpsertAttendanceParticipantParams{
+			AttendanceID:   a.Id,
+			MemberID:       memberID,
+			JoinedAtStart:  flags.JoinedAtStart,
+			StayedUntilEnd: flags.StayedUntilEnd,
+			HasIssue:       flags.HasIssue,
+			UpdatedAt:      toPgTs(a.DateUpdated),
+		}); err != nil {
 			return err
 		}
 	}
@@ -185,26 +238,16 @@ func (b *postgresAttendanceBackend) hydrateRows(rows []dbgen.Attendance) ([]*Att
 	}
 
 	memberIDs := map[string]struct{}{}
-	membersByAttendance := map[string][]string{}
-	issuesByAttendance := map[string][]string{}
+	participantsByAttendance := map[string][]dbgen.AttendanceParticipant{}
 
 	for _, row := range rows {
-		ids, err := b.queries.ListAttendanceMemberIDs(context.Background(), row.ID)
+		participants, err := b.queries.ListAttendanceParticipants(context.Background(), row.ID)
 		if err != nil {
 			return nil, err
 		}
-		membersByAttendance[row.ID] = ids
-		for _, id := range ids {
-			memberIDs[id] = struct{}{}
-		}
-
-		issues, err := b.queries.ListAttendanceIssueIDs(context.Background(), row.ID)
-		if err != nil {
-			return nil, err
-		}
-		issuesByAttendance[row.ID] = issues
-		for _, id := range issues {
-			memberIDs[id] = struct{}{}
+		participantsByAttendance[row.ID] = participants
+		for _, participant := range participants {
+			memberIDs[participant.MemberID] = struct{}{}
 		}
 
 		if row.SubmittedBy.Valid {
@@ -237,8 +280,8 @@ func (b *postgresAttendanceBackend) hydrateRows(rows []dbgen.Attendance) ([]*Att
 			Active:      row.Active,
 			Tokenable:   row.Tokenable,
 			Status:      Status(row.Status),
-			FromStart:   row.FromStart,
-			Stayed:      row.Stayed,
+			FromStart:   []string{},
+			Stayed:      []string{},
 			ChannelId:   row.ChannelID,
 			MessageId:   row.MessageID,
 			DateCreated: fromPgTs(row.DateCreated),
@@ -251,26 +294,42 @@ func (b *postgresAttendanceBackend) hydrateRows(rows []dbgen.Attendance) ([]*Att
 				a.SubmittedBy = &members.Member{Id: row.SubmittedBy.String}
 			}
 		}
-		if row.PayoutsTotal.Valid || row.PayoutsPerMember.Valid || row.PayoutsOrgTake.Valid {
+		payout, err := b.queries.GetAttendancePayout(context.Background(), row.ID)
+		if err == nil {
 			a.Payouts = &Payouts{
-				Total:     row.PayoutsTotal.Int64,
-				PerMember: row.PayoutsPerMember.Int64,
-				OrgTake:   row.PayoutsOrgTake.Int64,
+				Total:     payout.Total,
+				PerMember: payout.PerMember,
+				OrgTake:   payout.OrgTake,
 			}
+		} else if !errors.Is(err, pgx.ErrNoRows) {
+			return nil, err
 		}
 
-		for _, id := range membersByAttendance[row.ID] {
+		for _, participant := range participantsByAttendance[row.ID] {
+			id := participant.MemberID
+			var member *members.Member
 			if m, ok := memberMap[id]; ok {
-				a.Members = append(a.Members, m)
+				member = m
 			} else {
-				a.Members = append(a.Members, &members.Member{Id: id})
+				member = &members.Member{Id: id}
 			}
-		}
-		for _, id := range issuesByAttendance[row.ID] {
-			if m, ok := memberMap[id]; ok {
-				a.WithIssues = append(a.WithIssues, m)
-			} else {
-				a.WithIssues = append(a.WithIssues, &members.Member{Id: id})
+
+			a.Members = append(a.Members, member)
+			a.Participants = append(a.Participants, Participant{
+				Member:         member,
+				JoinedAtStart:  participant.JoinedAtStart,
+				StayedUntilEnd: participant.StayedUntilEnd,
+				HasIssue:       participant.HasIssue,
+			})
+
+			if participant.JoinedAtStart {
+				a.FromStart = append(a.FromStart, id)
+			}
+			if participant.StayedUntilEnd {
+				a.Stayed = append(a.Stayed, id)
+			}
+			if participant.HasIssue {
+				a.WithIssues = append(a.WithIssues, member)
 			}
 		}
 

@@ -87,9 +87,9 @@ func main() {
 func truncateAll(ctx context.Context, pool *pgxpool.Pool) error {
 	_, err := pool.Exec(ctx, `
 TRUNCATE TABLE
+	attendance_participants,
+	attendance_payouts,
 	tokens,
-	attendance_issues,
-	attendance_members,
 	attendance,
 	member_blueprints,
 	members
@@ -189,52 +189,92 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 			dateUpdated = dateCreated
 		}
 
-		payoutsTotal, payoutsPerMember, payoutsOrgTake := payoutsFromDoc(doc["payouts"])
+		payoutsTotal, payoutsPerMember, payoutsOrgTake, hasPayout := payoutsFromDoc(doc["payouts"])
 
 		err := q.UpsertAttendance(ctx, dbgen.UpsertAttendanceParams{
-			ID:               id,
-			Name:             asString(doc["name"]),
-			SubmittedBy:      toPgText(memberIDField(doc["submitted_by"])),
-			Recorded:         asBool(doc["recorded"]),
-			Successful:       asBool(doc["successful"]),
-			Active:           asBool(doc["active"]),
-			Tokenable:        asBool(doc["tokenable"]),
-			Status:           asString(doc["status"]),
-			PayoutsTotal:     toPgInt8(payoutsTotal),
-			PayoutsPerMember: toPgInt8(payoutsPerMember),
-			PayoutsOrgTake:   toPgInt8(payoutsOrgTake),
-			FromStart:        asStringSlice(doc["from_start"]),
-			Stayed:           asStringSlice(doc["stayed"]),
-			ChannelID:        asString(doc["channel_id"]),
-			MessageID:        asString(doc["message_id"]),
-			DateCreated:      toPgTs(dateCreated),
-			DateUpdated:      toPgTs(dateUpdated),
+			ID:          id,
+			Name:        asString(doc["name"]),
+			SubmittedBy: toPgText(memberIDField(doc["submitted_by"])),
+			Recorded:    asBool(doc["recorded"]),
+			Successful:  asBool(doc["successful"]),
+			Active:      asBool(doc["active"]),
+			Tokenable:   asBool(doc["tokenable"]),
+			Status:      asString(doc["status"]),
+			ChannelID:   asString(doc["channel_id"]),
+			MessageID:   asString(doc["message_id"]),
+			DateCreated: toPgTs(dateCreated),
+			DateUpdated: toPgTs(dateUpdated),
 		})
 		if err != nil {
 			return count, fmt.Errorf("upsert attendance %s: %w", id, err)
 		}
 
-		if err := q.ReplaceAttendanceMembers(ctx, id); err != nil {
-			return count, fmt.Errorf("replace attendance members %s: %w", id, err)
+		if hasPayout {
+			err := q.UpsertAttendancePayout(ctx, dbgen.UpsertAttendancePayoutParams{
+				AttendanceID: id,
+				Total:        payoutsTotal,
+				PerMember:    payoutsPerMember,
+				OrgTake:      payoutsOrgTake,
+				DateUpdated:  toPgTs(dateUpdated),
+			})
+			if err != nil {
+				return count, fmt.Errorf("upsert attendance payout %s: %w", id, err)
+			}
 		}
+
+		if err := q.ReplaceAttendanceParticipants(ctx, id); err != nil {
+			return count, fmt.Errorf("replace attendance participants %s: %w", id, err)
+		}
+
+		type participantFlags struct {
+			JoinedAtStart  bool
+			StayedUntilEnd bool
+			HasIssue       bool
+		}
+
+		participantMap := map[string]participantFlags{}
 		for _, memberID := range memberIDList(doc["members"]) {
 			if memberID == "" {
 				continue
 			}
-			if err := q.AddAttendanceMember(ctx, dbgen.AddAttendanceMemberParams{AttendanceID: id, MemberID: memberID}); err != nil {
-				return count, fmt.Errorf("add attendance member %s/%s: %w", id, memberID, err)
-			}
+			participantMap[memberID] = participantFlags{}
 		}
-
-		if err := q.ReplaceAttendanceIssues(ctx, id); err != nil {
-			return count, fmt.Errorf("replace attendance issues %s: %w", id, err)
+		for _, memberID := range memberIDList(doc["from_start"]) {
+			if memberID == "" {
+				continue
+			}
+			flags := participantMap[memberID]
+			flags.JoinedAtStart = true
+			participantMap[memberID] = flags
 		}
 		for _, memberID := range memberIDList(doc["with_issues"]) {
 			if memberID == "" {
 				continue
 			}
-			if err := q.AddAttendanceIssue(ctx, dbgen.AddAttendanceIssueParams{AttendanceID: id, MemberID: memberID}); err != nil {
-				return count, fmt.Errorf("add attendance issue %s/%s: %w", id, memberID, err)
+			flags := participantMap[memberID]
+			flags.HasIssue = true
+			participantMap[memberID] = flags
+		}
+		for _, memberID := range memberIDList(doc["stayed"]) {
+			if memberID == "" {
+				continue
+			}
+			flags := participantMap[memberID]
+			flags.StayedUntilEnd = true
+			participantMap[memberID] = flags
+		}
+
+		for memberID, flags := range participantMap {
+			err := q.UpsertAttendanceParticipant(ctx, dbgen.UpsertAttendanceParticipantParams{
+				AttendanceID:   id,
+				MemberID:       memberID,
+				JoinedAtStart:  flags.JoinedAtStart,
+				StayedUntilEnd: flags.StayedUntilEnd,
+				HasIssue:       flags.HasIssue,
+				UpdatedAt:      toPgTs(dateUpdated),
+			})
+			if err != nil {
+				return count, fmt.Errorf("upsert attendance participant %s/%s: %w", id, memberID, err)
 			}
 		}
 
@@ -327,7 +367,7 @@ func memberIDField(v any) string {
 	return ""
 }
 
-func payoutsFromDoc(v any) (int64, int64, int64) {
+func payoutsFromDoc(v any) (int64, int64, int64, bool) {
 	m := map[string]any{}
 	switch t := v.(type) {
 	case map[string]any:
@@ -335,9 +375,9 @@ func payoutsFromDoc(v any) (int64, int64, int64) {
 	case bson.M:
 		m = t
 	default:
-		return 0, 0, 0
+		return 0, 0, 0, false
 	}
-	return int64(asInt(m["total"])), int64(asInt(m["per_member"])), int64(asInt(m["org_take"]))
+	return int64(asInt(m["total"])), int64(asInt(m["per_member"])), int64(asInt(m["org_take"])), true
 }
 
 func toPgText(v string) pgtype.Text {

@@ -35,16 +35,16 @@ LIMIT sqlc.arg(limit_rows)::int;
 -- name: CountRecordedMemberAttendanceAfterJoin :one
 SELECT COUNT(*)::int AS count
 FROM attendance a
-INNER JOIN attendance_members am ON am.attendance_id = a.id
-INNER JOIN members m ON m.id = am.member_id
-WHERE am.member_id = sqlc.arg(member_id)
+INNER JOIN attendance_participants ap ON ap.attendance_id = a.id
+INNER JOIN members m ON m.id = ap.member_id
+WHERE ap.member_id = sqlc.arg(member_id)
   AND a.recorded = TRUE
   AND a.date_created > m.joined;
 
 -- name: CountUniqueAttendanceMembersSince :one
-SELECT COUNT(DISTINCT am.member_id)::int AS count
+SELECT COUNT(DISTINCT ap.member_id)::int AS count
 FROM attendance a
-INNER JOIN attendance_members am ON am.attendance_id = a.id
+INNER JOIN attendance_participants ap ON ap.attendance_id = a.id
 WHERE a.date_created >= sqlc.arg(since);
 
 -- name: UpsertAttendance :exec
@@ -57,11 +57,6 @@ INSERT INTO attendance (
     active,
     tokenable,
     status,
-    payouts_total,
-    payouts_per_member,
-    payouts_org_take,
-    from_start,
-    stayed,
     channel_id,
     message_id,
     date_created,
@@ -76,11 +71,6 @@ VALUES (
     sqlc.arg(active),
     sqlc.arg(tokenable),
     sqlc.arg(status),
-    sqlc.narg(payouts_total),
-    sqlc.narg(payouts_per_member),
-    sqlc.narg(payouts_org_take),
-    sqlc.arg(from_start),
-    sqlc.arg(stayed),
     sqlc.arg(channel_id),
     sqlc.arg(message_id),
     sqlc.arg(date_created),
@@ -94,43 +84,67 @@ SET name = EXCLUDED.name,
     active = EXCLUDED.active,
     tokenable = EXCLUDED.tokenable,
     status = EXCLUDED.status,
-    payouts_total = EXCLUDED.payouts_total,
-    payouts_per_member = EXCLUDED.payouts_per_member,
-    payouts_org_take = EXCLUDED.payouts_org_take,
-    from_start = EXCLUDED.from_start,
-    stayed = EXCLUDED.stayed,
     channel_id = EXCLUDED.channel_id,
     message_id = EXCLUDED.message_id,
     date_created = EXCLUDED.date_created,
     date_updated = EXCLUDED.date_updated;
 
--- name: ReplaceAttendanceMembers :exec
-DELETE FROM attendance_members
+-- name: UpsertAttendancePayout :exec
+INSERT INTO attendance_payouts (
+    attendance_id,
+    total,
+    per_member,
+    org_take,
+    date_updated
+	)
+VALUES (
+    sqlc.arg(attendance_id),
+    sqlc.arg(total),
+    sqlc.arg(per_member),
+    sqlc.arg(org_take),
+    sqlc.arg(date_updated)
+	)
+ON CONFLICT (attendance_id) DO UPDATE
+SET total = EXCLUDED.total,
+    per_member = EXCLUDED.per_member,
+    org_take = EXCLUDED.org_take,
+    date_updated = EXCLUDED.date_updated;
+
+-- name: DeleteAttendancePayout :exec
+DELETE FROM attendance_payouts
 WHERE attendance_id = sqlc.arg(attendance_id);
 
--- name: ReplaceAttendanceIssues :exec
-DELETE FROM attendance_issues
+-- name: GetAttendancePayout :one
+SELECT *
+FROM attendance_payouts
+WHERE attendance_id = $1;
+
+-- name: ReplaceAttendanceParticipants :exec
+DELETE FROM attendance_participants
 WHERE attendance_id = sqlc.arg(attendance_id);
 
--- name: AddAttendanceMember :exec
-INSERT INTO attendance_members (attendance_id, member_id)
-VALUES (sqlc.arg(attendance_id), sqlc.arg(member_id))
+-- name: UpsertAttendanceParticipant :exec
+INSERT INTO attendance_participants (
+    attendance_id,
+    member_id,
+    joined_at_start,
+    stayed_until_end,
+    has_issue,
+    updated_at
+	)
+VALUES (
+    sqlc.arg(attendance_id),
+    sqlc.arg(member_id),
+    sqlc.arg(joined_at_start),
+    sqlc.arg(stayed_until_end),
+    sqlc.arg(has_issue),
+    sqlc.arg(updated_at)
+	)
 ON CONFLICT (attendance_id, member_id) DO NOTHING;
 
--- name: AddAttendanceIssue :exec
-INSERT INTO attendance_issues (attendance_id, member_id)
-VALUES (sqlc.arg(attendance_id), sqlc.arg(member_id))
-ON CONFLICT (attendance_id, member_id) DO NOTHING;
-
--- name: ListAttendanceMemberIDs :many
-SELECT member_id
-FROM attendance_members
-WHERE attendance_id = $1
-ORDER BY member_id;
-
--- name: ListAttendanceIssueIDs :many
-SELECT member_id
-FROM attendance_issues
+-- name: ListAttendanceParticipants :many
+SELECT *
+FROM attendance_participants
 WHERE attendance_id = $1
 ORDER BY member_id;
 

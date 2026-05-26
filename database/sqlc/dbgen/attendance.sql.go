@@ -11,44 +11,12 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const addAttendanceIssue = `-- name: AddAttendanceIssue :exec
-INSERT INTO attendance_issues (attendance_id, member_id)
-VALUES ($1, $2)
-ON CONFLICT (attendance_id, member_id) DO NOTHING
-`
-
-type AddAttendanceIssueParams struct {
-	AttendanceID string `json:"attendance_id"`
-	MemberID     string `json:"member_id"`
-}
-
-func (q *Queries) AddAttendanceIssue(ctx context.Context, arg AddAttendanceIssueParams) error {
-	_, err := q.db.Exec(ctx, addAttendanceIssue, arg.AttendanceID, arg.MemberID)
-	return err
-}
-
-const addAttendanceMember = `-- name: AddAttendanceMember :exec
-INSERT INTO attendance_members (attendance_id, member_id)
-VALUES ($1, $2)
-ON CONFLICT (attendance_id, member_id) DO NOTHING
-`
-
-type AddAttendanceMemberParams struct {
-	AttendanceID string `json:"attendance_id"`
-	MemberID     string `json:"member_id"`
-}
-
-func (q *Queries) AddAttendanceMember(ctx context.Context, arg AddAttendanceMemberParams) error {
-	_, err := q.db.Exec(ctx, addAttendanceMember, arg.AttendanceID, arg.MemberID)
-	return err
-}
-
 const countRecordedMemberAttendanceAfterJoin = `-- name: CountRecordedMemberAttendanceAfterJoin :one
 SELECT COUNT(*)::int AS count
 FROM attendance a
-INNER JOIN attendance_members am ON am.attendance_id = a.id
-INNER JOIN members m ON m.id = am.member_id
-WHERE am.member_id = $1
+INNER JOIN attendance_participants ap ON ap.attendance_id = a.id
+INNER JOIN members m ON m.id = ap.member_id
+WHERE ap.member_id = $1
   AND a.recorded = TRUE
   AND a.date_created > m.joined
 `
@@ -61,9 +29,9 @@ func (q *Queries) CountRecordedMemberAttendanceAfterJoin(ctx context.Context, me
 }
 
 const countUniqueAttendanceMembersSince = `-- name: CountUniqueAttendanceMembersSince :one
-SELECT COUNT(DISTINCT am.member_id)::int AS count
+SELECT COUNT(DISTINCT ap.member_id)::int AS count
 FROM attendance a
-INNER JOIN attendance_members am ON am.attendance_id = a.id
+INNER JOIN attendance_participants ap ON ap.attendance_id = a.id
 WHERE a.date_created >= $1
 `
 
@@ -84,8 +52,18 @@ func (q *Queries) DeleteAttendance(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteAttendancePayout = `-- name: DeleteAttendancePayout :exec
+DELETE FROM attendance_payouts
+WHERE attendance_id = $1
+`
+
+func (q *Queries) DeleteAttendancePayout(ctx context.Context, attendanceID string) error {
+	_, err := q.db.Exec(ctx, deleteAttendancePayout, attendanceID)
+	return err
+}
+
 const getAttendanceByID = `-- name: GetAttendanceByID :one
-SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, payouts_total, payouts_per_member, payouts_org_take, from_start, stayed, channel_id, message_id, date_created, date_updated
+SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, channel_id, message_id, date_created, date_updated
 FROM attendance
 WHERE id = $1
 `
@@ -102,11 +80,6 @@ func (q *Queries) GetAttendanceByID(ctx context.Context, id string) (Attendance,
 		&i.Active,
 		&i.Tokenable,
 		&i.Status,
-		&i.PayoutsTotal,
-		&i.PayoutsPerMember,
-		&i.PayoutsOrgTake,
-		&i.FromStart,
-		&i.Stayed,
 		&i.ChannelID,
 		&i.MessageID,
 		&i.DateCreated,
@@ -115,8 +88,27 @@ func (q *Queries) GetAttendanceByID(ctx context.Context, id string) (Attendance,
 	return i, err
 }
 
+const getAttendancePayout = `-- name: GetAttendancePayout :one
+SELECT attendance_id, total, per_member, org_take, date_updated
+FROM attendance_payouts
+WHERE attendance_id = $1
+`
+
+func (q *Queries) GetAttendancePayout(ctx context.Context, attendanceID string) (AttendancePayout, error) {
+	row := q.db.QueryRow(ctx, getAttendancePayout, attendanceID)
+	var i AttendancePayout
+	err := row.Scan(
+		&i.AttendanceID,
+		&i.Total,
+		&i.PerMember,
+		&i.OrgTake,
+		&i.DateUpdated,
+	)
+	return i, err
+}
+
 const listActiveAttendance = `-- name: ListActiveAttendance :many
-SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, payouts_total, payouts_per_member, payouts_org_take, from_start, stayed, channel_id, message_id, date_created, date_updated
+SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, channel_id, message_id, date_created, date_updated
 FROM attendance
 WHERE recorded = FALSE
    OR status = 'active'
@@ -143,11 +135,6 @@ func (q *Queries) ListActiveAttendance(ctx context.Context, limitRows int32) ([]
 			&i.Active,
 			&i.Tokenable,
 			&i.Status,
-			&i.PayoutsTotal,
-			&i.PayoutsPerMember,
-			&i.PayoutsOrgTake,
-			&i.FromStart,
-			&i.Stayed,
 			&i.ChannelID,
 			&i.MessageID,
 			&i.DateCreated,
@@ -164,7 +151,7 @@ func (q *Queries) ListActiveAttendance(ctx context.Context, limitRows int32) ([]
 }
 
 const listAllAttendance = `-- name: ListAllAttendance :many
-SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, payouts_total, payouts_per_member, payouts_org_take, from_start, stayed, channel_id, message_id, date_created, date_updated
+SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, channel_id, message_id, date_created, date_updated
 FROM attendance
 ORDER BY date_created DESC
 `
@@ -187,11 +174,6 @@ func (q *Queries) ListAllAttendance(ctx context.Context) ([]Attendance, error) {
 			&i.Active,
 			&i.Tokenable,
 			&i.Status,
-			&i.PayoutsTotal,
-			&i.PayoutsPerMember,
-			&i.PayoutsOrgTake,
-			&i.FromStart,
-			&i.Stayed,
 			&i.ChannelID,
 			&i.MessageID,
 			&i.DateCreated,
@@ -207,62 +189,8 @@ func (q *Queries) ListAllAttendance(ctx context.Context) ([]Attendance, error) {
 	return items, nil
 }
 
-const listAttendanceIssueIDs = `-- name: ListAttendanceIssueIDs :many
-SELECT member_id
-FROM attendance_issues
-WHERE attendance_id = $1
-ORDER BY member_id
-`
-
-func (q *Queries) ListAttendanceIssueIDs(ctx context.Context, attendanceID string) ([]string, error) {
-	rows, err := q.db.Query(ctx, listAttendanceIssueIDs, attendanceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var member_id string
-		if err := rows.Scan(&member_id); err != nil {
-			return nil, err
-		}
-		items = append(items, member_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listAttendanceMemberIDs = `-- name: ListAttendanceMemberIDs :many
-SELECT member_id
-FROM attendance_members
-WHERE attendance_id = $1
-ORDER BY member_id
-`
-
-func (q *Queries) ListAttendanceMemberIDs(ctx context.Context, attendanceID string) ([]string, error) {
-	rows, err := q.db.Query(ctx, listAttendanceMemberIDs, attendanceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var member_id string
-		if err := rows.Scan(&member_id); err != nil {
-			return nil, err
-		}
-		items = append(items, member_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listAttendancePage = `-- name: ListAttendancePage :many
-SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, payouts_total, payouts_per_member, payouts_org_take, from_start, stayed, channel_id, message_id, date_created, date_updated
+SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, channel_id, message_id, date_created, date_updated
 FROM attendance
 ORDER BY date_created DESC
 OFFSET $1::int
@@ -292,11 +220,6 @@ func (q *Queries) ListAttendancePage(ctx context.Context, arg ListAttendancePage
 			&i.Active,
 			&i.Tokenable,
 			&i.Status,
-			&i.PayoutsTotal,
-			&i.PayoutsPerMember,
-			&i.PayoutsOrgTake,
-			&i.FromStart,
-			&i.Stayed,
 			&i.ChannelID,
 			&i.MessageID,
 			&i.DateCreated,
@@ -312,8 +235,43 @@ func (q *Queries) ListAttendancePage(ctx context.Context, arg ListAttendancePage
 	return items, nil
 }
 
+const listAttendanceParticipants = `-- name: ListAttendanceParticipants :many
+SELECT attendance_id, member_id, joined_at_start, stayed_until_end, has_issue, created_at, updated_at
+FROM attendance_participants
+WHERE attendance_id = $1
+ORDER BY member_id
+`
+
+func (q *Queries) ListAttendanceParticipants(ctx context.Context, attendanceID string) ([]AttendanceParticipant, error) {
+	rows, err := q.db.Query(ctx, listAttendanceParticipants, attendanceID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AttendanceParticipant
+	for rows.Next() {
+		var i AttendanceParticipant
+		if err := rows.Scan(
+			&i.AttendanceID,
+			&i.MemberID,
+			&i.JoinedAtStart,
+			&i.StayedUntilEnd,
+			&i.HasIssue,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRecordedAttendance = `-- name: ListRecordedAttendance :many
-SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, payouts_total, payouts_per_member, payouts_org_take, from_start, stayed, channel_id, message_id, date_created, date_updated
+SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, channel_id, message_id, date_created, date_updated
 FROM attendance
 WHERE recorded = FALSE
    OR status = 'recorded'
@@ -339,11 +297,6 @@ func (q *Queries) ListRecordedAttendance(ctx context.Context, limitRows int32) (
 			&i.Active,
 			&i.Tokenable,
 			&i.Status,
-			&i.PayoutsTotal,
-			&i.PayoutsPerMember,
-			&i.PayoutsOrgTake,
-			&i.FromStart,
-			&i.Stayed,
 			&i.ChannelID,
 			&i.MessageID,
 			&i.DateCreated,
@@ -359,23 +312,13 @@ func (q *Queries) ListRecordedAttendance(ctx context.Context, limitRows int32) (
 	return items, nil
 }
 
-const replaceAttendanceIssues = `-- name: ReplaceAttendanceIssues :exec
-DELETE FROM attendance_issues
+const replaceAttendanceParticipants = `-- name: ReplaceAttendanceParticipants :exec
+DELETE FROM attendance_participants
 WHERE attendance_id = $1
 `
 
-func (q *Queries) ReplaceAttendanceIssues(ctx context.Context, attendanceID string) error {
-	_, err := q.db.Exec(ctx, replaceAttendanceIssues, attendanceID)
-	return err
-}
-
-const replaceAttendanceMembers = `-- name: ReplaceAttendanceMembers :exec
-DELETE FROM attendance_members
-WHERE attendance_id = $1
-`
-
-func (q *Queries) ReplaceAttendanceMembers(ctx context.Context, attendanceID string) error {
-	_, err := q.db.Exec(ctx, replaceAttendanceMembers, attendanceID)
+func (q *Queries) ReplaceAttendanceParticipants(ctx context.Context, attendanceID string) error {
+	_, err := q.db.Exec(ctx, replaceAttendanceParticipants, attendanceID)
 	return err
 }
 
@@ -389,11 +332,6 @@ INSERT INTO attendance (
     active,
     tokenable,
     status,
-    payouts_total,
-    payouts_per_member,
-    payouts_org_take,
-    from_start,
-    stayed,
     channel_id,
     message_id,
     date_created,
@@ -411,12 +349,7 @@ VALUES (
     $9,
     $10,
     $11,
-    $12,
-    $13,
-    $14,
-    $15,
-    $16,
-    $17
+    $12
 )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
@@ -426,11 +359,6 @@ SET name = EXCLUDED.name,
     active = EXCLUDED.active,
     tokenable = EXCLUDED.tokenable,
     status = EXCLUDED.status,
-    payouts_total = EXCLUDED.payouts_total,
-    payouts_per_member = EXCLUDED.payouts_per_member,
-    payouts_org_take = EXCLUDED.payouts_org_take,
-    from_start = EXCLUDED.from_start,
-    stayed = EXCLUDED.stayed,
     channel_id = EXCLUDED.channel_id,
     message_id = EXCLUDED.message_id,
     date_created = EXCLUDED.date_created,
@@ -438,23 +366,18 @@ SET name = EXCLUDED.name,
 `
 
 type UpsertAttendanceParams struct {
-	ID               string             `json:"id"`
-	Name             string             `json:"name"`
-	SubmittedBy      pgtype.Text        `json:"submitted_by"`
-	Recorded         bool               `json:"recorded"`
-	Successful       bool               `json:"successful"`
-	Active           bool               `json:"active"`
-	Tokenable        bool               `json:"tokenable"`
-	Status           string             `json:"status"`
-	PayoutsTotal     pgtype.Int8        `json:"payouts_total"`
-	PayoutsPerMember pgtype.Int8        `json:"payouts_per_member"`
-	PayoutsOrgTake   pgtype.Int8        `json:"payouts_org_take"`
-	FromStart        []string           `json:"from_start"`
-	Stayed           []string           `json:"stayed"`
-	ChannelID        string             `json:"channel_id"`
-	MessageID        string             `json:"message_id"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	SubmittedBy pgtype.Text        `json:"submitted_by"`
+	Recorded    bool               `json:"recorded"`
+	Successful  bool               `json:"successful"`
+	Active      bool               `json:"active"`
+	Tokenable   bool               `json:"tokenable"`
+	Status      string             `json:"status"`
+	ChannelID   string             `json:"channel_id"`
+	MessageID   string             `json:"message_id"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
 func (q *Queries) UpsertAttendance(ctx context.Context, arg UpsertAttendanceParams) error {
@@ -467,14 +390,91 @@ func (q *Queries) UpsertAttendance(ctx context.Context, arg UpsertAttendancePara
 		arg.Active,
 		arg.Tokenable,
 		arg.Status,
-		arg.PayoutsTotal,
-		arg.PayoutsPerMember,
-		arg.PayoutsOrgTake,
-		arg.FromStart,
-		arg.Stayed,
 		arg.ChannelID,
 		arg.MessageID,
 		arg.DateCreated,
+		arg.DateUpdated,
+	)
+	return err
+}
+
+const upsertAttendanceParticipant = `-- name: UpsertAttendanceParticipant :exec
+INSERT INTO attendance_participants (
+    attendance_id,
+    member_id,
+    joined_at_start,
+    stayed_until_end,
+    has_issue,
+    updated_at
+	)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5,
+    $6
+	)
+ON CONFLICT (attendance_id, member_id) DO NOTHING
+`
+
+type UpsertAttendanceParticipantParams struct {
+	AttendanceID   string             `json:"attendance_id"`
+	MemberID       string             `json:"member_id"`
+	JoinedAtStart  bool               `json:"joined_at_start"`
+	StayedUntilEnd bool               `json:"stayed_until_end"`
+	HasIssue       bool               `json:"has_issue"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error {
+	_, err := q.db.Exec(ctx, upsertAttendanceParticipant,
+		arg.AttendanceID,
+		arg.MemberID,
+		arg.JoinedAtStart,
+		arg.StayedUntilEnd,
+		arg.HasIssue,
+		arg.UpdatedAt,
+	)
+	return err
+}
+
+const upsertAttendancePayout = `-- name: UpsertAttendancePayout :exec
+INSERT INTO attendance_payouts (
+    attendance_id,
+    total,
+    per_member,
+    org_take,
+    date_updated
+	)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4,
+    $5
+	)
+ON CONFLICT (attendance_id) DO UPDATE
+SET total = EXCLUDED.total,
+    per_member = EXCLUDED.per_member,
+    org_take = EXCLUDED.org_take,
+    date_updated = EXCLUDED.date_updated
+`
+
+type UpsertAttendancePayoutParams struct {
+	AttendanceID string             `json:"attendance_id"`
+	Total        int64              `json:"total"`
+	PerMember    int64              `json:"per_member"`
+	OrgTake      int64              `json:"org_take"`
+	DateUpdated  pgtype.Timestamptz `json:"date_updated"`
+}
+
+func (q *Queries) UpsertAttendancePayout(ctx context.Context, arg UpsertAttendancePayoutParams) error {
+	_, err := q.db.Exec(ctx, upsertAttendancePayout,
+		arg.AttendanceID,
+		arg.Total,
+		arg.PerMember,
+		arg.OrgTake,
 		arg.DateUpdated,
 	)
 	return err
