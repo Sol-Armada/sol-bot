@@ -6,7 +6,6 @@ import (
 
 // Temporary stub: config data has been migrated out of database.
 // TODO: Either migrate configs to postgres or maintain them in settings files/in-memory only.
-var configStore interface{} = nil
 
 func Setup() error {
 	// No-op; configs not stored in database anymore.
