@@ -345,10 +345,6 @@ func toPgText(v string) pgtype.Text {
 	return pgtype.Text{String: v, Valid: true}
 }
 
-func toPgInt8(v int64) pgtype.Int8 {
-	return pgtype.Int8{Int64: v, Valid: true}
-}
-
 func toPgTs(v time.Time) pgtype.Timestamptz {
 	if v.IsZero() {
 		return pgtype.Timestamptz{}
