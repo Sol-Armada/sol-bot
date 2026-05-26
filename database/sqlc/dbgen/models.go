@@ -9,33 +9,36 @@ import (
 )
 
 type Attendance struct {
-	ID               string             `json:"id"`
-	Name             string             `json:"name"`
-	SubmittedBy      pgtype.Text        `json:"submitted_by"`
-	Recorded         bool               `json:"recorded"`
-	Successful       bool               `json:"successful"`
-	Active           bool               `json:"active"`
-	Tokenable        bool               `json:"tokenable"`
-	Status           string             `json:"status"`
-	PayoutsTotal     pgtype.Int8        `json:"payouts_total"`
-	PayoutsPerMember pgtype.Int8        `json:"payouts_per_member"`
-	PayoutsOrgTake   pgtype.Int8        `json:"payouts_org_take"`
-	FromStart        []string           `json:"from_start"`
-	Stayed           []string           `json:"stayed"`
-	ChannelID        string             `json:"channel_id"`
-	MessageID        string             `json:"message_id"`
-	DateCreated      pgtype.Timestamptz `json:"date_created"`
-	DateUpdated      pgtype.Timestamptz `json:"date_updated"`
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	SubmittedBy pgtype.Text        `json:"submitted_by"`
+	Recorded    bool               `json:"recorded"`
+	Successful  bool               `json:"successful"`
+	Active      bool               `json:"active"`
+	Tokenable   bool               `json:"tokenable"`
+	Status      string             `json:"status"`
+	ChannelID   string             `json:"channel_id"`
+	MessageID   string             `json:"message_id"`
+	DateCreated pgtype.Timestamptz `json:"date_created"`
+	DateUpdated pgtype.Timestamptz `json:"date_updated"`
 }
 
-type AttendanceIssue struct {
-	AttendanceID string `json:"attendance_id"`
-	MemberID     string `json:"member_id"`
+type AttendanceParticipant struct {
+	AttendanceID   string             `json:"attendance_id"`
+	MemberID       string             `json:"member_id"`
+	JoinedAtStart  bool               `json:"joined_at_start"`
+	StayedUntilEnd bool               `json:"stayed_until_end"`
+	HasIssue       bool               `json:"has_issue"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
-type AttendanceMember struct {
-	AttendanceID string `json:"attendance_id"`
-	MemberID     string `json:"member_id"`
+type AttendancePayout struct {
+	AttendanceID string             `json:"attendance_id"`
+	Total        int64              `json:"total"`
+	PerMember    int64              `json:"per_member"`
+	OrgTake      int64              `json:"org_take"`
+	DateUpdated  pgtype.Timestamptz `json:"date_updated"`
 }
 
 type Member struct {

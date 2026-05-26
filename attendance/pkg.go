@@ -27,11 +27,19 @@ type Payouts struct {
 	OrgTake   int64 `json:"org_take"`
 }
 
+type Participant struct {
+	Member          *members.Member `json:"member"`
+	JoinedAtStart   bool            `json:"joined_at_start"`
+	StayedUntilEnd  bool            `json:"stayed_until_end"`
+	HasIssue        bool            `json:"has_issue"`
+}
+
 type Attendance struct {
 	Id          string            `json:"id" bson:"_id"`
 	Name        string            `json:"name"`
 	SubmittedBy *members.Member   `json:"submitted_by" bson:"submitted_by"`
 	Members     []*members.Member `json:"members"`
+	Participants []Participant    `json:"participants"`
 	WithIssues  []*members.Member `json:"with_issues" bson:"with_issues"`
 	Recorded    bool              `json:"recorded"`
 	Payouts     *Payouts          `json:"payouts" bson:"payouts"`

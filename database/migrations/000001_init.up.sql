@@ -30,11 +30,6 @@ CREATE TABLE attendance (
 	active BOOLEAN NOT NULL DEFAULT TRUE,
 	tokenable BOOLEAN NOT NULL DEFAULT FALSE,
 	status TEXT NOT NULL DEFAULT 'active',
-	payouts_total BIGINT,
-	payouts_per_member BIGINT,
-	payouts_org_take BIGINT,
-	from_start TEXT[] NOT NULL DEFAULT '{}',
-	stayed TEXT[] NOT NULL DEFAULT '{}',
 	channel_id TEXT NOT NULL DEFAULT '',
 	message_id TEXT NOT NULL DEFAULT '',
 	date_created TIMESTAMPTZ NOT NULL,
@@ -44,21 +39,28 @@ CREATE TABLE attendance (
 CREATE INDEX idx_attendance_date_created ON attendance (date_created DESC);
 CREATE INDEX idx_attendance_recorded_status ON attendance (recorded, status);
 
-CREATE TABLE attendance_members (
+CREATE TABLE attendance_payouts (
+	attendance_id TEXT PRIMARY KEY REFERENCES attendance (id) ON DELETE CASCADE,
+	total BIGINT NOT NULL DEFAULT 0,
+	per_member BIGINT NOT NULL DEFAULT 0,
+	org_take BIGINT NOT NULL DEFAULT 0,
+	date_updated TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE attendance_participants (
 	attendance_id TEXT NOT NULL REFERENCES attendance (id) ON DELETE CASCADE,
 	member_id TEXT NOT NULL REFERENCES members (id) ON DELETE RESTRICT,
+	joined_at_start BOOLEAN NOT NULL DEFAULT FALSE,
+	stayed_until_end BOOLEAN NOT NULL DEFAULT FALSE,
+	has_issue BOOLEAN NOT NULL DEFAULT FALSE,
+	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	PRIMARY KEY (attendance_id, member_id)
 );
 
-CREATE INDEX idx_attendance_members_member_id ON attendance_members (member_id);
-
-CREATE TABLE attendance_issues (
-	attendance_id TEXT NOT NULL REFERENCES attendance (id) ON DELETE CASCADE,
-	member_id TEXT NOT NULL REFERENCES members (id) ON DELETE RESTRICT,
-	PRIMARY KEY (attendance_id, member_id)
-);
-
-CREATE INDEX idx_attendance_issues_member_id ON attendance_issues (member_id);
+CREATE INDEX idx_attendance_participants_member_id ON attendance_participants (member_id);
+CREATE INDEX idx_attendance_participants_stayed ON attendance_participants (attendance_id, stayed_until_end);
+CREATE INDEX idx_attendance_participants_issues ON attendance_participants (attendance_id, has_issue);
 
 CREATE TABLE tokens (
 	id TEXT PRIMARY KEY,
