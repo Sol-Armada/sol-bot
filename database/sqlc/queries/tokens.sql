@@ -30,6 +30,12 @@ SELECT *
 FROM tokens
 ORDER BY created_at DESC;
 
+-- name: ListTokensSince :many
+SELECT *
+FROM tokens
+WHERE created_at > sqlc.arg(created_after)
+ORDER BY created_at ASC;
+
 -- name: ListTokensByAttendanceID :many
 SELECT *
 FROM tokens

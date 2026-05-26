@@ -25,6 +25,7 @@ type Querier interface {
 	GetTokenByID(ctx context.Context, id string) (Token, error)
 	InsertToken(ctx context.Context, arg InsertTokenParams) error
 	ListActiveAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
+	ListAllAttendance(ctx context.Context) ([]Attendance, error)
 	ListAllTokens(ctx context.Context) ([]Token, error)
 	ListAttendanceIssueIDs(ctx context.Context, attendanceID string) ([]string, error)
 	ListAttendanceMemberIDs(ctx context.Context, attendanceID string) ([]string, error)
@@ -36,6 +37,7 @@ type Querier interface {
 	ListRecordedAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
 	ListTokensByAttendanceID(ctx context.Context, attendanceID pgtype.Text) ([]Token, error)
 	ListTokensByMemberAndAttendance(ctx context.Context, arg ListTokensByMemberAndAttendanceParams) ([]Token, error)
+	ListTokensSince(ctx context.Context, createdAfter pgtype.Timestamptz) ([]Token, error)
 	ReplaceAttendanceIssues(ctx context.Context, attendanceID string) error
 	ReplaceAttendanceMembers(ctx context.Context, attendanceID string) error
 	ReplaceMemberBlueprints(ctx context.Context, memberID string) error

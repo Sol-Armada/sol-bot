@@ -8,7 +8,6 @@ import (
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/utils"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func revertAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -20,7 +19,7 @@ func revertAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
 	if data.Options[0].Options[0].Focused {
-		attendanceRecords, err := attdnc.List(bson.D{}, 10, 1)
+		attendanceRecords, err := attdnc.List(nil, 10, 1)
 		if err != nil {
 			return errors.Wrap(err, "getting recorded attendance records")
 		}

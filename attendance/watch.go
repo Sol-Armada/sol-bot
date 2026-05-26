@@ -2,29 +2,34 @@ package attendance
 
 import (
 	"context"
-
-	"go.mongodb.org/mongo-driver/bson"
+	"time"
 )
 
 func Watch(ctx context.Context, out chan Attendance) error {
-	stream, err := attendanceStore.Watch(ctx, bson.D{})
-	if err != nil {
-		return err
-	}
-	defer stream.Close(ctx)
+	seen := map[string]time.Time{}
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
-	for stream.Next(ctx) {
-		var event bson.M
-		if err := stream.Decode(&event); err != nil {
-			return err
+	for {
+		select {
+		case <-ctx.Done():
+			close(out)
+			return nil
+		case <-ticker.C:
+			attendances, err := List(nil, 0, 0)
+			if err != nil {
+				return err
+			}
+			for _, a := range attendances {
+				if a == nil {
+					continue
+				}
+				last, ok := seen[a.Id]
+				if !ok || a.DateUpdated.After(last) {
+					seen[a.Id] = a.DateUpdated
+					out <- *a
+				}
+			}
 		}
-
-		var attendance Attendance
-		if err := bson.Unmarshal(event["fullDocument"].(bson.Raw), &attendance); err != nil {
-			return err
-		}
-
-		out <- attendance
 	}
-	return ctx.Err()
 }

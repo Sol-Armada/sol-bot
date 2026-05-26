@@ -163,6 +163,50 @@ func (q *Queries) ListActiveAttendance(ctx context.Context, limitRows int32) ([]
 	return items, nil
 }
 
+const listAllAttendance = `-- name: ListAllAttendance :many
+SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, payouts_total, payouts_per_member, payouts_org_take, from_start, stayed, channel_id, message_id, date_created, date_updated
+FROM attendance
+ORDER BY date_created DESC
+`
+
+func (q *Queries) ListAllAttendance(ctx context.Context) ([]Attendance, error) {
+	rows, err := q.db.Query(ctx, listAllAttendance)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attendance
+	for rows.Next() {
+		var i Attendance
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.SubmittedBy,
+			&i.Recorded,
+			&i.Successful,
+			&i.Active,
+			&i.Tokenable,
+			&i.Status,
+			&i.PayoutsTotal,
+			&i.PayoutsPerMember,
+			&i.PayoutsOrgTake,
+			&i.FromStart,
+			&i.Stayed,
+			&i.ChannelID,
+			&i.MessageID,
+			&i.DateCreated,
+			&i.DateUpdated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAttendanceIssueIDs = `-- name: ListAttendanceIssueIDs :many
 SELECT member_id
 FROM attendance_issues

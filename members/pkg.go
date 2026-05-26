@@ -1,7 +1,6 @@
 package members
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,10 +15,8 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/auth"
-	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/settings"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 type Member struct {
@@ -98,17 +95,10 @@ var (
 	MemberNotFound MemberError = errors.New("member not found")
 )
 
-var membersStore *mongodb.MembersStore
+var membersBackend memberBackend
 
 func Setup() error {
-	storesClient := mongodb.Get()
-	ms, ok := storesClient.GetMembersStore()
-	if !ok {
-		return errors.New("members store not found")
-	}
-	membersStore = ms
-
-	return nil
+	return setupMembersBackend()
 }
 
 func New(discordMember *discordgo.Member) *Member {
@@ -125,106 +115,23 @@ func New(discordMember *discordgo.Member) *Member {
 }
 
 func Get(id string) (*Member, error) {
-	member := &Member{}
-
-	// check the store
-	cur, err := membersStore.Get(id)
-	if err != nil {
-		return nil, err
-	}
-
-	if cur.Next(context.Background()) {
-		if err := cur.Decode(member); err != nil {
-			return nil, err
-		}
-	}
-
-	if member.Id == "" {
-		return nil, MemberNotFound
-	}
-
-	return member, nil
+	return membersBackend.Get(id)
 }
 
 func GetList(ids []string) ([]*Member, error) {
-	cur, err := membersStore.GetList(ids)
-	if err != nil {
-		return nil, err
-	}
-
-	members := []*Member{}
-
-	for cur.Next(context.Background()) {
-		member := &Member{}
-		if err := cur.Decode(member); err != nil {
-			return nil, err
-		}
-		members = append(members, member)
-	}
-
-	return members, nil
+	return membersBackend.GetList(ids)
 }
 
 func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
-	membersMap, err := membersStore.GetRandom(max, int(maxRank))
-	if err != nil {
-		return nil, err
-	}
-
-	members := []Member{}
-
-	for _, memberMap := range membersMap {
-		j, _ := json.Marshal(memberMap)
-		member := &Member{}
-		if err := json.Unmarshal(j, member); err != nil {
-			return nil, err
-		}
-		members = append(members, *member)
-	}
-
-	return members, nil
+	return membersBackend.GetRandom(max, maxRank)
 }
 
 func List(page int) ([]Member, error) {
-	cur, err := membersStore.List(bson.D{{Key: "is_bot", Value: bson.D{{Key: "$eq", Value: false}}}}, page, 100)
-	if err != nil {
-		return nil, err
-	}
-
-	members := []Member{}
-
-	for cur.Next(context.Background()) {
-		member := Member{}
-		if err := cur.Decode(&member); err != nil {
-			return nil, err
-		}
-		members = append(members, member)
-	}
-
-	return members, nil
+	return membersBackend.List(page)
 }
 
 func ListByBlueprint(blueprintId string) ([]Member, error) {
-	cur, err := membersStore.List(bson.D{
-		{Key: "blueprintIds", Value: bson.D{
-			{Key: "$in", Value: []string{blueprintId}},
-		}},
-	}, 0, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	members := []Member{}
-
-	for cur.Next(context.Background()) {
-		member := Member{}
-		if err := cur.Decode(&member); err != nil {
-			return nil, err
-		}
-		members = append(members, member)
-	}
-
-	return members, nil
+	return membersBackend.ListByBlueprint(blueprintId)
 }
 
 func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
@@ -251,79 +158,24 @@ func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
 
 func (m *Member) Save() error {
 	m.Updated = time.Now().UTC()
-
-	memberMap := m.ToMap()
-
-	memberMap["_id"] = memberMap["id"]
-	delete(memberMap, "id")
-
-	if recruiter, ok := memberMap["recruiter"].(map[string]any); ok {
-		memberMap["recruiter"] = recruiter["id"]
-	}
-
-	if m.MemberSince.IsZero() {
-		memberMap["member_since"] = m.Joined.UTC()
-	}
-
-	// convert go datetimes to mongo datetimes
-	memberMap["joined"] = m.Joined.UTC()
-
-	memberMap["updated"] = m.Updated.UTC()
-
-	if m.ValidatedAt != nil {
-		memberMap["validated_at"] = m.ValidatedAt.UTC()
-	}
-
-	if m.OnboardedAt != nil {
-		memberMap["onboarded_at"] = m.OnboardedAt.UTC()
-	}
-
-	return membersStore.Upsert(m.Id, memberMap)
+	return membersBackend.Upsert(m)
 }
 
 func BulkSave(members []Member) error {
 	if len(members) == 0 {
 		return nil
 	}
-
-	memberMaps := make([]interface{}, 0, len(members))
 	now := time.Now().UTC()
 
-	for _, member := range members {
-		member.Updated = now
-
-		memberMap := member.ToMap()
-		memberMap["_id"] = memberMap["id"]
-		delete(memberMap, "id")
-
-		if recruiter, ok := memberMap["recruiter"].(map[string]any); ok {
-			memberMap["recruiter"] = recruiter["id"]
-		}
-
-		if member.MemberSince.IsZero() {
-			memberMap["member_since"] = member.Joined.UTC()
-		}
-
-		// convert go datetimes to mongo datetimes
-		memberMap["joined"] = member.Joined.UTC()
-		memberMap["updated"] = member.Updated.UTC()
-
-		if member.ValidatedAt != nil {
-			memberMap["validated_at"] = member.ValidatedAt.UTC()
-		}
-
-		if member.OnboardedAt != nil {
-			memberMap["onboarded_at"] = member.OnboardedAt.UTC()
-		}
-
-		memberMaps = append(memberMaps, memberMap)
+	for i := range members {
+		members[i].Updated = now
 	}
 
-	return membersStore.BulkUpsert(memberMaps)
+	return membersBackend.BulkUpsert(members)
 }
 
 func GetStoredMemberIDs() ([]string, error) {
-	return membersStore.GetIDsOnly()
+	return membersBackend.GetIDsOnly()
 }
 
 func ValidateDiscordMembers(discordMembers []*discordgo.Member) []*discordgo.Member {
@@ -409,14 +261,11 @@ func (m *Member) Login(code string) error {
 		return err
 	}
 
-	cur, err := membersStore.Get(discordUser.User.ID)
+	stored, err := membersBackend.Get(discordUser.User.ID)
 	if err != nil {
 		return errors.Wrap(err, "getting stored member")
 	}
-
-	if err := cur.Decode(m); err != nil {
-		return err
-	}
+	*m = *stored
 
 	m.Avatar = discordUser.Avatar
 	_ = m.Save()
@@ -427,7 +276,7 @@ func (m *Member) Login(code string) error {
 func (m *Member) Delete() error {
 	log.WithField("member", m).Debug("deleting member")
 
-	return membersStore.Delete(m.Id)
+	return membersBackend.Delete(m.Id)
 }
 
 func (m *Member) ToMap() map[string]interface{} {

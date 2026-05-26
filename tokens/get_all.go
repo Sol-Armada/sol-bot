@@ -1,21 +1,10 @@
 package tokens
 
-import "context"
+import "errors"
 
 func GetAll() ([]TokenRecord, error) {
-	cur, err := tokenStore.GetAll()
-	if err != nil {
-		return nil, err
+	if tokenStore == nil {
+		return nil, errors.New("token store not found")
 	}
-
-	var tokenRecords []TokenRecord
-	for cur.Next(context.TODO()) {
-		var d TokenRecord
-		if err := cur.Decode(&d); err != nil {
-			return nil, err
-		}
-		tokenRecords = append(tokenRecords, d)
-	}
-
-	return tokenRecords, nil
+	return tokenStore.ListAll()
 }

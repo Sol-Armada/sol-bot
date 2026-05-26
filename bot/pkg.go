@@ -122,11 +122,18 @@ func GetBot() (*Bot, error) {
 }
 
 func (b *Bot) Setup() error {
-	var ok bool
-	b.store, ok = mongodb.Get().GetCommandsStore()
-	if !ok {
-		return errors.New("failed to get commands store")
-	}
+	// TODO: Migrate commands store to postgres or make it optional.
+	// For now, skip commands store to allow postgres-only operation.
+	// var ok bool
+	// mongoClient := mongodb.Get()
+	// if mongoClient == nil {
+	// 	return errors.New("commands store is not migrated to postgres yet")
+	// }
+	//
+	// b.store, ok = mongoClient.GetCommandsStore()
+	// if !ok {
+	// 	return errors.New("failed to get commands store")
+	// }
 
 	b.logger.Debug("setting up handlers and commands")
 
@@ -277,9 +284,11 @@ func (b *Bot) Setup() error {
 				}
 			}
 			if i.Type != discordgo.InteractionApplicationCommandAutocomplete {
-				if err := b.store.Create(cmdToStore); err != nil {
-					logger.Error("creating command record", "command", commandName, "error", err)
-				}
+				// TODO: Uncomment when commands store migrated to postgres.
+				// if err := b.store.Create(cmdToStore); err != nil {
+				// 	logger.Error("creating command record", "command", commandName, "error", err)
+				// }
+				_ = cmdToStore // Suppress unused warning
 			}
 
 			return

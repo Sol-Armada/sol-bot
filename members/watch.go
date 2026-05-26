@@ -2,53 +2,46 @@ package members
 
 import (
 	"context"
-	"log/slog"
-
-	"go.mongodb.org/mongo-driver/bson"
+	"time"
 )
 
 func Watch(ctx context.Context, out chan Member) error {
-	stream, err := membersStore.Watch(ctx, bson.D{})
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
+
+	seen := map[string]struct{}{}
+
+	ids, err := GetStoredMemberIDs()
 	if err != nil {
 		return err
 	}
-	defer stream.Close(ctx)
+	for _, id := range ids {
+		seen[id] = struct{}{}
+	}
 
-	for stream.Next(ctx) {
-		var event bson.M
-		if err := stream.Decode(&event); err != nil {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+		}
+
+		ids, err := GetStoredMemberIDs()
+		if err != nil {
 			return err
 		}
 
-		operationType, ok := event["operationType"].(string)
-		if !ok {
-			slog.Error("operationType not found in event", "event", event)
-			continue
-		}
+		for _, id := range ids {
+			if _, ok := seen[id]; ok {
+				continue
+			}
 
-		if operationType != "insert" {
-			continue
+			member, err := Get(id)
+			if err != nil {
+				return err
+			}
+			out <- *member
+			seen[id] = struct{}{}
 		}
-
-		memberRaw, ok := event["fullDocument"].(bson.M)
-		if !ok {
-			slog.Error("fullDocument not found in event", "event", event)
-			continue
-		}
-
-		bytes, err := bson.Marshal(memberRaw)
-		if err != nil {
-			slog.Error("failed to marshal member", "err", err)
-			continue
-		}
-
-		var member Member
-		if err := bson.Unmarshal(bytes, &member); err != nil {
-			slog.Error("failed to unmarshal member", "err", err)
-			continue
-		}
-
-		out <- member
 	}
-	return ctx.Err()
 }

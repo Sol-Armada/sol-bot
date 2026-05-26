@@ -1,12 +1,10 @@
 package tokens
 
 import (
-	"context"
 	"errors"
 	"time"
 
 	"github.com/rs/xid"
-	"github.com/sol-armada/sol-bot/database/mongodb"
 )
 
 type Reason string
@@ -30,17 +28,10 @@ type TokenRecord struct {
 	CreatedAt    time.Time `json:"created_at" bson:"created_at"`
 }
 
-var tokenStore *mongodb.TokenStore
+var tokenStore tokenBackend
 
 func Setup() error {
-	storesClient := mongodb.Get()
-	ts, ok := storesClient.GetTokensStore()
-	if !ok {
-		return errors.New("token store not found")
-	}
-	tokenStore = ts
-
-	return nil
+	return setupTokenBackend()
 }
 
 func New(memberId string, amount int, reason Reason, giverId, attendanceId, comment *string) *TokenRecord {
@@ -57,95 +48,48 @@ func New(memberId string, amount int, reason Reason, giverId, attendanceId, comm
 }
 
 func (d *TokenRecord) Save() error {
+	if tokenStore == nil {
+		return errors.New("token store not found")
+	}
 	return tokenStore.Insert(d)
 }
 
 func GetAllGrouped() (map[string][]TokenRecord, error) {
-	cur, err := tokenStore.GetAll()
+	if tokenStore == nil {
+		return nil, errors.New("token store not found")
+	}
+	records, err := tokenStore.ListAll()
 	if err != nil {
 		return nil, err
 	}
-
-	type GroupedRecord struct {
-		Id           string        `json:"id" bson:"_id"`
-		TokenRecords []TokenRecord `json:"token_records" bson:"token_records"`
+	grouped := map[string][]TokenRecord{}
+	for _, r := range records {
+		grouped[r.MemberId] = append(grouped[r.MemberId], r)
 	}
-
-	var groupedRecords []GroupedRecord
-	for cur.Next(context.TODO()) {
-		var d GroupedRecord
-		if err := cur.Decode(&d); err != nil {
-			return nil, err
-		}
-		groupedRecords = append(groupedRecords, d)
-	}
-
-	tokenRecords := make(map[string][]TokenRecord, len(groupedRecords))
-	for _, r := range groupedRecords {
-		tokenRecords[r.Id] = append(tokenRecords[r.Id], r.TokenRecords...)
-	}
-
-	return tokenRecords, nil
+	return grouped, nil
 }
 
 func GetByAttendanceId(attendanceId string) ([]TokenRecord, error) {
-	cur, err := tokenStore.GetByAttendanceId(attendanceId)
-	if err != nil {
-		return nil, err
+	if tokenStore == nil {
+		return nil, errors.New("token store not found")
 	}
-
-	var tokenRecords []TokenRecord
-	for cur.Next(context.TODO()) {
-		var d TokenRecord
-		if err := cur.Decode(&d); err != nil {
-			return nil, err
-		}
-		tokenRecords = append(tokenRecords, d)
-	}
-
-	return tokenRecords, nil
+	return tokenStore.ListByAttendanceID(attendanceId)
 }
 
 func GetByMemberIdAndAttendanceId(memberId, attendanceId string) ([]TokenRecord, error) {
-	cur, err := tokenStore.GetByMemberIdAndAttendanceId(memberId, attendanceId)
-	if err != nil {
-		return nil, err
+	if tokenStore == nil {
+		return nil, errors.New("token store not found")
 	}
-
-	var tokenRecords []TokenRecord
-	for cur.Next(context.TODO()) {
-		var d TokenRecord
-		if err := cur.Decode(&d); err != nil {
-			return nil, err
-		}
-		tokenRecords = append(tokenRecords, d)
-	}
-
-	return tokenRecords, nil
+	return tokenStore.ListByMemberAndAttendance(memberId, attendanceId)
 }
 
 func GetBalanceByMemberId(memberId string) (int, error) {
-	cur, err := tokenStore.GetAllBalances()
+	if tokenStore == nil {
+		return 0, errors.New("token store not found")
+	}
+	balances, err := tokenStore.GetBalances()
 	if err != nil {
 		return 0, err
 	}
-
-	var balance int
-	for cur.Next(context.TODO()) {
-		var result struct {
-			Id      string `bson:"_id"`
-			Balance int    `bson:"balance"`
-		}
-
-		if err := cur.Decode(&result); err != nil {
-			return 0, err
-		}
-
-		if result.Id == memberId {
-			balance = result.Balance
-			break
-		}
-	}
-
-	return balance, nil
+	return balances[memberId], nil
 }

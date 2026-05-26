@@ -13,7 +13,6 @@ import (
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
-	"go.mongodb.org/mongo-driver/bson"
 )
 
 func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -154,20 +153,15 @@ func TagAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discor
 
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
-	raw, err := config.GetConfig("attendance_tags")
+	tags, err := config.GetAttendanceTags()
 	if err != nil {
 		return errors.Wrap(err, "getting tags")
 	}
 
-	tags, ok := raw.(bson.A)
-	if !ok {
-		return errors.New("unable to parse tags")
-	}
-
 	for _, tag := range tags {
 		choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-			Name:  tag.(string),
-			Value: tag.(string),
+			Name:  tag,
+			Value: tag,
 		})
 	}
 

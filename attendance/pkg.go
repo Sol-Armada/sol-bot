@@ -1,8 +1,6 @@
 package attendance
 
 import (
-	"context"
-	"encoding/json"
 	"errors"
 	"regexp"
 	"strings"
@@ -10,11 +8,8 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/rs/xid"
-	"github.com/sol-armada/sol-bot/database/mongodb"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Status string
@@ -59,16 +54,10 @@ var (
 	ErrAttendanceNotFound = errors.New("attendance not found")
 )
 
-var attendanceStore *mongodb.AttendanceStore
+var attendanceStore attendanceBackend
 
 func Setup() error {
-	storesClient := mongodb.Get()
-	as, ok := storesClient.GetAttendanceStore()
-	if !ok {
-		return errors.New("attendance store not found")
-	}
-	attendanceStore = as
-	return nil
+	return setupAttendanceBackend()
 }
 
 func New(name string, submittedBy *members.Member) *Attendance {
@@ -89,27 +78,16 @@ func New(name string, submittedBy *members.Member) *Attendance {
 }
 
 func Get(id string) (*Attendance, error) {
-	cur, err := attendanceStore.Get(id)
+	if attendanceStore == nil {
+		return nil, errors.New("attendance store not found")
+	}
+	attendance, err := attendanceStore.Get(id)
 	if err != nil {
-		if errors.Is(err, mongo.ErrNoDocuments) {
-			return nil, ErrAttendanceNotFound
-		}
-
 		return nil, err
 	}
-
-	attendance := &Attendance{}
-
-	for cur.Next(context.TODO()) {
-		if err := cur.Decode(attendance); err != nil {
-			return nil, err
-		}
-	}
-
-	if attendance.Id == "" {
+	if attendance == nil || attendance.Id == "" {
 		return nil, ErrAttendanceNotFound
 	}
-
 	return attendance, nil
 }
 
@@ -117,19 +95,8 @@ func GetFromMessage(message *discordgo.Message) (*Attendance, error) {
 	// get the Id from the footer of the embed
 	// Last Updated 00-00-00T00:00:00Z (1234567890)
 	reg := regexp.MustCompile(`Last Updated .*?\((.*?)\)`)
-
-	attendanceId := reg.FindStringSubmatch(message.Embeds[0].Footer.Text)[1]
-	cur, err := attendanceStore.Get(attendanceId)
-	if err != nil {
-		return nil, err
-	}
-
-	attendance := &Attendance{}
-	if err := cur.Decode(attendance); err != nil {
-		return nil, err
-	}
-
-	return attendance, nil
+	attendanceID := reg.FindStringSubmatch(message.Embeds[0].Footer.Text)[1]
+	return Get(attendanceID)
 }
 
 func NewFromThreadMessages(threadMessages []*discordgo.Message) (*Attendance, error) {
@@ -172,18 +139,12 @@ func GetMemberAttendanceCount(memberId string) (int, error) {
 
 func GetMemberAttendanceRecords(memberId string) ([]*Attendance, error) {
 	records := []*Attendance{}
-
-	cur, err := attendanceStore.List(bson.D{}, 0, 0)
+	attendances, err := List(nil, 0, 0)
 	if err != nil {
 		return nil, err
 	}
 
-	for cur.Next(context.TODO()) {
-		attendance := &Attendance{}
-		if err := cur.Decode(attendance); err != nil {
-			return nil, err
-		}
-
+	for _, attendance := range attendances {
 		for _, member := range attendance.Members {
 			if member.Id == memberId {
 				records = append(records, attendance)
@@ -213,36 +174,7 @@ func (a *Attendance) Save() error {
 		return errors.New("attendance store not found")
 	}
 	a.DateUpdated = time.Now().UTC()
-
-	attendanceMap := map[string]any{}
-	j, _ := json.Marshal(a)
-	_ = json.Unmarshal(j, &attendanceMap)
-
-	// convert members to just ids for mongo optimization
-	memberIds := make([]string, len(a.Members))
-	for i, member := range a.Members {
-		memberIds[i] = member.Id
-	}
-	attendanceMap["members"] = memberIds
-
-	// convert issues to just ids for mongo optimization
-	issues, _ := attendanceMap["with_issues"].([]any)
-	for i := range issues {
-		issue, _ := issues[i].(map[string]any)
-		issues[i] = issue["id"]
-	}
-	attendanceMap["with_issues"] = issues
-
-	// convert submitted by to just id for mongo optimization
-	attendanceMap["submitted_by"] = a.SubmittedBy.Id
-
-	// convert date_created to mongo datetime
-	attendanceMap["date_created"] = a.DateCreated.UTC()
-
-	// convert date_updated to mongo datetime
-	attendanceMap["date_updated"] = a.DateUpdated.UTC()
-
-	return attendanceStore.Upsert(a.Id, attendanceMap)
+	return attendanceStore.Upsert(a)
 }
 
 func (a *Attendance) removeDuplicates() {

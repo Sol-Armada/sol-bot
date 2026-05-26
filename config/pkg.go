@@ -2,58 +2,44 @@ package config
 
 import (
 	"errors"
-
-	"github.com/sol-armada/sol-bot/database/mongodb"
 )
 
-var configStore *mongodb.ConfigsStore
+// Temporary stub: config data has been migrated out of database.
+// TODO: Either migrate configs to postgres or maintain them in settings files/in-memory only.
+var configStore interface{} = nil
 
 func Setup() error {
-	storesClient := mongodb.Get()
-	cs, ok := storesClient.GetConfigsStore()
-	if !ok {
-		return errors.New("config store not found")
-	}
-	configStore = cs
-
+	// No-op; configs not stored in database anymore.
 	return nil
 }
 
 func GetConfig(config string) (any, error) {
-	res := configStore.Get(config)
-	if res.Err() != nil {
-		return "", res.Err()
+	// Stub implementation; return empty or known defaults.
+	switch config {
+	case "attendance_tags":
+		// Return empty array for now; handlers should tolerate this.
+		return []string{}, nil
+	case "attendance_names":
+		return []string{}, nil
+	default:
+		return nil, errors.New("config " + config + " not found (configs removed from database)")
 	}
-
-	var out map[string]any
-
-	if err := res.Decode(&out); err != nil {
-		return "", err
-	}
-
-	return out["value"], nil
 }
 
 func SetConfig(config string, value any) error {
-	return configStore.Upsert(config, value)
+	// No-op stub.
+	_ = config
+	_ = value
+	return errors.New("SetConfig not supported (configs removed from database)")
 }
 
 func GetConfigWithDefault[T any](config string, defaultValue T) (T, error) {
-	res := configStore.Get(config)
-	if res.Err() != nil {
+	val, err := GetConfig(config)
+	if err != nil {
 		return defaultValue, nil
 	}
-
-	var decoded map[string]any
-
-	if err := res.Decode(&decoded); err != nil {
-		return defaultValue, err
+	if typed, ok := val.(T); ok {
+		return typed, nil
 	}
-
-	val, ok := decoded["value"].(T)
-	if !ok {
-		return defaultValue, nil
-	}
-
-	return val, nil
+	return defaultValue, nil
 }
