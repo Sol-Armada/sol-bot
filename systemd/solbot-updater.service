@@ -7,6 +7,8 @@ Wants=network-online.target
 Type=oneshot
 EnvironmentFile=-/etc/solbot/updater.env
 ExecStart=/usr/local/bin/solbot-updater.sh
+StandardOutput=journal
+StandardError=journal
 
 # Hardening
 NoNewPrivileges=yes
