@@ -23,6 +23,7 @@ RUN_UPDATER_NOW="${RUN_UPDATER_NOW:-true}"
 BASE_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_REF}"
 UPDATER_SCRIPT_URL="${BASE_URL}/ops/updater/solbot-updater.sh"
 UPDATER_ENV_URL="${BASE_URL}/ops/updater/updater.env.example"
+SOLBOT_SERVICE_URL="${BASE_URL}/systemd/solbot.service"
 UPDATER_SERVICE_URL="${BASE_URL}/systemd/solbot-updater.service"
 UPDATER_TIMER_URL="${BASE_URL}/systemd/solbot-updater.timer"
 SENTINEL_FILE="/var/lib/solbot/.updater-bootstrapped"
@@ -58,7 +59,7 @@ log "installing bootstrap dependencies"
 ct_exec "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y curl jq ca-certificates"
 
 log "installing updater assets"
-ct_exec "install -d -m 755 /usr/local/bin /etc/systemd/system /etc/solbot /var/lib/solbot"
+ct_exec "install -d -m 755 /usr/local/bin /etc/systemd/system /etc/solbot /var/lib/solbot /opt/solbot-releases"
 ct_exec "curl -fsSL '${UPDATER_SCRIPT_URL}' -o /usr/local/bin/solbot-updater.sh"
 ct_exec "chmod 755 /usr/local/bin/solbot-updater.sh"
 ct_exec "curl -fsSL '${UPDATER_SERVICE_URL}' -o /etc/systemd/system/solbot-updater.service"
@@ -70,13 +71,20 @@ ct_exec "chmod 644 /etc/systemd/system/solbot-updater.timer"
 ct_exec "if [[ ! -f /etc/solbot/updater.env ]]; then curl -fsSL '${UPDATER_ENV_URL}' -o /etc/solbot/updater.env; fi"
 ct_exec "chmod 600 /etc/solbot/updater.env"
 
-log "enabling updater timer"
+log "installing solbot service"
+ct_exec "curl -fsSL '${SOLBOT_SERVICE_URL}' -o /etc/systemd/system/solbot.service"
+ct_exec "chmod 644 /etc/systemd/system/solbot.service"
+
+log "enabling solbot and updater services"
 ct_exec "systemctl daemon-reload"
+ct_exec "systemctl enable solbot.service"
 ct_exec "systemctl enable --now solbot-updater.timer"
 
 if [[ "$RUN_UPDATER_NOW" == "true" ]]; then
   log "triggering immediate updater run"
   ct_exec "systemctl start solbot-updater.service"
+else
+  log "skipping immediate updater run (RUN_UPDATER_NOW=false)"
 fi
 
 ct_exec "date -Iseconds > '${SENTINEL_FILE}'"
