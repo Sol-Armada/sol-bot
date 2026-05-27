@@ -1,0 +1,29 @@
+server:
+  http_listen_port: 9080
+  log_level: info
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki.server.local:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: solbot
+    journal:
+      path: /var/log/journal
+      matches: SYSLOG_IDENTIFIER=solbot
+      labels:
+        job: solbot
+        service: solbot
+    relabel_configs:
+      - source_labels: [__journal_syslog_hostname]
+        target_label: instance
+      - source_labels: [__journal_priority]
+        target_label: level
+      - source_labels: [__journal_syslog_identifier]
+        target_label: syslog_identifier
+      - source_labels: [__journal_systemd_unit]
+        target_label: unit
+      - replacement: prod
+        target_label: environment
