@@ -7,7 +7,6 @@ settings.*
 web/public/emojis/
 Jenkinsfile
 deploy.sh
-solbot*.service
 deployment*
 __debug*
 giveaways.json

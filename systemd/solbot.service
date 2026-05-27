@@ -1,0 +1,50 @@
+[Unit]
+Description=Sol Bot
+After=network.target network-online.target
+Wants=network-online.target
+StartLimitIntervalSec=300
+
+[Service]
+Type=notify
+Restart=always
+RestartSec=600
+WorkingDirectory=/var/lib/solbot
+ExecStart=/opt/solbot
+User=solbot
+Group=solbot
+
+# Optional runtime overrides, e.g. APP_ENV, SOLBOT_CONFIG_FILE, SOLBOT_POSTGRES_*.
+EnvironmentFile=-/etc/solbot/solbot.env
+
+# Systemd integration
+NotifyAccess=main
+TimeoutStartSec=120
+# Watchdog timeout - should be longer than the ping interval
+WatchdogSec=30
+
+# Clean shutdown
+KillMode=mixed
+KillSignal=SIGINT
+TimeoutStopSec=60
+
+# Security hardening
+NoNewPrivileges=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/log/solbot /var/lib/solbot /etc/solbot /opt/solbot
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictRealtime=yes
+
+# Logging
+StandardOutput=append:/var/log/solbot/syslog.log
+StandardError=append:/var/log/solbot/syslog.log
+SyslogIdentifier=solbot
+
+# Environment
+Environment="NOTIFY_SOCKET=/run/systemd/notify"
+Environment="APP_ENV=prod"
+
+[Install]
+WantedBy=multi-user.target
