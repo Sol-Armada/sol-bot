@@ -1,0 +1,11 @@
+[Unit]
+Description=Poll GitHub releases for Sol Bot updates
+
+[Timer]
+OnBootSec=2m
+OnCalendar=*:0/5
+RandomizedDelaySec=45
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=Sol Bot Polling Updater
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=-/etc/solbot/updater.env
+ExecStart=/usr/local/bin/solbot-updater.sh
+
+# Hardening
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/opt /var/lib/solbot /var/lock
