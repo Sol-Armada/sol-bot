@@ -1,6 +1,6 @@
 module github.com/sol-armada/sol-bot
 
-go 1.26.0
+go 1.26.3
 
 require (
 	github.com/bwmarrin/discordgo v0.29.1-0.20260214123928-f43dd94faaac

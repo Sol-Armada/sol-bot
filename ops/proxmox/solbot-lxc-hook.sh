@@ -17,7 +17,7 @@ fi
 # Defaults can be overridden by setting these vars in this script.
 REPO_OWNER="${REPO_OWNER:-Sol-Armada}"
 REPO_NAME="${REPO_NAME:-sol-bot}"
-REPO_REF="${REPO_REF:-main}"
+REPO_REF="${REPO_REF:-db-migration}"
 RUN_UPDATER_NOW="${RUN_UPDATER_NOW:-true}"
 
 BASE_URL="https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${REPO_REF}"
