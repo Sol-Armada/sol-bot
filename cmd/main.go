@@ -78,31 +78,26 @@ func init() {
 
 // loadConfig initializes and loads application configuration
 func loadConfig() *Config {
-	fmt.Printf("Loading configuration for environment: %s\n", environment)
+	appEnv := resolveEnvironment()
+	fmt.Printf("Loading configuration for environment: %s\n", appEnv)
 
-	configName := "settings"
-	if environment == "staging" {
-		configName = "settings.staging"
-		fmt.Printf("Using staging configuration: %s\n", configName)
-	}
-	settings.SetConfigName(configName)
+	configureSettingsEnvironment()
 
-	// Setup settings paths
-	configPaths := []string{".", "../", "/etc/solbot/"}
-	for _, path := range configPaths {
-		settings.AddConfigPath(path)
-		fmt.Printf("Adding config search path: %s\n", path)
+	configFile := resolveConfigFile()
+	if configFile == "" {
+		fmt.Printf("No configuration file found, relying on environment variables and code defaults\n")
+	} else {
+		settings.SetConfigFile(configFile)
+		fmt.Printf("Attempting to read configuration file: %s\n", configFile)
+		if err := settings.ReadInConfig(); err != nil {
+			fmt.Printf("could not parse configuration: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Configuration loaded successfully\n")
 	}
-
-	fmt.Printf("Attempting to read configuration file: %s\n", configName)
-	if err := settings.ReadInConfig(); err != nil {
-		fmt.Printf("could not parse configuration: %v\n", err)
-		os.Exit(1)
-	}
-	fmt.Printf("Configuration loaded successfully\n")
 
 	return &Config{
-		Environment:          environment,
+		Environment:          appEnv,
 		Debug:                settings.GetBool("LOG.DEBUG"),
 		CLI:                  settings.GetBool("LOG.CLI"),
 		LogFile:              settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"),
@@ -112,20 +107,78 @@ func loadConfig() *Config {
 			Postgres: database.PostgresConfig{
 				Host:           settings.GetStringWithDefault("postgres.host", "localhost"),
 				Port:           settings.GetIntWithDefault("postgres.port", 5432),
-				Username:       settings.GetString("POSTGRES.USERNAME"),
-				Password:       settings.GetString("POSTGRES.PASSWORD"),
-				Database:       settings.GetStringWithDefault("POSTGRES.DATABASE", "org"),
-				SSLMode:        settings.GetStringWithDefault("POSTGRES.SSL_MODE", "disable"),
-				MaxConns:       int32(settings.GetIntWithDefault("POSTGRES.MAX_CONNS", 10)),
-				MinConns:       int32(settings.GetIntWithDefault("POSTGRES.MIN_CONNS", 1)),
-				ConnectTimeout: parseDurationWithDefault("POSTGRES.CONNECT_TIMEOUT", 5*time.Second),
+				Username:       settings.GetStringWithDefault("postgres.username", ""),
+				Password:       settings.GetStringWithDefault("postgres.password", ""),
+				Database:       settings.GetStringWithDefault("postgres.database", "org"),
+				SSLMode:        settings.GetStringWithDefault("postgres.ssl_mode", "disable"),
+				MaxConns:       int32(settings.GetIntWithDefault("postgres.max_conns", 10)),
+				MinConns:       int32(settings.GetIntWithDefault("postgres.min_conns", 1)),
+				ConnectTimeout: parseDurationWithDefault("postgres.connect_timeout", 5*time.Second),
 			},
 		},
 		Features: FeatureConfig{
 			MonitorEnable:      settings.GetBool("FEATURES.MONITOR.ENABLE"),
-			AttendanceMonitor:  settings.GetBool("FEATURES.ATTENDANCE.MONITOR"),
+			AttendanceMonitor:  settings.GetBool("FEATURES.ATTENDANCE.ENABLE"),
 			SystemdIntegration: settings.GetBoolWithDefault("FEATURES.SYSTEMD.ENABLE", true),
 		},
+	}
+}
+
+func resolveEnvironment() string {
+	if appEnv := strings.TrimSpace(os.Getenv("APP_ENV")); appEnv != "" {
+		return appEnv
+	}
+
+	if appEnv := strings.TrimSpace(environment); appEnv != "" {
+		return appEnv
+	}
+
+	return "local"
+}
+
+func resolveConfigFile() string {
+	candidates := []string{}
+
+	if configuredPath := strings.TrimSpace(os.Getenv("SOLBOT_CONFIG_FILE")); configuredPath != "" {
+		candidates = append(candidates, configuredPath)
+	}
+
+	candidates = append(candidates,
+		"/etc/solbot/config.toml",
+		"./settings.toml",
+		"../settings.toml",
+	)
+
+	for _, path := range candidates {
+		if _, err := os.Stat(path); err == nil {
+			return path
+		}
+	}
+
+	return ""
+}
+
+func configureSettingsEnvironment() {
+	settings.SetEnvPrefix("SOLBOT")
+	settings.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	settings.AutomaticEnv()
+
+	legacyEnvBindings := map[string][]string{
+		"postgres.host":            {"POSTGRES_HOST"},
+		"postgres.port":            {"POSTGRES_PORT"},
+		"postgres.username":        {"POSTGRES_USERNAME"},
+		"postgres.password":        {"POSTGRES_PASSWORD"},
+		"postgres.database":        {"POSTGRES_DATABASE"},
+		"postgres.ssl_mode":        {"POSTGRES_SSL_MODE"},
+		"postgres.max_conns":       {"POSTGRES_MAX_CONNS"},
+		"postgres.min_conns":       {"POSTGRES_MIN_CONNS"},
+		"postgres.connect_timeout": {"POSTGRES_CONNECT_TIMEOUT"},
+	}
+
+	for key, envNames := range legacyEnvBindings {
+		if err := settings.BindEnv(key, envNames...); err != nil {
+			fmt.Printf("warning: failed to bind env for %s: %v\n", key, err)
+		}
 	}
 }
 
