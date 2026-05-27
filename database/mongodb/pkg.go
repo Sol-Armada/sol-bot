@@ -33,7 +33,14 @@ var client *Client
 
 // NewWithConfig creates a new database client with configuration struct
 func NewWithConfig(ctx context.Context, config Config) (*Client, error) {
-	return New(ctx, config.Host, config.Port, config.Username, config.Password, config.Database, config.ReplicaSetName)
+	connectCtx := ctx
+	if config.ConnectTimeout > 0 {
+		var cancel context.CancelFunc
+		connectCtx, cancel = context.WithTimeout(ctx, config.ConnectTimeout)
+		defer cancel()
+	}
+
+	return New(connectCtx, config.Host, config.Port, config.Username, config.Password, config.Database, config.ReplicaSetName)
 }
 
 func New(ctx context.Context, host string, port int, username, password, database, replicaSetName string) (*Client, error) {
