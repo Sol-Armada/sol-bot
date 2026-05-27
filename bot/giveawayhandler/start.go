@@ -17,10 +17,6 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("giveaway start command")
 
-	if !utils.Allowed(i.Member, "GIVEAWAYS") {
-		return customerrors.InvalidPermissions
-	}
-
 	data := i.ApplicationCommandData()
 
 	items := make([]*giveaway.Item, 0)

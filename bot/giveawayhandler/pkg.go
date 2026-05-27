@@ -39,10 +39,6 @@ func (g *GiveawayCommand) AutocompleteHandler(ctx context.Context, s *discordgo.
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("giveaway autocomplete handler")
 
-	if !utils.Allowed(i.Member, "GIVEAWAYS") {
-		return customerrors.InvalidPermissions
-	}
-
 	data := i.ApplicationCommandData()
 	handler, ok := autoCompletes[data.Options[0].Name]
 	logger = logger.With(
@@ -82,10 +78,6 @@ func (g *GiveawayCommand) ButtonHandler(ctx context.Context, s *discordgo.Sessio
 func (g *GiveawayCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("giveaway command handler")
-
-	if !utils.Allowed(i.Member, "GIVEAWAYS") {
-		return customerrors.InvalidPermissions
-	}
 
 	return start(ctx, s, i)
 }

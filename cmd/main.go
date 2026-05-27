@@ -40,13 +40,6 @@ type Config struct {
 	LogFile              string
 	MemberMonitorLogFile string
 	Database             database.Config
-	Features             FeatureConfig
-}
-
-type FeatureConfig struct {
-	MonitorEnable      bool
-	AttendanceMonitor  bool
-	SystemdIntegration bool
 }
 
 func init() {
@@ -61,11 +54,7 @@ func init() {
 		"cli", cfg.CLI,
 		"version", "unknown") // You could add a version variable later
 
-	logger.Info("configuration loaded successfully",
-		"db_driver", cfg.Database.SelectedDriver(),
-		"features_monitor_enable", cfg.Features.MonitorEnable,
-		"features_attendance_monitor", cfg.Features.AttendanceMonitor,
-		"features_systemd_integration", cfg.Features.SystemdIntegration)
+	logger.Info("configuration loaded successfully")
 
 	if err := initializeServices(cfg); err != nil {
 		logger.Error("failed to initialize services", "error", err)
@@ -103,7 +92,6 @@ func loadConfig() *Config {
 		LogFile:              settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"),
 		MemberMonitorLogFile: settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
 		Database: database.Config{
-			Driver: database.Driver(strings.ToLower(settings.GetStringWithDefault("database.driver", string(database.DriverPostgres)))),
 			Postgres: database.PostgresConfig{
 				Host:           settings.GetStringWithDefault("postgres.host", "localhost"),
 				Port:           settings.GetIntWithDefault("postgres.port", 5432),
@@ -115,11 +103,6 @@ func loadConfig() *Config {
 				MinConns:       int32(settings.GetIntWithDefault("postgres.min_conns", 1)),
 				ConnectTimeout: parseDurationWithDefault("postgres.connect_timeout", 5*time.Second),
 			},
-		},
-		Features: FeatureConfig{
-			MonitorEnable:      settings.GetBool("FEATURES.MONITOR.ENABLE"),
-			AttendanceMonitor:  settings.GetBool("FEATURES.ATTENDANCE.ENABLE"),
-			SystemdIntegration: settings.GetBoolWithDefault("FEATURES.SYSTEMD.ENABLE", true),
 		},
 	}
 }
@@ -236,12 +219,7 @@ func initializeServices(cfg *Config) error {
 	ctx := context.Background()
 
 	// Initialize database connection
-	logger.Info("initializing database connection",
-		"driver", cfg.Database.SelectedDriver())
-
-	if cfg.Database.SelectedDriver() != database.DriverPostgres {
-		return fmt.Errorf("unsupported database.driver: %s", cfg.Database.SelectedDriver())
-	}
+	logger.Info("initializing database connection")
 
 	if _, err := postgresql.New(ctx, cfg.Database.Postgres); err != nil {
 		logger.Error("failed to initialize postgres client", "error", err)
@@ -259,10 +237,6 @@ func initializeServices(cfg *Config) error {
 		"raffles":    raffles.Setup,
 		"config":     config.Setup,
 	}
-
-	logger.Warn("postgres cutover is active",
-		"enabled_services", "members, attendance, tokens, activity, config, raffles, giveaway",
-		"disabled_services", "kanban")
 
 	logger.Info("initializing services", "count", len(services))
 	for name, setup := range services {
@@ -335,11 +309,9 @@ func main() {
 func (app *Application) start() error {
 	logger.Info("starting application components")
 
-	if app.cfg.Features.SystemdIntegration {
-		logger.Info("systemd integration enabled, setting startup status")
-		if err := systemd.Status("Starting up..."); err != nil {
-			logger.Warn("failed to set systemd status", "error", err)
-		}
+	logger.Info("systemd integration enabled, setting startup status")
+	if err := systemd.Status("Starting up..."); err != nil {
+		logger.Warn("failed to set systemd status", "error", err)
 	}
 
 	// Initialize bot with exponential backoff
@@ -363,16 +335,14 @@ func (app *Application) start() error {
 	app.startMonitoringServices()
 	logger.Info("monitoring services started")
 
-	if app.cfg.Features.SystemdIntegration {
-		logger.Info("notifying systemd that application is ready")
-		if err := systemd.Ready(); err != nil {
-			logger.Warn("failed to notify systemd ready", "error", err)
-		}
-		if err := systemd.Status("Bot ready and serving"); err != nil {
-			logger.Warn("failed to set systemd status", "error", err)
-		}
-		logger.Info("systemd notifications sent successfully")
+	logger.Info("notifying systemd that application is ready")
+	if err := systemd.Ready(); err != nil {
+		logger.Warn("failed to notify systemd ready", "error", err)
 	}
+	if err := systemd.Status("Bot ready and serving"); err != nil {
+		logger.Warn("failed to set systemd status", "error", err)
+	}
+	logger.Info("systemd notifications sent successfully")
 
 	logger.Info("application startup completed successfully")
 	return nil
@@ -388,10 +358,8 @@ func (app *Application) initializeBot() error {
 	}
 	logger.Info("bot instance created successfully")
 
-	if app.cfg.Features.SystemdIntegration {
-		if err := systemd.Status("Setting up bot..."); err != nil {
-			logger.Warn("failed to set systemd status", "error", err)
-		}
+	if err := systemd.Status("Setting up bot..."); err != nil {
+		logger.Warn("failed to set systemd status", "error", err)
 	}
 
 	logger.Info("setting up bot configuration and handlers")
@@ -413,11 +381,9 @@ func (app *Application) initializeBotWithBackoff() error {
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		logger.Info("attempting to initialize bot", "attempt", attempt, "max_attempts", maxAttempts)
 
-		if app.cfg.Features.SystemdIntegration {
-			status := fmt.Sprintf("Initializing bot (attempt %d/%d)...", attempt, maxAttempts)
-			if err := systemd.Status(status); err != nil {
-				logger.Warn("failed to set systemd status", "error", err)
-			}
+		status := fmt.Sprintf("Initializing bot (attempt %d/%d)...", attempt, maxAttempts)
+		if err := systemd.Status(status); err != nil {
+			logger.Warn("failed to set systemd status", "error", err)
 		}
 
 		err := app.initializeBot()
@@ -438,11 +404,9 @@ func (app *Application) initializeBotWithBackoff() error {
 
 		logger.Info("retrying bot initialization", "delay", delay, "next_attempt", attempt+1)
 
-		if app.cfg.Features.SystemdIntegration {
-			status := fmt.Sprintf("Initialization failed, retrying in %v...", delay)
-			if err := systemd.Status(status); err != nil {
-				logger.Warn("failed to set systemd status", "error", err)
-			}
+		status = fmt.Sprintf("Initialization failed, retrying in %v...", delay)
+		if err := systemd.Status(status); err != nil {
+			logger.Warn("failed to set systemd status", "error", err)
 		}
 
 		time.Sleep(delay)
@@ -465,16 +429,12 @@ func (app *Application) initializeScheduler() error {
 	app.scheduler.Start()
 
 	// Schedule member monitoring if enabled
-	if app.cfg.Features.MonitorEnable {
-		logger.Info("scheduling member monitor job")
-		if err := app.scheduleMemberMonitor(); err != nil {
-			logger.Error("failed to schedule member monitor", "error", err)
-			return fmt.Errorf("failed to schedule member monitor: %w", err)
-		}
-		logger.Info("member monitor job scheduled successfully")
-	} else {
-		logger.Info("member monitoring disabled")
+	logger.Info("scheduling member monitor job")
+	if err := app.scheduleMemberMonitor(); err != nil {
+		logger.Error("failed to schedule member monitor", "error", err)
+		return fmt.Errorf("failed to schedule member monitor: %w", err)
 	}
+	logger.Info("member monitor job scheduled successfully")
 
 	// Schedule status message updates
 	logger.Info("scheduling status update job")
@@ -484,14 +444,12 @@ func (app *Application) initializeScheduler() error {
 	}
 	logger.Info("status update job scheduled successfully")
 
-	if app.cfg.Features.SystemdIntegration {
-		logger.Info("scheduling systemd watchdog job")
-		if err := app.scheduleSystemdWatchdog(); err != nil {
-			logger.Error("failed to schedule systemd watchdog", "error", err)
-			return fmt.Errorf("failed to schedule systemd watchdog: %w", err)
-		}
-		logger.Info("systemd watchdog job scheduled successfully")
+	logger.Info("scheduling systemd watchdog job")
+	if err := app.scheduleSystemdWatchdog(); err != nil {
+		logger.Error("failed to schedule systemd watchdog", "error", err)
+		return fmt.Errorf("failed to schedule systemd watchdog: %w", err)
 	}
+	logger.Info("systemd watchdog job scheduled successfully")
 
 	logger.Info("job scheduler initialization completed")
 	return nil
@@ -598,13 +556,9 @@ func (app *Application) scheduleStatusUpdates() error {
 // startMonitoringServices starts attendance monitoring and systemd watchdog
 func (app *Application) startMonitoringServices() {
 	// Start attendance monitoring if enabled
-	if app.cfg.Features.AttendanceMonitor {
-		logger.Info("starting attendance monitoring service")
-		go bot.MonitorAttendance(context.Background(), logger, app.stopCh)
-		logger.Info("attendance monitoring service started")
-	} else {
-		logger.Info("attendance monitoring disabled")
-	}
+	logger.Info("starting attendance monitoring service")
+	go bot.MonitorAttendance(context.Background(), logger, app.stopCh)
+	logger.Info("attendance monitoring service started")
 }
 
 // scheduleSystemdWatchdog sets up periodic systemd watchdog notifications
@@ -630,11 +584,9 @@ func (app *Application) scheduleSystemdWatchdog() error {
 func (app *Application) shutdown() {
 	logger.Info("beginning graceful shutdown")
 
-	if app.cfg.Features.SystemdIntegration {
-		logger.Info("notifying systemd of shutdown")
-		if err := systemd.Stopping(); err != nil {
-			logger.Error("failed to notify systemd of stopping", "error", err)
-		}
+	logger.Info("notifying systemd of shutdown")
+	if err := systemd.Stopping(); err != nil {
+		logger.Error("failed to notify systemd of stopping", "error", err)
 	}
 
 	// Stop monitoring services

@@ -13,14 +13,6 @@ func cancel(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionC
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle cancel button")
 
-	if !utils.Allowed(i.Member, "RAFFLES") {
-		_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
-			Content: "You do not have the permissions to do that.",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		})
-		return err
-	}
-
 	data := i.MessageComponentData()
 
 	raffleId := strings.Split(data.CustomID, ":")[2]

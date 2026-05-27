@@ -6,23 +6,9 @@ import (
 	"time"
 )
 
-type Driver string
-
-const (
-	DriverPostgres Driver = "postgres"
-)
-
 // Config is the top-level database configuration shared by all backends.
 type Config struct {
-	Driver   Driver
 	Postgres PostgresConfig
-}
-
-func (c Config) SelectedDriver() Driver {
-	if c.Driver == "" {
-		return DriverPostgres
-	}
-	return c.Driver
 }
 
 // PostgresConfig contains PostgreSQL connection settings for the new backend.

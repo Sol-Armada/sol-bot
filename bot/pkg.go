@@ -453,15 +453,13 @@ func (b *Bot) Setup() error {
 	})
 
 	// onboarding
-	if settings.GetBool("FEATURES.ONBOARDING.ENABLE") {
-		// watch for on join and leave
-		b.AddHandler(onJoinHandler)
-		b.AddHandler(onLeaveHandler)
-		b.AddHandler(OnNameChangeHandler)
+	// watch for on join and leave
+	b.AddHandler(onJoinHandler)
+	b.AddHandler(onLeaveHandler)
+	b.AddHandler(OnNameChangeHandler)
 
-		if err := setupOnboarding(); err != nil {
-			return errors.Wrap(err, "setting up onboarding")
-		}
+	if err := setupOnboarding(); err != nil {
+		return errors.Wrap(err, "setting up onboarding")
 	}
 
 	// giveaways
@@ -470,9 +468,7 @@ func (b *Bot) Setup() error {
 	}
 
 	// activity tracking
-	if settings.GetBool("FEATURES.ACTIVITY_TRACKING.ENABLE") {
-		b.AddHandler(onVoiceUpdate)
-	}
+	b.AddHandler(onVoiceUpdate)
 
 	b.logger.Debug("opening Discord connection")
 
