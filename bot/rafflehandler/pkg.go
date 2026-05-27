@@ -71,10 +71,6 @@ func (r *RaffleCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Se
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle autocomplete handler")
 
-	// if !utils.Allowed(i.Member, "RAFFLES") {
-	// 	return customerrors.InvalidPermissions
-	// }
-
 	data := i.ApplicationCommandData()
 	optionName := data.Options[0].Name
 
@@ -113,10 +109,6 @@ func (r *RaffleCommand) ButtonHandler(ctx context.Context, s *discordgo.Session,
 func (r *RaffleCommand) CommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("raffle command handler")
-
-	// if !utils.Allowed(i.Member, "RAFFLES") {
-	// 	return customerrors.InvalidPermissions
-	// }
 
 	return start(ctx, s, i)
 }

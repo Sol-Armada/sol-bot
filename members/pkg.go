@@ -2,10 +2,7 @@ package members
 
 import (
 	"encoding/json"
-	"fmt"
-	"io"
 	"log/slog"
-	"net/http"
 	"regexp"
 	"slices"
 	"strings"
@@ -14,7 +11,6 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	"github.com/sol-armada/sol-bot/auth"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/settings"
 )
@@ -221,56 +217,6 @@ func (m *Member) IsAdmin() bool {
 	}
 	logger.Debug("is NOT admin")
 	return false
-}
-
-func (m *Member) Login(code string) error {
-	log.WithField("access code", code).Debug("logging in")
-	access, err := auth.Authenticate(code)
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("GET", "https://discord.com/api/v10/users/@me", nil)
-	if err != nil {
-		return err
-	}
-
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", access.Token))
-
-	slog.Debug("request for login to discord")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		if resp.StatusCode == 401 {
-			return errors.New("Unauthorized")
-		}
-
-		errorMessage, _ := io.ReadAll(resp.Body)
-		return errors.New(string(errorMessage))
-	}
-
-	discordUser := &discordgo.Member{}
-	if err := json.NewDecoder(resp.Body).Decode(&discordUser); err != nil {
-		return err
-	}
-
-	stored, err := membersBackend.Get(discordUser.User.ID)
-	if err != nil {
-		return errors.Wrap(err, "getting stored member")
-	}
-	*m = *stored
-
-	m.Avatar = discordUser.Avatar
-	_ = m.Save()
-
-	return nil
 }
 
 func (m *Member) Delete() error {

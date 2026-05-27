@@ -11,7 +11,6 @@ import (
 	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/customerrors"
-	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -70,10 +69,6 @@ func (c *AttendanceCommand) Name() string {
 }
 
 func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
-	if !settings.GetBool("FEATURES.ATTENDANCE.ENABLE") {
-		return nil, nil
-	}
-
 	tags := []string{
 		"FPS",
 		"SALVAGE",
@@ -259,10 +254,6 @@ func (c *AttendanceCommand) CommandHandler(ctx context.Context, s *discordgo.Ses
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance command handler")
 
-	if !utils.Allowed(i.Member, "ATTENDANCE") {
-		return customerrors.InvalidPermissions
-	}
-
 	data := i.ApplicationCommandData()
 	handler, ok := subCommands[data.Options[0].Name]
 	if !ok {
@@ -275,10 +266,6 @@ func (c *AttendanceCommand) CommandHandler(ctx context.Context, s *discordgo.Ses
 func (c *AttendanceCommand) AutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance autocomplete handler")
-
-	if !utils.Allowed(i.Member, "ATTENDANCE") {
-		return customerrors.InvalidPermissions
-	}
 
 	data := i.ApplicationCommandData()
 	handler, ok := autoCompletes[data.Options[0].Name]
@@ -298,10 +285,6 @@ func (c *AttendanceCommand) AutocompleteHandler(ctx context.Context, s *discordg
 func (c *AttendanceCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("attendance button handler")
-
-	if !utils.Allowed(i.Member, "ATTENDANCE") {
-		return customerrors.InvalidPermissions
-	}
 
 	data := i.Interaction.MessageComponentData()
 	action := strings.Split(data.CustomID, ":")[1]

@@ -63,10 +63,6 @@ func (t *TokensCommand) CommandHandler(ctx context.Context, s *discordgo.Session
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("tokens command handler")
 
-	if !utils.Allowed(i.Member, "TOKENS") {
-		return customerrors.InvalidPermissions
-	}
-
 	data := i.ApplicationCommandData()
 
 	if handler, ok := subCommands[data.Options[0].Name]; ok {
