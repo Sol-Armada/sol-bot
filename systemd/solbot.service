@@ -31,16 +31,15 @@ TimeoutStopSec=60
 NoNewPrivileges=yes
 ProtectHome=yes
 ProtectSystem=strict
-ReadWritePaths=/var/log/solbot /var/lib/solbot /etc/solbot /opt/solbot
+ReadWritePaths=/var/lib/solbot /etc/solbot /opt/solbot
 PrivateTmp=yes
 ProtectKernelTunables=yes
 ProtectControlGroups=yes
 RestrictRealtime=yes
 
-# Logging
-StandardOutput=append:/var/log/solbot/syslog.log
-StandardError=append:/var/log/solbot/syslog.log
-SyslogIdentifier=solbot
+# Logging: JSON output to stdout, captured by journald
+StandardOutput=journal
+StandardError=journal
 
 # Environment
 Environment="NOTIFY_SOCKET=/run/systemd/notify"

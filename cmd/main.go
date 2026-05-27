@@ -34,12 +34,9 @@ var (
 
 // Config holds all application configuration
 type Config struct {
-	Environment          string
-	Debug                bool
-	CLI                  bool
-	LogFile              string
-	MemberMonitorLogFile string
-	Database             database.Config
+	Environment string
+	Debug       bool
+	Database    database.Config
 }
 
 func init() {
@@ -51,7 +48,6 @@ func init() {
 	logger.Info("sol-bot starting up",
 		"environment", cfg.Environment,
 		"debug", cfg.Debug,
-		"cli", cfg.CLI,
 		"version", "unknown") // You could add a version variable later
 
 	logger.Info("configuration loaded successfully")
@@ -86,11 +82,8 @@ func loadConfig() *Config {
 	}
 
 	return &Config{
-		Environment:          appEnv,
-		Debug:                settings.GetBool("LOG.DEBUG"),
-		CLI:                  settings.GetBool("LOG.CLI"),
-		LogFile:              settings.GetStringWithDefault("LOG.FILE", "/var/log/solbot/solbot.log"),
-		MemberMonitorLogFile: settings.GetStringWithDefault("LOG.MEMBER_MONITOR_FILE", "/var/log/solbot/mm.log"),
+		Environment: appEnv,
+		Debug:       settings.GetBool("LOG.DEBUG"),
 		Database: database.Config{
 			Postgres: database.PostgresConfig{
 				Host:           settings.GetStringWithDefault("postgres.host", "localhost"),
@@ -176,7 +169,7 @@ func parseDurationWithDefault(key string, fallback time.Duration) time.Duration 
 
 // setupLogger creates and configures the application logger
 func setupLogger(cfg *Config) *slog.Logger {
-	fmt.Printf("Setting up logger - Debug: %v, CLI: %v, LogFile: %s\n", cfg.Debug, cfg.CLI, cfg.LogFile)
+	fmt.Printf("Setting up logger - Debug: %v\n", cfg.Debug)
 
 	opts := &slog.HandlerOptions{
 		AddSource: true,
@@ -187,23 +180,10 @@ func setupLogger(cfg *Config) *slog.Logger {
 		fmt.Printf("Debug logging enabled\n")
 	}
 
-	// Create CLI logger if configured for CLI output
-	if cfg.CLI {
-		fmt.Printf("Using CLI logger (stdout)\n")
-		log := slog.New(slog.NewTextHandler(os.Stdout, opts))
-		slog.SetDefault(log)
-		return log
-	}
-
-	// Create file logger for non-CLI output
-	fmt.Printf("Using file logger: %s\n", cfg.LogFile)
-	f, err := os.OpenFile(cfg.LogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Printf("Failed to open log file: %v\n", err)
-		os.Exit(1)
-	}
-
-	log := slog.New(slog.NewJSONHandler(f, opts))
+	// Always use JSON output to stdout for journald/centralized logging.
+	// Systemd will capture stdout and forward to journald.
+	fmt.Printf("Using JSON logger to stdout for journald ingestion\n")
+	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
 	slog.SetDefault(log)
 
 	if cfg.Debug {
@@ -465,17 +445,7 @@ func (app *Application) createMonitorLogger() *slog.Logger {
 		opts.Level = slog.LevelDebug
 	}
 
-	if app.cfg.CLI {
-		return slog.New(slog.NewTextHandler(os.Stdout, opts))
-	}
-
-	f, err := os.OpenFile(app.cfg.MemberMonitorLogFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		logger.Error("failed to open member monitor log file", "error", err)
-		os.Exit(1)
-	}
-
-	return slog.New(slog.NewJSONHandler(f, opts))
+	return slog.New(slog.NewTextHandler(os.Stdout, opts))
 }
 
 // scheduleMemberMonitor sets up the member monitoring job
