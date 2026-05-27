@@ -58,8 +58,14 @@ done
 log "installing bootstrap dependencies"
 ct_exec "export DEBIAN_FRONTEND=noninteractive; apt-get update -y && apt-get install -y curl jq ca-certificates"
 
+log "ensuring solbot runtime user and paths"
+ct_exec "getent group solbot >/dev/null || groupadd --system solbot"
+ct_exec "id -u solbot >/dev/null 2>&1 || useradd --system --gid solbot --home-dir /var/lib/solbot --shell /usr/sbin/nologin solbot"
+ct_exec "install -d -m 755 /var/lib/solbot /var/log/solbot /etc/solbot /opt/solbot-releases"
+ct_exec "chown -R solbot:solbot /var/lib/solbot /var/log/solbot /opt/solbot-releases"
+
 log "installing updater assets"
-ct_exec "install -d -m 755 /usr/local/bin /etc/systemd/system /etc/solbot /var/lib/solbot /opt/solbot-releases"
+ct_exec "install -d -m 755 /usr/local/bin /etc/systemd/system /etc/solbot /var/lib/solbot /opt/solbot-releases /var/log/solbot"
 ct_exec "curl -fsSL '${UPDATER_SCRIPT_URL}' -o /usr/local/bin/solbot-updater.sh"
 ct_exec "chmod 755 /usr/local/bin/solbot-updater.sh"
 ct_exec "curl -fsSL '${UPDATER_SERVICE_URL}' -o /etc/systemd/system/solbot-updater.service"
@@ -70,6 +76,7 @@ ct_exec "chmod 644 /etc/systemd/system/solbot-updater.timer"
 # Preserve any existing updater.env to avoid overwriting secrets/token.
 ct_exec "if [[ ! -f /etc/solbot/updater.env ]]; then curl -fsSL '${UPDATER_ENV_URL}' -o /etc/solbot/updater.env; fi"
 ct_exec "chmod 600 /etc/solbot/updater.env"
+ct_exec "chown -R solbot:solbot /var/lib/solbot /var/log/solbot /opt/solbot-releases /etc/solbot"
 
 log "installing solbot service"
 ct_exec "curl -fsSL '${SOLBOT_SERVICE_URL}' -o /etc/systemd/system/solbot.service"
