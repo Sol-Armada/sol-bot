@@ -496,7 +496,7 @@ func (b *Bot) startJobs() {
 		if _, err = s.NewJob(
 			gocron.CronJob("0 0 * * *", false),
 			gocron.NewTask(
-				job.Run(b.ctx, b.Session),
+				func() { job.Run(b.ctx, b.Session) },
 				job.Name,
 			),
 		); err != nil {
