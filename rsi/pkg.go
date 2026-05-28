@@ -29,7 +29,6 @@ type RSIClient struct {
 // Config holds the configuration for the RSI client
 type Config struct {
 	Token  string
-	Device string
 	OrgSID string
 	Allies []string
 }
@@ -47,7 +46,6 @@ func NewClient(config Config) *RSIClient {
 func NewDefaultClient() *RSIClient {
 	config := Config{
 		Token:  settings.GetString("RSI.TOKEN"),
-		Device: settings.GetString("RSI.DEVICE"),
 		OrgSID: settings.GetString("rsi_org_sid"),
 		Allies: settings.GetStringSlice("ALLIES"),
 	}
