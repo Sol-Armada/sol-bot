@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -509,6 +511,10 @@ func (b *Bot) Close() error {
 	}
 
 	for _, cmd := range cmds {
+		if slices.Contains(slices.Collect(maps.Keys(commands)), cmd.Name) || slices.Contains(slices.Collect(maps.Keys(aliases)), cmd.Name) {
+			continue
+		}
+
 		b.logger.Debug("deleting command", "command", cmd.Name)
 		if err := b.ApplicationCommandDelete(b.ClientId, b.GuildId, cmd.ID); err != nil {
 			return err
