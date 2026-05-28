@@ -27,3 +27,22 @@ scrape_configs:
         target_label: unit
       - replacement: prod
         target_label: environment
+
+  - job_name: solbot-updater
+    journal:
+      path: /var/log/journal
+      matches: _SYSTEMD_UNIT=solbot-updater.service
+      labels:
+        job: solbot-updater
+        service: solbot-updater
+    relabel_configs:
+      - source_labels: [__journal_syslog_hostname]
+        target_label: instance
+      - source_labels: [__journal_priority]
+        target_label: level
+      - source_labels: [__journal_syslog_identifier]
+        target_label: syslog_identifier
+      - source_labels: [__journal_systemd_unit]
+        target_label: unit
+      - replacement: prod
+        target_label: environment

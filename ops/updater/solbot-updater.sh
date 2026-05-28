@@ -9,7 +9,6 @@ SERVICE_NAME="${SERVICE_NAME:-solbot}"
 INSTALL_PATH="${INSTALL_PATH:-/opt/solbot}"
 RELEASES_DIR="${RELEASES_DIR:-/opt/solbot-releases}"
 STATE_DIR="${STATE_DIR:-/var/lib/solbot}"
-GH_TOKEN="${GH_TOKEN:-}"
 
 LOCK_FILE="/var/lock/${APP_NAME}-updater.lock"
 TMP_DIR="$(mktemp -d)"
@@ -43,9 +42,6 @@ fi
 
 API_URL="https://api.github.com/repos/${REPO_OWNER}/${REPO_NAME}/releases/latest"
 AUTH_HEADERS=()
-if [[ -n "${GH_TOKEN}" ]]; then
-  AUTH_HEADERS=(-H "Authorization: Bearer ${GH_TOKEN}")
-fi
 
 release_json="$(curl -fsSL "${AUTH_HEADERS[@]}" -H "Accept: application/vnd.github+json" "${API_URL}")"
 latest_tag="$(printf '%s' "${release_json}" | jq -r '.tag_name')"
