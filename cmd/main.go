@@ -527,7 +527,6 @@ func (app *Application) scheduleSystemdWatchdog() error {
 	_, err := app.scheduler.NewJob(
 		gocron.DurationJob(15*time.Second),
 		gocron.NewTask(func() {
-			logger.Debug("sending systemd watchdog ping")
 			if err := systemd.Watchdog(); err != nil {
 				logger.Warn("failed to send watchdog ping", "error", err)
 			}
