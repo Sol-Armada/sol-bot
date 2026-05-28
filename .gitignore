@@ -10,4 +10,4 @@ deploy.sh
 deployment*
 __debug*
 giveaways.json
-.vscode/
+.vscode
