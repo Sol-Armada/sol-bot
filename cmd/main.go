@@ -440,7 +440,7 @@ func (app *Application) createMonitorLogger() *slog.Logger {
 		opts.Level = slog.LevelDebug
 	}
 
-	return slog.New(slog.NewTextHandler(os.Stdout, opts))
+	return slog.New(slog.NewJSONHandler(os.Stdout, opts))
 }
 
 // scheduleMemberMonitor sets up the member monitoring job
