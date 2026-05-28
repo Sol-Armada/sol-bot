@@ -90,7 +90,8 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 
 				otherMember.Name = otherMember.GetTrueNick(guildMember)
 
-				if err := rsi.UpdateRsiInfo(otherMember); err != nil {
+				profile, err := rsi.GetRSIInfo(otherMember.Name)
+				if err != nil {
 					if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
 						return err
 					}
@@ -104,7 +105,9 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 					}
 
 					logger.Debug("rsi user not found", "member", otherMember, "error", err.Error())
-					otherMember.RSIMember = false
+					otherMember.ResetRSIStatus()
+				} else {
+					otherMember.ApplyRSIProfile(profile)
 				}
 
 				discordMember, err := s.GuildMember(i.GuildID, otherMember.Id)

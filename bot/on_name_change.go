@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"errors"
 	"log/slog"
 	"time"
 
@@ -32,11 +33,26 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 	member.UpdateRoles(m.Member.Roles)
 
-	if err := rsi.UpdateMemberRSIInfo(member, &utils.ExponentialBackoff{
+	err = (&utils.ExponentialBackoff{
 		MaxRetries: 3,
 		Multiplier: 1.1,
 		MaxDelay:   time.Second,
-	}, slog.Default()); err != nil {
+	}).Execute(func() error {
+		profile, err := rsi.GetRSIInfo(member.Name)
+		if err != nil {
+			return err
+		}
+		member.ApplyRSIProfile(profile)
+		return nil
+	})
+
+	if errors.Is(err, rsi.ErrUserNotFound) {
+		slog.Default().Debug("rsi user not found", "error", err)
+		member.ResetRSIStatus()
+		err = nil
+	}
+
+	if err != nil {
 		slog.Error("updating RSI info", "error", err)
 		return
 	}

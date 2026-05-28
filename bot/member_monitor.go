@@ -405,8 +405,20 @@ func processChunkMembers(
 		// Update member data
 		UpdateMemberData(member, discordMember, recruitRoleID, allyRoleID, mlogger)
 
-		// // Update RSI info with retry logic
-		err = rsi.UpdateMemberRSIInfo(member, rsiBackoff, mlogger)
+		// Update RSI info with retry logic
+		err = rsiBackoff.Execute(func() error {
+			profile, err := rsi.GetRSIInfo(member.Name)
+			if err != nil {
+				return err
+			}
+			member.ApplyRSIProfile(profile)
+			return nil
+		})
+		if errors.Is(err, rsi.ErrUserNotFound) {
+			mlogger.Debug("rsi user not found", "error", err)
+			member.ResetRSIStatus()
+			err = nil
+		}
 		if err != nil {
 			mlogger.Error("updating RSI info", "error", err)
 			*processingErrors = append(*processingErrors, err)
