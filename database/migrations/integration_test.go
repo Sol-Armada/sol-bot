@@ -28,10 +28,10 @@ func TestIntegration_FullMigrationWorkflow(t *testing.T) {
 	defer pool.Close()
 
 	// Clean up before test
-	pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
-	pool.Exec(ctx, "DROP TABLE IF EXISTS test_table1")
-	pool.Exec(ctx, "DROP TABLE IF EXISTS test_table2")
-	pool.Exec(ctx, "DROP TABLE IF EXISTS test_table3")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS test_table1")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS test_table2")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS test_table3")
 
 	// Create temp migrations directory
 	tmpDir := t.TempDir()
@@ -55,8 +55,8 @@ func TestIntegration_FullMigrationWorkflow(t *testing.T) {
 	for name, scripts := range migrations {
 		upPath := tmpDir + "/" + name + ".up.sql"
 		downPath := tmpDir + "/" + name + ".down.sql"
-		os.WriteFile(upPath, []byte(scripts[0]), 0644)
-		os.WriteFile(downPath, []byte(scripts[1]), 0644)
+		_ = os.WriteFile(upPath, []byte(scripts[0]), 0644)
+		_ = os.WriteFile(downPath, []byte(scripts[1]), 0644)
 	}
 
 	// First, create schema_migrations table (simulating 000000 migration)
@@ -191,7 +191,7 @@ func TestIntegration_MissingDownFile(t *testing.T) {
 
 	// Create .up.sql without .down.sql
 	upPath := tmpDir + "/000001_bad_migration.up.sql"
-	os.WriteFile(upPath, []byte("CREATE TABLE test (id INT)"), 0644)
+	_ = os.WriteFile(upPath, []byte("CREATE TABLE test (id INT)"), 0644)
 
 	ctx := context.Background()
 	dsn := os.Getenv("TEST_POSTGRES_DSN")
@@ -232,10 +232,10 @@ func TestIntegration_DuplicateMigration(t *testing.T) {
 	}
 	defer pool.Close()
 
-	pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
-	pool.Exec(ctx, "DROP TABLE IF EXISTS test_dup")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS test_dup")
 
-	_, err = pool.Exec(ctx, `
+	_, _ = pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			id SERIAL PRIMARY KEY,
 			name TEXT UNIQUE NOT NULL,
@@ -244,8 +244,8 @@ func TestIntegration_DuplicateMigration(t *testing.T) {
 	`)
 
 	tmpDir := t.TempDir()
-	os.WriteFile(tmpDir+"/000001_test.up.sql", []byte("CREATE TABLE test_dup (id INT)"), 0644)
-	os.WriteFile(tmpDir+"/000001_test.down.sql", []byte("DROP TABLE test_dup"), 0644)
+	_ = os.WriteFile(tmpDir+"/000001_test.up.sql", []byte("CREATE TABLE test_dup (id INT)"), 0644)
+	_ = os.WriteFile(tmpDir+"/000001_test.down.sql", []byte("DROP TABLE test_dup"), 0644)
 
 	runner := New(pool, ctx)
 
@@ -279,9 +279,9 @@ func TestIntegration_RevertNonApplied(t *testing.T) {
 	}
 	defer pool.Close()
 
-	pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
 
-	_, err = pool.Exec(ctx, `
+	_, _ = pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			id SERIAL PRIMARY KEY,
 			name TEXT UNIQUE NOT NULL,
@@ -290,8 +290,8 @@ func TestIntegration_RevertNonApplied(t *testing.T) {
 	`)
 
 	tmpDir := t.TempDir()
-	os.WriteFile(tmpDir+"/000001_test.up.sql", []byte("CREATE TABLE x (id INT)"), 0644)
-	os.WriteFile(tmpDir+"/000001_test.down.sql", []byte("DROP TABLE x"), 0644)
+	_ = os.WriteFile(tmpDir+"/000001_test.up.sql", []byte("CREATE TABLE x (id INT)"), 0644)
+	_ = os.WriteFile(tmpDir+"/000001_test.down.sql", []byte("DROP TABLE x"), 0644)
 
 	runner := New(pool, ctx)
 
@@ -320,10 +320,10 @@ func TestIntegration_ConcurrentMigrations(t *testing.T) {
 	}
 	defer pool.Close()
 
-	pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
-	pool.Exec(ctx, "DROP TABLE IF EXISTS concurrent_test")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS schema_migrations")
+	_, _ = pool.Exec(ctx, "DROP TABLE IF EXISTS concurrent_test")
 
-	_, err = pool.Exec(ctx, `
+	_, _ = pool.Exec(ctx, `
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			id SERIAL PRIMARY KEY,
 			name TEXT UNIQUE NOT NULL,
@@ -332,8 +332,8 @@ func TestIntegration_ConcurrentMigrations(t *testing.T) {
 	`)
 
 	tmpDir := t.TempDir()
-	os.WriteFile(tmpDir+"/000001_test.up.sql", []byte("CREATE TABLE concurrent_test (id INT)"), 0644)
-	os.WriteFile(tmpDir+"/000001_test.down.sql", []byte("DROP TABLE concurrent_test"), 0644)
+	_ = os.WriteFile(tmpDir+"/000001_test.up.sql", []byte("CREATE TABLE concurrent_test (id INT)"), 0644)
+	_ = os.WriteFile(tmpDir+"/000001_test.down.sql", []byte("DROP TABLE concurrent_test"), 0644)
 
 	runner := New(pool, ctx)
 

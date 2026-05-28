@@ -46,22 +46,22 @@ func main() {
 	// Handle actions
 	switch strings.ToLower(*action) {
 	case "up":
-		handleUp(ctx, runner, migrationsDir, *step, *dryRun)
+		handleUp(runner, migrationsDir, *step, *dryRun)
 	case "down":
-		handleDown(ctx, runner, migrationsDir, *step, *dryRun)
+		handleDown(runner, migrationsDir, *step, *dryRun)
 	case "status":
-		handleStatus(ctx, runner, migrationsDir)
+		handleStatus(runner, migrationsDir)
 	case "reset":
 		if !*force {
 			log.Fatal("reset requires --force flag for safety")
 		}
-		handleReset(ctx, runner, migrationsDir, *dryRun)
+		handleReset(runner, migrationsDir, *dryRun)
 	default:
 		log.Fatalf("unknown action: %s (valid: up, down, status, reset)", *action)
 	}
 }
 
-func handleUp(ctx context.Context, runner *migrations.Runner, dir string, steps int, dryRun bool) {
+func handleUp(runner *migrations.Runner, dir string, steps int, dryRun bool) {
 	pending, err := runner.GetPendingMigrations(dir)
 	if err != nil {
 		log.Fatalf("get pending migrations: %v", err)
@@ -97,7 +97,7 @@ func handleUp(ctx context.Context, runner *migrations.Runner, dir string, steps 
 	fmt.Printf("\n✓ Successfully applied %d migration(s)\n", len(toApply))
 }
 
-func handleDown(ctx context.Context, runner *migrations.Runner, dir string, steps int, dryRun bool) {
+func handleDown(runner *migrations.Runner, dir string, steps int, dryRun bool) {
 	applied, err := runner.GetAppliedMigrations()
 	if err != nil {
 		log.Fatalf("get applied migrations: %v", err)
@@ -136,7 +136,7 @@ func handleDown(ctx context.Context, runner *migrations.Runner, dir string, step
 	fmt.Printf("\n✓ Successfully reverted %d migration(s)\n", len(toRevert))
 }
 
-func handleStatus(ctx context.Context, runner *migrations.Runner, dir string) {
+func handleStatus(runner *migrations.Runner, dir string) {
 	status, err := runner.GetStatus(dir)
 	if err != nil {
 		log.Fatalf("get status: %v", err)
@@ -169,7 +169,7 @@ func handleStatus(ctx context.Context, runner *migrations.Runner, dir string) {
 	}
 }
 
-func handleReset(ctx context.Context, runner *migrations.Runner, dir string, dryRun bool) {
+func handleReset(runner *migrations.Runner, dir string, dryRun bool) {
 	applied, err := runner.GetAppliedMigrations()
 	if err != nil {
 		log.Fatalf("get applied migrations: %v", err)
