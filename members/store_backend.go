@@ -24,6 +24,7 @@ type memberBackend interface {
 	BulkUpsert(members []Member) error
 	GetIDsOnly() ([]string, error)
 	Delete(id string) error
+	ListPromotions() ([]dbgen.ListPromotionsRow, error)
 }
 
 type postgresMembersBackend struct {
@@ -154,6 +155,14 @@ func (b *postgresMembersBackend) GetIDsOnly() ([]string, error) {
 
 func (b *postgresMembersBackend) Delete(id string) error {
 	return b.queries.DeleteMember(context.Background(), id)
+}
+
+func (b *postgresMembersBackend) ListPromotions() ([]dbgen.ListPromotionsRow, error) {
+	rows, err := b.queries.ListPromotions(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
 }
 
 func fromPgMember(row dbgen.Member) Member {

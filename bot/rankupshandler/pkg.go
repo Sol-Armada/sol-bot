@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
@@ -42,57 +41,60 @@ func (r *RankupsCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 		},
 	})
 
-	// get members
-	membersList, err := members.List(0)
+	// // get members
+	// membersList, err := members.List(0)
+	// if err != nil {
+	// 	return err
+	// }
+
+	// // check if any members need to rank up
+	// type t struct {
+	// 	Member   members.Member
+	// 	NextRank ranks.Rank
+	// 	Count    int
+	// }
+	// needsRankUp := []t{}
+	// for _, member := range membersList {
+	// 	if !member.IsRanked() || member.IsGuest || member.IsAlly || member.IsAffiliate {
+	// 		continue
+	// 	}
+
+	// 	logger.Debug("checking if member needs rank up", "member", member.Id)
+
+	// 	count, err := attendance.GetMemberAttendanceCount(member.Id)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+
+	// 	tt := t{Member: member, Count: count}
+
+	// 	if member.Rank == ranks.Recruit && count >= 3 {
+	// 		tt.NextRank = ranks.Member
+	// 	}
+	// 	if member.Rank == ranks.Member && count >= 10 {
+	// 		tt.NextRank = ranks.Technician
+	// 	}
+	// 	if member.Rank == ranks.Technician && count >= 20 {
+	// 		tt.NextRank = ranks.Specialist
+	// 	}
+
+	// 	if tt.NextRank != 0 {
+	// 		needsRankUp = append(needsRankUp, tt)
+	// 	}
+	// }
+
+	// get promotions
+	promotions, err := members.ListPromotions()
 	if err != nil {
 		return err
 	}
 
-	// check if any members need to rank up
-	type t struct {
-		Member   members.Member
-		NextRank ranks.Rank
-		Count    int
-	}
-	needsRankUp := []t{}
-	for _, member := range membersList {
-		if !member.IsRanked() || member.IsGuest || member.IsAlly || member.IsAffiliate {
-			continue
-		}
-
-		logger.Debug("checking if member needs rank up", "member", member.Id)
-
-		count, err := attendance.GetMemberAttendanceCount(member.Id)
-		if err != nil {
-			return err
-		}
-
-		tt := t{Member: member, Count: count}
-
-		if member.Rank == ranks.Recruit && count >= 3 {
-			tt.NextRank = ranks.Member
-		}
-		if member.Rank == ranks.Member && count >= 10 {
-			tt.NextRank = ranks.Technician
-		}
-		if member.Rank == ranks.Technician && count >= 20 {
-			tt.NextRank = ranks.Specialist
-		}
-
-		if tt.NextRank != 0 {
-			needsRankUp = append(needsRankUp, tt)
-		}
-	}
-
-	if len(needsRankUp) == 0 {
+	if len(promotions) == 0 {
 		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 			Content: "There are no members that need a rank up",
 		})
 		return nil
 	}
-
-	// output the list of members that need to be ranked up
-	logger.Debug("need to rank up", "members", needsRankUp)
 
 	fields := []*discordgo.MessageEmbedField{
 		{
@@ -107,8 +109,8 @@ func (r *RankupsCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 	}
 
 	ind := 0
-	for _, member := range needsRankUp {
-		if member.NextRank == 0 {
+	for _, promotion := range promotions {
+		if promotion.NextRank == 0 {
 			continue
 		}
 
@@ -121,7 +123,7 @@ func (r *RankupsCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 		}
 
 		field := fields[len(fields)-1]
-		field.Value += fmt.Sprintf("<@%s> to %s (%d Events)", member.Member.Id, member.NextRank.String(), member.Count)
+		field.Value += fmt.Sprintf("<@%s> to %s (%d Events)", promotion.ID, ranks.Rank(promotion.NextRank).String(), promotion.AttendanceCount)
 
 		// if not the 10th member, add a newline
 		if ind%10 != 9 {

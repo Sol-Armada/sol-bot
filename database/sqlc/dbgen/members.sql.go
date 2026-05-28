@@ -205,6 +205,77 @@ func (q *Queries) ListMembersPage(ctx context.Context, arg ListMembersPageParams
 	return items, nil
 }
 
+const listPromotions = `-- name: ListPromotions :many
+WITH attendance_counts AS (
+  SELECT
+    ap.member_id,
+    COUNT(*)::int AS attendance_count
+  FROM attendance_participants ap
+  JOIN attendance a ON a.id = ap.attendance_id
+  JOIN members m2 ON m2.id = ap.member_id
+  WHERE a.recorded = TRUE
+    AND a.date_created > m2.joined
+  GROUP BY ap.member_id
+)
+SELECT
+  m.id,
+  m.name,
+  m.rank AS current_rank,
+  COALESCE(ac.attendance_count, 0) AS attendance_count,
+  CASE
+    WHEN m.rank = 7 AND COALESCE(ac.attendance_count, 0) >= 3 THEN 6
+    WHEN m.rank = 6 AND COALESCE(ac.attendance_count, 0) >= 10 THEN 5
+    WHEN m.rank = 5 AND COALESCE(ac.attendance_count, 0) >= 20 THEN 4
+    ELSE NULL
+  END::int AS next_rank
+FROM members m
+LEFT JOIN attendance_counts ac ON ac.member_id = m.id
+WHERE m.rank <= 7
+  AND m.is_guest = FALSE
+  AND m.is_ally = FALSE
+  AND m.is_affiliate = FALSE
+  AND (
+    (m.rank = 7 AND COALESCE(ac.attendance_count, 0) >= 3) OR
+    (m.rank = 6 AND COALESCE(ac.attendance_count, 0) >= 10) OR
+    (m.rank = 5 AND COALESCE(ac.attendance_count, 0) >= 20)
+  )
+ORDER BY attendance_count DESC, m.id
+`
+
+type ListPromotionsRow struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	CurrentRank     int32  `json:"current_rank"`
+	AttendanceCount int32  `json:"attendance_count"`
+	NextRank        int32  `json:"next_rank"`
+}
+
+func (q *Queries) ListPromotions(ctx context.Context) ([]ListPromotionsRow, error) {
+	rows, err := q.db.Query(ctx, listPromotions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPromotionsRow
+	for rows.Next() {
+		var i ListPromotionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CurrentRank,
+			&i.AttendanceCount,
+			&i.NextRank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRandomMembersByRank = `-- name: ListRandomMembersByRank :many
 SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest
 FROM members

@@ -42,6 +42,7 @@ type Querier interface {
 	ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]Member, error)
 	ListMembersByIDs(ctx context.Context, ids []string) ([]Member, error)
 	ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]Member, error)
+	ListPromotions(ctx context.Context) ([]ListPromotionsRow, error)
 	ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]Member, error)
 	ListRecordedAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
 	ListTokensByAttendanceID(ctx context.Context, attendanceID pgtype.Text) ([]Token, error)

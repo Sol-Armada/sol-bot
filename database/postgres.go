@@ -1,5 +1,7 @@
 package database
 
+//go:generate sh -c "cd .. && sqlc generate"
+
 import (
 	"context"
 	"fmt"

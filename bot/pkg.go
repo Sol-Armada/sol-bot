@@ -494,11 +494,13 @@ func (b *Bot) startJobs() {
 
 	for _, job := range jobs.Jobs {
 		if _, err = s.NewJob(
-			gocron.CronJob("0 0 * * *", false),
+			gocron.CronJob(job.Cron, false),
 			gocron.NewTask(
-				func() { job.Run(b.ctx, b.Session) },
-				job.Name,
+				func(ctx context.Context) error {
+					return job.Run(ctx, b.Session)
+				},
 			),
+			gocron.WithName(job.Name),
 		); err != nil {
 			b.logger.Error("failed to create job", "job", job.Name, "error", err)
 			return
@@ -506,6 +508,8 @@ func (b *Bot) startJobs() {
 	}
 
 	s.Start()
+
+	b.logger.Info("started jobs")
 }
 
 func (b *Bot) Close() error {

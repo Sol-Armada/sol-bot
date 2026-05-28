@@ -11,6 +11,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/settings"
 )
@@ -128,6 +129,10 @@ func List(page int) ([]Member, error) {
 
 func ListByBlueprint(blueprintId string) ([]Member, error) {
 	return membersBackend.ListByBlueprint(blueprintId)
+}
+
+func ListPromotions() ([]dbgen.ListPromotionsRow, error) {
+	return membersBackend.ListPromotions()
 }
 
 func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
