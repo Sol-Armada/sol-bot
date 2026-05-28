@@ -33,6 +33,7 @@ type Participant struct {
 	JoinedAtStart  bool            `json:"joined_at_start"`
 	StayedUntilEnd bool            `json:"stayed_until_end"`
 	HasIssue       bool            `json:"has_issue"`
+	IsManager      bool            `json:"is_manager"`
 }
 
 type Attendance struct {

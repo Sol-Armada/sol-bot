@@ -45,5 +45,7 @@ func recordButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		Components: &[]discordgo.MessageComponent{},
 	})
 
+	go directMessageAttendees(s, logger, attendance)
+
 	return nil
 }

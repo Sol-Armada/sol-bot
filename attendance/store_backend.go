@@ -119,7 +119,7 @@ func (b *postgresAttendanceBackend) Upsert(a *Attendance) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer tx.Rollback(ctx) //nolint:errcheck
 
 	qtx := b.queries.WithTx(tx)
 	params := dbgen.UpsertAttendanceParams{

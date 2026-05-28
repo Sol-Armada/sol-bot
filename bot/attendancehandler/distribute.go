@@ -30,31 +30,36 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 		})
 	}
 
-	if len(fromStartMembers) == 0 {
-		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags:   discordgo.MessageFlagsEphemeral,
-				Content: "No members where at the start of the event, no tokens to distribute",
+	components := []discordgo.MessageComponent{
+		discordgo.Label{
+			Label: "Select members who where event managers",
+			Component: discordgo.SelectMenu{
+				CustomID:  fmt.Sprintf("attendance:distribute:%s", attendanceId),
+				Options:   fromStartMembers,
+				MaxValues: len(fromStartMembers),
 			},
-		})
+		},
+	}
+
+	if len(fromStartMembers) > 0 {
+		components = append(components,
+			discordgo.Label{
+				Label: "Select members who where at the start",
+				Component: discordgo.SelectMenu{
+					CustomID:  fmt.Sprintf("attendance:distribute:%s", attendanceId),
+					Options:   fromStartMembers,
+					MaxValues: len(fromStartMembers),
+				},
+			},
+		)
 	}
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
 		Data: &discordgo.InteractionResponseData{
-			CustomID: fmt.Sprintf("attendance:distribute:%s", attendanceId),
-			Title:    "Distribute Tokens",
-			Components: []discordgo.MessageComponent{
-				discordgo.Label{
-					Label: "Select members who where at the start",
-					Component: discordgo.SelectMenu{
-						CustomID:  fmt.Sprintf("attendance:distribute:%s", attendanceId),
-						Options:   fromStartMembers,
-						MaxValues: len(fromStartMembers),
-					},
-				},
-			},
+			CustomID:   fmt.Sprintf("attendance:distribute:%s", attendanceId),
+			Title:      "Distribute Tokens",
+			Components: components,
 		},
 	})
 }
