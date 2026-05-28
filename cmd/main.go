@@ -17,6 +17,7 @@ import (
 	"github.com/sol-armada/sol-bot/bot"
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/database"
+	"github.com/sol-armada/sol-bot/database/migrations"
 	"github.com/sol-armada/sol-bot/database/postgresql"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/health"
@@ -201,11 +202,24 @@ func initializeServices(cfg *Config) error {
 	// Initialize database connection
 	logger.Info("initializing database connection")
 
-	if _, err := postgresql.New(ctx, cfg.Database.Postgres); err != nil {
+	pgClient, err := postgresql.New(ctx, cfg.Database.Postgres)
+	if err != nil {
 		logger.Error("failed to initialize postgres client", "error", err)
 		return fmt.Errorf("failed to initialize postgres client: %w", err)
 	}
 	logger.Info("database connection established successfully")
+
+	// Run migrations
+	logger.Info("running schema migrations")
+	runner := migrations.New(pgClient.Pool, ctx)
+	if err := runner.ApplyAll("database/migrations"); err != nil {
+		logger.Error("failed to run migrations", "error", err)
+		return fmt.Errorf("failed to run migrations: %w", err)
+	}
+	migrationsApplied, err := runner.GetAppliedMigrations()
+	if err == nil {
+		logger.Info("schema migrations completed", "count", len(migrationsApplied))
+	}
 
 	// Initialize PostgreSQL-migrated services only.
 	services := map[string]func() error{

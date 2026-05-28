@@ -236,7 +236,7 @@ func (q *Queries) ListAttendancePage(ctx context.Context, arg ListAttendancePage
 }
 
 const listAttendanceParticipants = `-- name: ListAttendanceParticipants :many
-SELECT attendance_id, member_id, joined_at_start, stayed_until_end, has_issue, created_at, updated_at
+SELECT attendance_id, member_id, joined_at_start, stayed_until_end, has_issue, created_at, updated_at, is_manager
 FROM attendance_participants
 WHERE attendance_id = $1
 ORDER BY member_id
@@ -259,6 +259,7 @@ func (q *Queries) ListAttendanceParticipants(ctx context.Context, attendanceID s
 			&i.HasIssue,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.IsManager,
 		); err != nil {
 			return nil, err
 		}
