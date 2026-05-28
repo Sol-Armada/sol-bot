@@ -5,9 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"time"
 
-	"github.com/gocolly/colly/v2"
+	rsimodule "github.com/koo04/GoScrapeRSI"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/settings"
@@ -32,58 +31,38 @@ var (
 
 // RSIClient handles interactions with the RSI website
 type RSIClient struct {
-	token   string
-	orgSID  string
-	allies  []string
-	timeout time.Duration
+	client *rsimodule.Client
+	orgSID string
+	allies []string
 }
 
 // Config holds the configuration for the RSI client
 type Config struct {
-	Token   string
-	Device  string
-	OrgSID  string
-	Allies  []string
-	Timeout time.Duration
+	Token  string
+	Device string
+	OrgSID string
+	Allies []string
 }
 
 // NewClient creates a new RSI client with the given configuration
 func NewClient(config Config) (*RSIClient, error) {
-	if config.Timeout == 0 {
-		config.Timeout = 30 * time.Second
-	}
-
 	return &RSIClient{
-		token:   fmt.Sprintf("Rsi-Token=%s; _rsi_device=%s;", config.Token, config.Device),
-		orgSID:  config.OrgSID,
-		allies:  config.Allies,
-		timeout: config.Timeout,
+		client: rsimodule.NewClient(),
+		orgSID: config.OrgSID,
+		allies: config.Allies,
 	}, nil
 }
 
 // NewDefaultClient creates a new RSI client using settings from the config
 func NewDefaultClient() (*RSIClient, error) {
 	config := Config{
-		Token:   settings.GetString("RSI.TOKEN"),
-		Device:  settings.GetString("RSI.DEVICE"),
-		OrgSID:  settings.GetString("rsi_org_sid"),
-		Allies:  settings.GetStringSlice("ALLIES"),
-		Timeout: 30 * time.Second,
+		Token:  settings.GetString("RSI.TOKEN"),
+		Device: settings.GetString("RSI.DEVICE"),
+		OrgSID: settings.GetString("rsi_org_sid"),
+		Allies: settings.GetStringSlice("ALLIES"),
 	}
 
 	return NewClient(config)
-}
-
-// createCollector creates a new colly collector with common settings
-func (c *RSIClient) createCollector() *colly.Collector {
-	collector := colly.NewCollector(colly.AllowURLRevisit())
-	collector.SetRequestTimeout(c.timeout)
-
-	collector.OnRequest(func(r *colly.Request) {
-		r.Headers.Set("cookie", c.token)
-	})
-
-	return collector
 }
 
 // UpdateRsiInfo updates member information from RSI website
@@ -96,61 +75,42 @@ func (client *RSIClient) UpdateRsiInfo(ctx context.Context, member *members.Memb
 	member.PrimaryOrg = ""
 	member.Affilations = []string{}
 
-	c := client.createCollector()
-	var err error
-
-	c.OnResponse(func(r *colly.Response) {
-		switch r.StatusCode {
-		case 404:
-			err = ErrUserNotFound
-		case 403:
-			err = ErrForbidden
-		case 200:
-			// OK, do nothing
-		default:
-			err = fmt.Errorf("%w: status code %d", ErrRequestFailed, r.StatusCode)
+	// Fetch user profile from the module
+	profile, err := client.client.GetUser(ctx, member.Name)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+			return ErrUserNotFound
 		}
-	})
-
-	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		if e.Text == "" {
-			e.Text = "None"
+		if strings.Contains(err.Error(), "403") {
+			return ErrForbidden
 		}
-		member.PrimaryOrg = e.Text
-	})
+		return fmt.Errorf("%w: %v", ErrRequestFailed, err)
+	}
 
-	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "rank")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		if member.PrimaryOrg == client.orgSID {
-			member.Rank = ranks.GetRankByRSIRankName(e.Text)
+	// If profile is empty, user not found
+	if profile == nil || profile.Info.Handle == "" {
+		return ErrUserNotFound
+	}
+
+	// Set primary organization info
+	if profile.Organization.SID != "" {
+		member.PrimaryOrg = profile.Organization.SID
+		if profile.Organization.SID == client.orgSID {
+			member.Rank = ranks.GetRankByRSIRankName(profile.Organization.Rank)
 			member.IsGuest = false
 		}
-	})
+	}
 
-	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
-		member.Affilations = e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
-		if utils.StringSliceContains(member.Affilations, client.orgSID) {
+	// Process affiliations
+	member.Affilations = []string{}
+	for _, aff := range profile.Affiliation {
+		member.Affilations = append(member.Affilations, aff.SID)
+		if aff.SID == client.orgSID {
 			member.IsAffiliate = true
 			member.Rank = ranks.Member
 			member.IsGuest = false
 			member.IsAlly = false
 		}
-	})
-
-	c.OnXML(`//div[contains(@class, "org main")]//div[contains(@class,"member-visibility-restriction")]`, func(e *colly.XMLElement) {
-		member.PrimaryOrg = "REDACTED"
-		member.IsGuest = true
-	})
-
-	url := fmt.Sprintf("%s/citizens/%s/organizations", RsiBaseURL, strings.ReplaceAll(member.Name, ".", ""))
-	if visitErr := c.Visit(url); visitErr != nil {
-		if strings.Contains(visitErr.Error(), "Not Found") {
-			return ErrUserNotFound
-		}
-		return fmt.Errorf("%w: %v", ErrRequestFailed, visitErr)
-	}
-
-	if err != nil {
-		return err
 	}
 
 	member.RSIMember = true
@@ -169,65 +129,38 @@ func (client *RSIClient) isAllyOrg(org string) bool {
 
 // ValidHandle checks if an RSI handle exists
 func (client *RSIClient) ValidHandle(ctx context.Context, handle string) bool {
-	c := client.createCollector()
-	exists := true
-
-	c.OnResponse(func(r *colly.Response) {
-		if r.StatusCode != 200 {
-			exists = false
-		}
-	})
-
-	if err := c.Visit(fmt.Sprintf("%s/citizens/%s/organizations", RsiBaseURL, handle)); err != nil {
-		if strings.Contains(err.Error(), "Not Found") {
-			exists = false
-		}
+	profile, err := client.client.GetUser(ctx, handle)
+	if err != nil {
+		return false
 	}
-
-	return exists
+	return profile != nil && profile.Info.Handle != ""
 }
 
 // IsMemberOfOrg checks if a handle is a member of a specific organization
 func (client *RSIClient) IsMemberOfOrg(ctx context.Context, handle string, org string) (bool, error) {
-	c := client.createCollector()
-
-	var orgs []string
-	var err error
-
-	c.OnResponse(func(r *colly.Response) {
-		if r.StatusCode == 404 {
-			err = ErrUserNotFound
-		} else if r.StatusCode != 200 {
-			err = fmt.Errorf("%w: status code %d", ErrRequestFailed, r.StatusCode)
-		}
-	})
-
-	// Get primary organization
-	c.OnXML(`//div[contains(@class, "org main")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`, func(e *colly.XMLElement) {
-		if e.Text != "" && e.Text != "None" {
-			orgs = append(orgs, e.Text)
-		}
-	})
-
-	// Get affiliated organizations
-	c.OnXML(`//div[contains(@class, "orgs-content")]`, func(e *colly.XMLElement) {
-		affiliations := e.ChildTexts(`//div[contains(@class, "org affiliation")]//div[@class="info"]//span[contains(text(), "SID")]/following-sibling::strong`)
-		orgs = append(orgs, affiliations...)
-	})
-
-	if visitErr := c.Visit(fmt.Sprintf("%s/citizens/%s/organizations", RsiBaseURL, handle)); visitErr != nil {
-		if strings.Contains(visitErr.Error(), "Not Found") {
+	profile, err := client.client.GetUser(ctx, handle)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 			return false, ErrUserNotFound
 		}
-		return false, fmt.Errorf("%w: %v", ErrRequestFailed, visitErr)
+		if strings.Contains(err.Error(), "403") {
+			return false, ErrForbidden
+		}
+		return false, fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
-	if err != nil {
-		return false, err
+	if profile == nil || profile.Info.Handle == "" {
+		return false, ErrUserNotFound
 	}
 
-	for _, o := range orgs {
-		if strings.EqualFold(o, org) {
+	// Check main organization
+	if profile.Organization.SID != "" && strings.EqualFold(profile.Organization.SID, org) {
+		return true, nil
+	}
+
+	// Check affiliations
+	for _, aff := range profile.Affiliation {
+		if strings.EqualFold(aff.SID, org) {
 			return true, nil
 		}
 	}
@@ -237,40 +170,22 @@ func (client *RSIClient) IsMemberOfOrg(ctx context.Context, handle string, org s
 
 // GetBio retrieves the bio for an RSI handle
 func (client *RSIClient) GetBio(ctx context.Context, handle string) (string, error) {
-	c := client.createCollector()
-
-	var err error
-	bio := ""
-
-	c.OnResponse(func(r *colly.Response) {
-		switch r.StatusCode {
-		case 404:
-			err = ErrUserNotFound
-		case 403:
-			err = ErrForbidden
-		default:
-			if r.StatusCode != 200 {
-				err = fmt.Errorf("%w: status code %d", ErrRequestFailed, r.StatusCode)
-			}
-		}
-	})
-
-	c.OnXML(`//div[@id="public-profile"]//div[contains(@class, "bio")]/div`, func(e *colly.XMLElement) {
-		bio = e.Text
-	})
-
-	if visitErr := c.Visit(fmt.Sprintf("%s/citizens/%s", RsiBaseURL, handle)); visitErr != nil {
-		if strings.Contains(visitErr.Error(), "Not Found") {
+	profile, err := client.client.GetUser(ctx, handle)
+	if err != nil {
+		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
 			return "", ErrUserNotFound
 		}
-		return "", fmt.Errorf("%w: %v", ErrRequestFailed, visitErr)
+		if strings.Contains(err.Error(), "403") {
+			return "", ErrForbidden
+		}
+		return "", fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
 
-	if err != nil {
-		return "", err
+	if profile == nil || profile.Info.Handle == "" {
+		return "", ErrUserNotFound
 	}
 
-	return bio, nil
+	return profile.Info.Bio, nil
 }
 
 // Backward compatibility functions using a default client

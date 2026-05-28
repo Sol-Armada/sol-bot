@@ -405,7 +405,7 @@ func processChunkMembers(
 		// Update member data
 		UpdateMemberData(member, discordMember, recruitRoleID, allyRoleID, mlogger)
 
-		// Update RSI info with retry logic
+		// // Update RSI info with retry logic
 		err = rsi.UpdateMemberRSIInfo(member, rsiBackoff, mlogger)
 		if err != nil {
 			mlogger.Error("updating RSI info", "error", err)
