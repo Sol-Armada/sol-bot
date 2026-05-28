@@ -310,11 +310,6 @@ func (app *Application) start() error {
 	}
 	logger.Info("job scheduler initialized successfully")
 
-	// Start monitoring services
-	logger.Info("starting monitoring services")
-	app.startMonitoringServices()
-	logger.Info("monitoring services started")
-
 	logger.Info("notifying systemd that application is ready")
 	if err := systemd.Ready(); err != nil {
 		logger.Warn("failed to notify systemd ready", "error", err)
@@ -521,14 +516,6 @@ func (app *Application) scheduleStatusUpdates() error {
 		}),
 	)
 	return err
-}
-
-// startMonitoringServices starts attendance monitoring and systemd watchdog
-func (app *Application) startMonitoringServices() {
-	// Start attendance monitoring if enabled
-	logger.Info("starting attendance monitoring service")
-	go bot.MonitorAttendance(context.Background(), logger, app.stopCh)
-	logger.Info("attendance monitoring service started")
 }
 
 // scheduleSystemdWatchdog sets up periodic systemd watchdog notifications
