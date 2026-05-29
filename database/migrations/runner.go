@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path/filepath"
 	"regexp"
 	"sort"
@@ -107,7 +108,7 @@ func (r *Runner) ApplyMigration(migrationsDir, name string) error {
 
 	// Read migration file
 	upPath := filepath.Join(migrationsDir, name+".up.sql")
-	sqlContent, err := ioutil.ReadFile(upPath)
+	sqlContent, err := os.ReadFile(upPath)
 	if err != nil {
 		return fmt.Errorf("read migration file %s: %w", upPath, err)
 	}
@@ -210,6 +211,27 @@ func (r *Runner) ApplyAll(migrationsDir string) error {
 	for _, name := range pending {
 		if err := r.ApplyMigration(migrationsDir, name); err != nil {
 			return fmt.Errorf("apply migration %s: %w", name, err)
+		}
+	}
+
+	return nil
+}
+
+func (r *Runner) RevertAll(migrationsDir string) error {
+	applied, err := r.GetAppliedMigrations()
+	if err != nil {
+		return fmt.Errorf("get applied migrations: %w", err)
+	}
+
+	if len(applied) == 1 {
+		return nil // Nothing to revert
+	}
+
+	// Revert in reverse order (last applied first)
+	for i := len(applied) - 1; i >= 1; i-- {
+		name := applied[i]
+		if err := r.RevertMigration(migrationsDir, name); err != nil {
+			return fmt.Errorf("revert migration %s: %w", name, err)
 		}
 	}
 

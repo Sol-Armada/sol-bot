@@ -412,7 +412,7 @@ func processChunkMembers(
 				return err
 			}
 			member.ApplyRSIProfile(profile)
-			return nil
+			return member.Save()
 		})
 		if errors.Is(err, rsi.ErrUserNotFound) {
 			mlogger.Debug("rsi user not found", "error", err)

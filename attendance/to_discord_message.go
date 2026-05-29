@@ -218,6 +218,21 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 				}(),
 			)
 		}
+		buttons.Components = append(buttons.Components,
+			discordgo.Button{
+				Label: func() string {
+					if a.Tokenable {
+						return "Remove Tokens"
+					}
+					return "Make Tokenable"
+				}(),
+				Style: discordgo.SecondaryButton,
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🪙",
+				},
+				CustomID: "attendance:toggle_tokenable:" + a.Id,
+			},
+		)
 		components = append(components, buttons)
 
 		components = append(components, discordgo.ActionsRow{

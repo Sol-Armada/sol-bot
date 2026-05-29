@@ -1,4 +1,4 @@
-CREATE TABLE members (
+CREATE TABLE IF NOT EXISTS members (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL DEFAULT '',
 	rank INTEGER NOT NULL DEFAULT 0,
@@ -7,21 +7,22 @@ CREATE TABLE members (
 	is_bot BOOLEAN NOT NULL DEFAULT FALSE,
 	is_ally BOOLEAN NOT NULL DEFAULT FALSE,
 	is_affiliate BOOLEAN NOT NULL DEFAULT FALSE,
-	is_guest BOOLEAN NOT NULL DEFAULT FALSE
+	is_guest BOOLEAN NOT NULL DEFAULT FALSE,
+	on_rsi BOOLEAN NOT NULL DEFAULT FALSE
 );
 
-CREATE INDEX idx_members_rank ON members (rank);
-CREATE INDEX idx_members_is_bot ON members (is_bot);
+CREATE INDEX IF NOT EXISTS  idx_members_rank ON members (rank);
+CREATE INDEX IF NOT EXISTS idx_members_is_bot ON members (is_bot);
 
-CREATE TABLE member_blueprints (
+CREATE TABLE IF NOT EXISTS member_blueprints (
 	member_id TEXT NOT NULL REFERENCES members (id) ON DELETE CASCADE,
 	blueprint_id TEXT NOT NULL,
 	PRIMARY KEY (member_id, blueprint_id)
 );
 
-CREATE INDEX idx_member_blueprints_blueprint_id ON member_blueprints (blueprint_id);
+CREATE INDEX IF NOT EXISTS idx_member_blueprints_blueprint_id ON member_blueprints (blueprint_id);
 
-CREATE TABLE attendance (
+CREATE TABLE IF NOT EXISTS attendance (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	submitted_by TEXT REFERENCES members (id) ON DELETE SET NULL,
@@ -36,10 +37,10 @@ CREATE TABLE attendance (
 	date_updated TIMESTAMPTZ NOT NULL
 );
 
-CREATE INDEX idx_attendance_date_created ON attendance (date_created DESC);
-CREATE INDEX idx_attendance_recorded_status ON attendance (recorded, status);
+CREATE INDEX IF NOT EXISTS idx_attendance_date_created ON attendance (date_created DESC);
+CREATE INDEX IF NOT EXISTS idx_attendance_recorded_status ON attendance (recorded, status);
 
-CREATE TABLE attendance_payouts (
+CREATE TABLE IF NOT EXISTS attendance_payouts (
 	attendance_id TEXT PRIMARY KEY REFERENCES attendance (id) ON DELETE CASCADE,
 	total BIGINT NOT NULL DEFAULT 0,
 	per_member BIGINT NOT NULL DEFAULT 0,
@@ -47,7 +48,7 @@ CREATE TABLE attendance_payouts (
 	date_updated TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE attendance_participants (
+CREATE TABLE IF NOT EXISTS attendance_participants (
 	attendance_id TEXT NOT NULL REFERENCES attendance (id) ON DELETE CASCADE,
 	member_id TEXT NOT NULL REFERENCES members (id) ON DELETE RESTRICT,
 	joined_at_start BOOLEAN NOT NULL DEFAULT FALSE,
@@ -58,21 +59,21 @@ CREATE TABLE attendance_participants (
 	PRIMARY KEY (attendance_id, member_id)
 );
 
-CREATE INDEX idx_attendance_participants_member_id ON attendance_participants (member_id);
-CREATE INDEX idx_attendance_participants_stayed ON attendance_participants (attendance_id, stayed_until_end);
-CREATE INDEX idx_attendance_participants_issues ON attendance_participants (attendance_id, has_issue);
+CREATE INDEX IF NOT EXISTS idx_attendance_participants_member_id ON attendance_participants (member_id);
+CREATE INDEX IF NOT EXISTS idx_attendance_participants_stayed ON attendance_participants (attendance_id, stayed_until_end);
+CREATE INDEX IF NOT EXISTS idx_attendance_participants_issues ON attendance_participants (attendance_id, has_issue);
 
-CREATE TABLE attendance_tags (
+CREATE TABLE IF NOT EXISTS attendance_tags (
 	tag TEXT PRIMARY KEY,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE attendance_names (
+CREATE TABLE IF NOT EXISTS attendance_names (
 	name TEXT PRIMARY KEY,
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE tokens (
+CREATE TABLE IF NOT EXISTS tokens (
 	id TEXT PRIMARY KEY,
 	member_id TEXT NOT NULL REFERENCES members (id) ON DELETE RESTRICT,
 	amount INTEGER NOT NULL,
@@ -83,11 +84,11 @@ CREATE TABLE tokens (
 	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_tokens_member_id ON tokens (member_id);
-CREATE INDEX idx_tokens_attendance_id ON tokens (attendance_id);
-CREATE INDEX idx_tokens_created_at ON tokens (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_tokens_member_id ON tokens (member_id);
+CREATE INDEX IF NOT EXISTS idx_tokens_attendance_id ON tokens (attendance_id);
+CREATE INDEX IF NOT EXISTS idx_tokens_created_at ON tokens (created_at DESC);
 
-CREATE TABLE activity_logs (
+CREATE TABLE IF NOT EXISTS activity_logs (
 	id BIGSERIAL PRIMARY KEY,
 	who_id TEXT REFERENCES members (id) ON DELETE SET NULL,
 	occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -95,10 +96,10 @@ CREATE TABLE activity_logs (
 	where_text TEXT NOT NULL DEFAULT ''
 );
 
-CREATE INDEX idx_activity_logs_who_id ON activity_logs (who_id);
-CREATE INDEX idx_activity_logs_occurred_at ON activity_logs (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_who_id ON activity_logs (who_id);
+CREATE INDEX IF NOT EXISTS idx_activity_logs_occurred_at ON activity_logs (occurred_at DESC);
 
-CREATE TABLE command_logs (
+CREATE TABLE IF NOT EXISTS command_logs (
 	id BIGSERIAL PRIMARY KEY,
 	name TEXT NOT NULL,
 	occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -109,31 +110,31 @@ CREATE TABLE command_logs (
 	options_json TEXT NOT NULL DEFAULT '[]'
 );
 
-CREATE INDEX idx_command_logs_occurred_at ON command_logs (occurred_at DESC);
-CREATE INDEX idx_command_logs_name_occurred_at ON command_logs (name, occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_command_logs_occurred_at ON command_logs (occurred_at DESC);
+CREATE INDEX IF NOT EXISTS idx_command_logs_name_occurred_at ON command_logs (name, occurred_at DESC);
 
-CREATE TABLE sos_tickets (
+CREATE TABLE IF NOT EXISTS sos_tickets (
 	id TEXT PRIMARY KEY,
 	member_id TEXT NOT NULL DEFAULT '',
 	payload_json TEXT NOT NULL DEFAULT '{}',
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_sos_tickets_member_id ON sos_tickets (member_id);
+CREATE INDEX IF NOT EXISTS idx_sos_tickets_member_id ON sos_tickets (member_id);
 
-CREATE TABLE kanban_cards (
+CREATE TABLE IF NOT EXISTS kanban_cards (
 	id TEXT PRIMARY KEY,
 	payload_json TEXT NOT NULL DEFAULT '{}',
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE blueprint_docs (
+CREATE TABLE IF NOT EXISTS blueprint_docs (
 	id TEXT PRIMARY KEY,
 	payload_json TEXT NOT NULL DEFAULT '{}',
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE giveaways (
+CREATE TABLE IF NOT EXISTS giveaways (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	items_json TEXT NOT NULL DEFAULT '{}',
@@ -147,10 +148,10 @@ CREATE TABLE giveaways (
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_giveaways_attendance_id ON giveaways (attendance_id);
-CREATE INDEX idx_giveaways_ended ON giveaways (ended);
+CREATE INDEX IF NOT EXISTS idx_giveaways_attendance_id ON giveaways (attendance_id);
+CREATE INDEX IF NOT EXISTS idx_giveaways_ended ON giveaways (ended);
 
-CREATE TABLE raffles (
+CREATE TABLE IF NOT EXISTS raffles (
 	id TEXT PRIMARY KEY,
 	name TEXT NOT NULL,
 	attendance_id TEXT REFERENCES attendance (id) ON DELETE SET NULL,
@@ -166,5 +167,5 @@ CREATE TABLE raffles (
 	updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_raffles_attendance_id ON raffles (attendance_id);
-CREATE INDEX idx_raffles_created_at ON raffles (created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_raffles_attendance_id ON raffles (attendance_id);
+CREATE INDEX IF NOT EXISTS idx_raffles_created_at ON raffles (created_at DESC);

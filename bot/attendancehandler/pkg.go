@@ -37,21 +37,22 @@ var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i
 }
 
 var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"start":         startEventButtonHandler,
-	"end":           endEventButtonHandler,
-	"delete":        deleteButtonHandler,
-	"payout":        addPayoutButtonHandler,
-	"record":        recordButtonHandler,
-	"recheck":       recheckIssuesButtonHandler,
-	"verifydelete":  verifyDeleteButtonHandler,
-	"canceldelete":  cancelDeleteButtonHandler,
-	"stayed":        stayedSelectHandler,
-	"stayed_submit": stayedSubmitButtonHandler,
-	"successful":    successfulButtonHandler,
-	"unsuccessful":  unsuccessfulButtonHandler,
-	"export":        exportButtonHandler,
-	"revert":        revertButtonHandler,
-	"distribute":    distributeButtonHandler,
+	"start":            startEventButtonHandler,
+	"end":              endEventButtonHandler,
+	"delete":           deleteButtonHandler,
+	"payout":           addPayoutButtonHandler,
+	"record":           recordButtonHandler,
+	"recheck":          recheckIssuesButtonHandler,
+	"verifydelete":     verifyDeleteButtonHandler,
+	"canceldelete":     cancelDeleteButtonHandler,
+	"stayed":           stayedSelectHandler,
+	"stayed_submit":    stayedSubmitButtonHandler,
+	"successful":       successfulButtonHandler,
+	"unsuccessful":     unsuccessfulButtonHandler,
+	"export":           exportButtonHandler,
+	"revert":           revertButtonHandler,
+	"distribute":       distributeButtonHandler,
+	"toggle_tokenable": toggleTokenableButtonHandler,
 }
 
 var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
@@ -98,12 +99,12 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 			Required:     true,
 			Autocomplete: true,
 		},
-		{
-			Name:        "tokens",
-			Description: "If the event is tokened (default: false)",
-			Type:        discordgo.ApplicationCommandOptionBoolean,
-			Required:    false,
-		},
+		// {
+		// 	Name:        "tokens",
+		// 	Description: "If the event is tokened (default: false)",
+		// 	Type:        discordgo.ApplicationCommandOptionBoolean,
+		// 	Required:    false,
+		// },
 	}
 	for i := range 10 {
 		o := &discordgo.ApplicationCommandOption{

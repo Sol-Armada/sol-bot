@@ -97,8 +97,12 @@ func distributeModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 		return err
 	}
 
-	for _, msg := range distributedTo {
-		fmt.Fprintf(&content, "\n%s", msg)
+	for id, amount := range distributedTo {
+		if amount == 0 {
+			fmt.Fprintf(&content, "\n<@%s> already received Tokens for this event", id)
+		} else {
+			fmt.Fprintf(&content, "\n<@%s> has received %d Tokens", id, amount)
+		}
 	}
 
 	if content.Len() == 0 {

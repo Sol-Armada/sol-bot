@@ -38,7 +38,7 @@ func (q *Queries) DeleteMember(ctx context.Context, id string) error {
 }
 
 const getMember = `-- name: GetMember :one
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest
+SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
 FROM members
 WHERE id = $1
 `
@@ -56,6 +56,7 @@ func (q *Queries) GetMember(ctx context.Context, id string) (Member, error) {
 		&i.IsAlly,
 		&i.IsAffiliate,
 		&i.IsGuest,
+		&i.OnRsi,
 	)
 	return i, err
 }
@@ -87,7 +88,7 @@ func (q *Queries) GetMemberIDs(ctx context.Context) ([]string, error) {
 }
 
 const listMembersByBlueprint = `-- name: ListMembersByBlueprint :many
-SELECT m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest
+SELECT m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi
 FROM members m
 INNER JOIN member_blueprints mb ON mb.member_id = m.id
 WHERE mb.blueprint_id = $1
@@ -113,6 +114,7 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 			&i.IsAlly,
 			&i.IsAffiliate,
 			&i.IsGuest,
+			&i.OnRsi,
 		); err != nil {
 			return nil, err
 		}
@@ -125,7 +127,7 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 }
 
 const listMembersByIDs = `-- name: ListMembersByIDs :many
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest
+SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
 FROM members
 WHERE id = ANY($1::text[])
 `
@@ -149,6 +151,7 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]Member,
 			&i.IsAlly,
 			&i.IsAffiliate,
 			&i.IsGuest,
+			&i.OnRsi,
 		); err != nil {
 			return nil, err
 		}
@@ -161,7 +164,7 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]Member,
 }
 
 const listMembersPage = `-- name: ListMembersPage :many
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest
+SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
 FROM members
 WHERE (NOT $1::boolean OR is_bot = FALSE)
 ORDER BY id
@@ -194,6 +197,7 @@ func (q *Queries) ListMembersPage(ctx context.Context, arg ListMembersPageParams
 			&i.IsAlly,
 			&i.IsAffiliate,
 			&i.IsGuest,
+			&i.OnRsi,
 		); err != nil {
 			return nil, err
 		}
@@ -277,7 +281,7 @@ func (q *Queries) ListPromotions(ctx context.Context) ([]ListPromotionsRow, erro
 }
 
 const listRandomMembersByRank = `-- name: ListRandomMembersByRank :many
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest
+SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
 FROM members
 WHERE rank <= $1::int
   AND rank <> 0
@@ -309,6 +313,7 @@ func (q *Queries) ListRandomMembersByRank(ctx context.Context, arg ListRandomMem
 			&i.IsAlly,
 			&i.IsAffiliate,
 			&i.IsGuest,
+			&i.OnRsi,
 		); err != nil {
 			return nil, err
 		}
@@ -340,7 +345,8 @@ INSERT INTO members (
     is_bot,
     is_ally,
   is_affiliate,
-  is_guest
+  is_guest,
+  on_rsi
 )
 VALUES (
     $1,
@@ -351,7 +357,8 @@ VALUES (
     $6,
     $7,
     $8,
-  $9
+  $9,
+  $10
 )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
@@ -361,7 +368,8 @@ SET name = EXCLUDED.name,
     is_bot = EXCLUDED.is_bot,
     is_ally = EXCLUDED.is_ally,
     is_affiliate = EXCLUDED.is_affiliate,
-  is_guest = EXCLUDED.is_guest
+  is_guest = EXCLUDED.is_guest,
+  on_rsi = EXCLUDED.on_rsi
 `
 
 type UpsertMemberParams struct {
@@ -374,6 +382,7 @@ type UpsertMemberParams struct {
 	IsAlly      bool               `json:"is_ally"`
 	IsAffiliate bool               `json:"is_affiliate"`
 	IsGuest     bool               `json:"is_guest"`
+	OnRsi       bool               `json:"on_rsi"`
 }
 
 func (q *Queries) UpsertMember(ctx context.Context, arg UpsertMemberParams) error {
@@ -387,6 +396,7 @@ func (q *Queries) UpsertMember(ctx context.Context, arg UpsertMemberParams) erro
 		arg.IsAlly,
 		arg.IsAffiliate,
 		arg.IsGuest,
+		arg.OnRsi,
 	)
 	return err
 }

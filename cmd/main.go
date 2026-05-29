@@ -181,10 +181,16 @@ func setupLogger(cfg *Config) *slog.Logger {
 		fmt.Printf("Debug logging enabled\n")
 	}
 
-	// Always use JSON output to stdout for journald/centralized logging.
-	// Systemd will capture stdout and forward to journald.
-	fmt.Printf("Using JSON logger to stdout for journald ingestion\n")
-	log := slog.New(slog.NewJSONHandler(os.Stdout, opts))
+	var handler slog.Handler
+	if settings.GetBool("LOG_HUMAN") {
+		handler = slog.NewTextHandler(os.Stdout, opts)
+		fmt.Printf("Using human-readable log format\n")
+	} else {
+		handler = slog.NewJSONHandler(os.Stdout, opts)
+		fmt.Printf("Using JSON log format\n")
+	}
+
+	log := slog.New(handler)
 	slog.SetDefault(log)
 
 	if cfg.Debug {
@@ -204,7 +210,6 @@ func initializeServices(cfg *Config) error {
 
 	pgClient, err := postgresql.New(ctx, cfg.Database.Postgres)
 	if err != nil {
-		logger.Error("failed to initialize postgres client", "error", err)
 		return fmt.Errorf("failed to initialize postgres client: %w", err)
 	}
 	logger.Info("database connection established successfully")
@@ -213,7 +218,6 @@ func initializeServices(cfg *Config) error {
 	logger.Info("running schema migrations")
 	runner := migrations.New(pgClient.Pool, ctx)
 	if err := runner.ApplyAll("database/migrations"); err != nil {
-		logger.Error("failed to run migrations", "error", err)
 		return fmt.Errorf("failed to run migrations: %w", err)
 	}
 	migrationsApplied, err := runner.GetAppliedMigrations()
@@ -236,7 +240,6 @@ func initializeServices(cfg *Config) error {
 	for name, setup := range services {
 		logger.Info("setting up service", "service", name)
 		if err := setup(); err != nil {
-			logger.Error("failed to setup service", "service", name, "error", err)
 			return fmt.Errorf("failed to setup %s service: %w", name, err)
 		}
 		logger.Info("service setup completed", "service", name)

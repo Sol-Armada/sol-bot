@@ -108,6 +108,9 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 					otherMember.ResetRSIStatus()
 				} else {
 					otherMember.ApplyRSIProfile(profile)
+					if err := otherMember.Save(); err != nil {
+						return errors.Wrap(err, "saving member after applying RSI profile")
+					}
 				}
 
 				discordMember, err := s.GuildMember(i.GuildID, otherMember.Id)

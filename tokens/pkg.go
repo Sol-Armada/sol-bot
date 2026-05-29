@@ -14,6 +14,7 @@ const (
 	ReasonAttendanceFull  Reason = "Stayed for full event"
 	ReasonEventSuccessful Reason = "Event Successful"
 	ReasonWonRaffle       Reason = "Won Raffle"
+	ReasonManagerBonus    Reason = "Manager Bonus"
 	ReasonOther           Reason = "Other"
 )
 

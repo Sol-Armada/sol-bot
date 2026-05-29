@@ -107,6 +107,7 @@ type Member struct {
 	IsAlly      bool               `json:"is_ally"`
 	IsAffiliate bool               `json:"is_affiliate"`
 	IsGuest     bool               `json:"is_guest"`
+	OnRsi       bool               `json:"on_rsi"`
 }
 
 type MemberBlueprint struct {
@@ -128,6 +129,12 @@ type Raffle struct {
 	MessageID    string             `json:"message_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type SchemaMigration struct {
+	ID        int32              `json:"id"`
+	Name      string             `json:"name"`
+	AppliedAt pgtype.Timestamptz `json:"applied_at"`
 }
 
 type SosTicket struct {

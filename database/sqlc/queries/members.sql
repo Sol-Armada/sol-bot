@@ -41,7 +41,8 @@ INSERT INTO members (
     is_bot,
     is_ally,
   is_affiliate,
-  is_guest
+  is_guest,
+  on_rsi
 )
 VALUES (
     sqlc.arg(id),
@@ -52,7 +53,8 @@ VALUES (
     sqlc.arg(is_bot),
     sqlc.arg(is_ally),
     sqlc.arg(is_affiliate),
-  sqlc.arg(is_guest)
+  sqlc.arg(is_guest),
+  sqlc.arg(on_rsi)
 )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
@@ -62,7 +64,8 @@ SET name = EXCLUDED.name,
     is_bot = EXCLUDED.is_bot,
     is_ally = EXCLUDED.is_ally,
     is_affiliate = EXCLUDED.is_affiliate,
-  is_guest = EXCLUDED.is_guest;
+  is_guest = EXCLUDED.is_guest,
+  on_rsi = EXCLUDED.on_rsi;
 
 -- name: ReplaceMemberBlueprints :exec
 DELETE FROM member_blueprints

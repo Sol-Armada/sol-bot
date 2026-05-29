@@ -1,1 +1,1 @@
-ALTER TABLE attendance_participants ADD COLUMN is_manager BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE attendance_participants ADD COLUMN IF NOT EXISTS is_manager BOOLEAN NOT NULL DEFAULT FALSE;
