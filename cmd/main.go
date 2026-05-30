@@ -347,7 +347,7 @@ func (app *Application) start() error {
 func (app *Application) initializeBot() error {
 	logger.Info("creating new bot instance")
 	var err error
-	app.bot, err = bot.New()
+	app.bot, err = bot.New(version)
 	if err != nil {
 		return fmt.Errorf("failed to create bot: %w", err)
 	}

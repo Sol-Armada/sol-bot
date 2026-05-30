@@ -37,8 +37,9 @@ type Bot struct {
 	GuildId  string
 	ClientId string
 
-	logger *slog.Logger
-	ctx    context.Context
+	botVersion string
+	logger     *slog.Logger
+	ctx        context.Context
 
 	schedular *gocron.Scheduler
 
@@ -83,7 +84,7 @@ var validateButtonHandlers = map[string]Handler{
 	"check": checkValidateButtonHandler,
 }
 
-func New() (*Bot, error) {
+func New(version string) (*Bot, error) {
 	slog.Info("creating discord bot")
 	b, err := discordgo.New(fmt.Sprintf("Bot %s", settings.GetString("DISCORD.BOT_TOKEN")))
 	if err != nil {
@@ -98,11 +99,12 @@ func New() (*Bot, error) {
 	b.Client.Timeout = 5 * time.Second
 
 	bot = &Bot{
-		GuildId:  settings.GetString("DISCORD.GUILD_ID"),
-		ClientId: settings.GetString("DISCORD.CLIENT_ID"),
-		logger:   slog.Default(),
-		ctx:      context.Background(),
-		Session:  b,
+		GuildId:    settings.GetString("DISCORD.GUILD_ID"),
+		ClientId:   settings.GetString("DISCORD.CLIENT_ID"),
+		botVersion: version,
+		logger:     slog.Default(),
+		ctx:        context.Background(),
+		Session:    b,
 	}
 
 	return bot, nil
@@ -110,7 +112,7 @@ func New() (*Bot, error) {
 
 func GetBot() (*Bot, error) {
 	if bot == nil {
-		b, err := New()
+		b, err := New("unknown")
 		if err != nil {
 			return nil, err
 		}
@@ -544,7 +546,7 @@ func (b *Bot) Close() error {
 
 func (b *Bot) UpdateCustomStatus(status string) error {
 	if status == "" {
-		status = "ready to serve"
+		status = fmt.Sprintf("ready to serve - (%s)", b.botVersion)
 	}
 	return b.Session.UpdateCustomStatus(status)
 }
