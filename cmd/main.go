@@ -30,6 +30,8 @@ import (
 
 var (
 	environment string = ""
+	version     string = "dev"
+	hash        string = "unknown"
 	logger      *slog.Logger
 )
 
@@ -49,7 +51,8 @@ func init() {
 	logger.Info("sol-bot starting up",
 		"environment", cfg.Environment,
 		"debug", cfg.Debug,
-		"version", "unknown") // You could add a version variable later
+		"version", version,
+		"commit", hash)
 
 	logger.Info("configuration loaded successfully")
 

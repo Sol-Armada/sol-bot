@@ -29,10 +29,13 @@ jobs:
       - name: Build and push Docker images
         run: |
           tag=${{ github.ref_name }}
+          short_sha=$(echo "${{ github.sha }}" | cut -c1-7)
           if [[ "$tag" =~ ^v[0-9]+.[0-9]+.[0-9]+$ ]]; then
             docker buildx build \
               --platform linux/amd64,linux/arm64 \
               --file Dockerfile \
+              --build-arg VERSION=${{ github.ref_name }} \
+              --build-arg COMMIT=${short_sha} \
               --tag ghcr.io/sol-armada/sol-bot:latest \
               --tag ghcr.io/sol-armada/sol-bot:${{ github.ref_name }} \
               --push \
@@ -41,6 +44,8 @@ jobs:
             docker buildx build \
               --platform linux/amd64,linux/arm64 \
               --file Dockerfile \
+              --build-arg VERSION=${{ github.ref_name }} \
+              --build-arg COMMIT=${short_sha} \
               --tag ghcr.io/sol-armada/sol-bot:${{ github.ref_name }} \
               --push \
               .
