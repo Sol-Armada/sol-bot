@@ -315,7 +315,7 @@ func deleteStoredMemberIfNeeded(logger *slog.Logger, storedMemberID string) bool
 		return false
 	}
 
-	if err := storedMember.Delete(); err != nil {
+	if err := storedMember.Delete("Bot did not find on server"); err != nil {
 		memberLogger.Error("deleting member", "error", err)
 		return false
 	}

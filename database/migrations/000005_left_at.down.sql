@@ -1,0 +1,2 @@
+ALTER TABLE members DROP COLUMN IF EXISTS date_left;
+ALTER TABLE members DROP COLUMN IF EXISTS reason_left;

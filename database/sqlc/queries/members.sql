@@ -97,8 +97,10 @@ VALUES (sqlc.arg(member_id), sqlc.arg(blueprint_id))
 ON CONFLICT (member_id, blueprint_id) DO NOTHING;
 
 -- name: DeleteMember :exec
-DELETE FROM members
-WHERE id = $1;
+UPDATE members
+SET date_left = COALESCE(sqlc.arg(date_left), NOW()),
+    reason_left = sqlc.arg(reason_left)
+WHERE id = sqlc.arg(id);
 
 -- name: GetMemberIDs :many
 SELECT id
@@ -142,3 +144,4 @@ WHERE m.rank <= 7
   )
   AND ri.primary_org = 'SOLARMADA'
 ORDER BY attendance_count DESC, m.id;
+

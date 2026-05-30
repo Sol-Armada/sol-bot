@@ -28,18 +28,26 @@ func (q *Queries) AddMemberBlueprint(ctx context.Context, arg AddMemberBlueprint
 }
 
 const deleteMember = `-- name: DeleteMember :exec
-DELETE FROM members
-WHERE id = $1
+UPDATE members
+SET date_left = COALESCE($1, NOW()),
+    reason_left = $2
+WHERE id = $3
 `
 
-func (q *Queries) DeleteMember(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteMember, id)
+type DeleteMemberParams struct {
+	DateLeft   pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft pgtype.Text        `json:"reason_left"`
+	ID         string             `json:"id"`
+}
+
+func (q *Queries) DeleteMember(ctx context.Context, arg DeleteMemberParams) error {
+	_, err := q.db.Exec(ctx, deleteMember, arg.DateLeft, arg.ReasonLeft, arg.ID)
 	return err
 }
 
 const getMember = `-- name: GetMember :one
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -59,6 +67,8 @@ type GetMemberRow struct {
 	IsGuest      bool               `json:"is_guest"`
 	OnRsi        bool               `json:"on_rsi"`
 	DmOptOut     bool               `json:"dm_opt_out"`
+	DateLeft     pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft   pgtype.Text        `json:"reason_left"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -78,6 +88,8 @@ func (q *Queries) GetMember(ctx context.Context, id string) (GetMemberRow, error
 		&i.IsGuest,
 		&i.OnRsi,
 		&i.DmOptOut,
+		&i.DateLeft,
+		&i.ReasonLeft,
 		&i.PrimaryOrg,
 		&i.Affiliations,
 	)
@@ -112,7 +124,7 @@ func (q *Queries) GetMemberIDs(ctx context.Context) ([]string, error) {
 
 const listMembersByBlueprint = `-- name: ListMembersByBlueprint :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -134,6 +146,8 @@ type ListMembersByBlueprintRow struct {
 	IsGuest      bool               `json:"is_guest"`
 	OnRsi        bool               `json:"on_rsi"`
 	DmOptOut     bool               `json:"dm_opt_out"`
+	DateLeft     pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft   pgtype.Text        `json:"reason_left"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -159,6 +173,8 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 			&i.IsGuest,
 			&i.OnRsi,
 			&i.DmOptOut,
+			&i.DateLeft,
+			&i.ReasonLeft,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {
@@ -174,7 +190,7 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 
 const listMembersByIDs = `-- name: ListMembersByIDs :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -194,6 +210,8 @@ type ListMembersByIDsRow struct {
 	IsGuest      bool               `json:"is_guest"`
 	OnRsi        bool               `json:"on_rsi"`
 	DmOptOut     bool               `json:"dm_opt_out"`
+	DateLeft     pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft   pgtype.Text        `json:"reason_left"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -219,6 +237,8 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]ListMem
 			&i.IsGuest,
 			&i.OnRsi,
 			&i.DmOptOut,
+			&i.DateLeft,
+			&i.ReasonLeft,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {
@@ -234,7 +254,7 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]ListMem
 
 const listMembersPage = `-- name: ListMembersPage :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -263,6 +283,8 @@ type ListMembersPageRow struct {
 	IsGuest      bool               `json:"is_guest"`
 	OnRsi        bool               `json:"on_rsi"`
 	DmOptOut     bool               `json:"dm_opt_out"`
+	DateLeft     pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft   pgtype.Text        `json:"reason_left"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -288,6 +310,8 @@ func (q *Queries) ListMembersPage(ctx context.Context, arg ListMembersPageParams
 			&i.IsGuest,
 			&i.OnRsi,
 			&i.DmOptOut,
+			&i.DateLeft,
+			&i.ReasonLeft,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {
@@ -376,7 +400,7 @@ func (q *Queries) ListPromotions(ctx context.Context) ([]ListPromotionsRow, erro
 
 const listRandomMembersByRank = `-- name: ListRandomMembersByRank :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -404,6 +428,8 @@ type ListRandomMembersByRankRow struct {
 	IsGuest      bool               `json:"is_guest"`
 	OnRsi        bool               `json:"on_rsi"`
 	DmOptOut     bool               `json:"dm_opt_out"`
+	DateLeft     pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft   pgtype.Text        `json:"reason_left"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -429,6 +455,8 @@ func (q *Queries) ListRandomMembersByRank(ctx context.Context, arg ListRandomMem
 			&i.IsGuest,
 			&i.OnRsi,
 			&i.DmOptOut,
+			&i.DateLeft,
+			&i.ReasonLeft,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {

@@ -466,7 +466,7 @@ func (app *Application) scheduleMemberMonitor() error {
 
 	logger.Info("scheduling member monitor")
 	j, err := app.scheduler.NewJob(
-		gocron.CronJob("*/30 * * * *", false),
+		gocron.CronJob("*/5 * * * *", false),
 		gocron.NewTask(func(ctx context.Context) error {
 			return bot.MemberMonitor(ctx, monitorLogger)
 		}),
@@ -498,7 +498,7 @@ func (app *Application) scheduleMemberMonitor() error {
 // monitorJobStatus monitors and logs job execution status
 func (app *Application) monitorJobStatus(j gocron.Job) {
 	for {
-		lastRun, err := j.LastRun()
+		lastRun, err := j.LastRunStartedAt()
 		if err != nil {
 			logger.Error("failed to get last member monitor run", "error", err)
 			time.Sleep(1 * time.Minute)

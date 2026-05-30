@@ -20,7 +20,7 @@ type Querier interface {
 	DeleteAttendanceName(ctx context.Context, name string) error
 	DeleteAttendanceParticipant(ctx context.Context, arg DeleteAttendanceParticipantParams) error
 	DeleteAttendanceTag(ctx context.Context, tag string) error
-	DeleteMember(ctx context.Context, id string) error
+	DeleteMember(ctx context.Context, arg DeleteMemberParams) error
 	GetAttendanceByID(ctx context.Context, id string) (Attendance, error)
 	GetMember(ctx context.Context, id string) (GetMemberRow, error)
 	GetMemberIDs(ctx context.Context) ([]string, error)

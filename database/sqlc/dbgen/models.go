@@ -109,6 +109,8 @@ type Member struct {
 	IsGuest     bool               `json:"is_guest"`
 	OnRsi       bool               `json:"on_rsi"`
 	DmOptOut    bool               `json:"dm_opt_out"`
+	DateLeft    pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft  pgtype.Text        `json:"reason_left"`
 }
 
 type MemberBlueprint struct {

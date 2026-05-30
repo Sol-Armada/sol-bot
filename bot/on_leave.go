@@ -2,9 +2,7 @@ package bot
 
 import (
 	"log/slog"
-	"time"
 
-	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/members"
@@ -23,10 +21,10 @@ func onLeaveHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 		return
 	}
 
-	now := time.Now().UTC()
-	member.LeftAt = &now
-
-	_ = member.Save()
+	if err := member.Delete("Left the server"); err != nil {
+		slog.Error("deleting member", "error", err)
+		return
+	}
 
 	memberMessage := member.GetOnboardingMessage()
 	if _, err = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
@@ -35,6 +33,6 @@ func onLeaveHandler(s *discordgo.Session, m *discordgo.GuildMemberRemove) {
 		Content: &memberMessage.Content,
 		Embeds:  &memberMessage.Embeds,
 	}); err != nil {
-		log.WithError(err).Error("editing member message on leave")
+		slog.Error("editing member message on leave", "error", err)
 	}
 }

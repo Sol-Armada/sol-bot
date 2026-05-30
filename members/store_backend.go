@@ -23,7 +23,7 @@ type memberBackend interface {
 	Upsert(member *Member) error
 	BulkUpsert(members []Member) error
 	GetIDsOnly() ([]string, error)
-	Delete(id string) error
+	Delete(id, reason string) error
 	ListPromotions() ([]dbgen.ListPromotionsRow, error)
 	GetRsiInfo(id string) (*RsiInfo, error)
 	ListRsiInfoByHandles(handles []string) ([]*RsiInfo, error)
@@ -146,8 +146,12 @@ func (b *postgresMembersBackend) GetIDsOnly() ([]string, error) {
 	return b.queries.GetMemberIDs(context.Background())
 }
 
-func (b *postgresMembersBackend) Delete(id string) error {
-	return b.queries.DeleteMember(context.Background(), id)
+func (b *postgresMembersBackend) Delete(id, reason string) error {
+	return b.queries.DeleteMember(context.Background(), dbgen.DeleteMemberParams{
+		ID:         id,
+		DateLeft:   toPgTimestamptz(time.Now()),
+		ReasonLeft: pgtype.Text{String: reason, Valid: reason != ""},
+	})
 }
 
 func (b *postgresMembersBackend) ListPromotions() ([]dbgen.ListPromotionsRow, error) {

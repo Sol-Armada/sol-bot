@@ -30,6 +30,7 @@ type Member struct {
 	Joined         time.Time  `json:"joined"`
 	Suffix         string     `json:"suffix"`
 	DmOptOut       bool       `json:"dm_opt_out"`
+	DateLeft       *time.Time `json:"date_left"`
 
 	RsiInfo *RsiInfo `json:"rsi_info"`
 
@@ -57,7 +58,6 @@ type Member struct {
 	Recruiter   *string        `json:"recruiter"`
 	ChannelId   string         `json:"channel_id"`
 	MessageId   string         `json:"message_id"`
-	LeftAt      *time.Time     `json:"left_at"`
 	FoundBy     string         `json:"found_by"`
 	TimeZone    string         `json:"time_zone"`
 	Other       string         `json:"other"`
@@ -259,10 +259,10 @@ func (m *Member) IsAdmin() bool {
 	return false
 }
 
-func (m *Member) Delete() error {
+func (m *Member) Delete(reason string) error {
 	log.WithField("member", m).Debug("deleting member")
 
-	return membersBackend.Delete(m.Id)
+	return membersBackend.Delete(m.Id, reason)
 }
 
 func (m *Member) ToMap() map[string]any {
@@ -343,8 +343,8 @@ func (m *Member) GetOnboardingMessage() *discordgo.Message {
 	}
 
 	description := ""
-	if m.LeftAt != nil {
-		description = "Left " + m.LeftAt.Format("2006-01-02 15:04:05 -0700 MST")
+	if m.DateLeft != nil {
+		description = "Left " + m.DateLeft.Format("2006-01-02 15:04:05 -0700 MST")
 	}
 
 	message := &discordgo.Message{
