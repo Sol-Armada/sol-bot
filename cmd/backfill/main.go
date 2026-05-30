@@ -23,12 +23,15 @@ import (
 
 type MigrationReport struct {
 	membersProcessed              int
+	rsiInfoProcessed              int
 	configTagsProcessed           int
 	configNamesProcessed          int
 	commandsProcessed             int
 	sosProcessed                  int
 	kanbanProcessed               int
 	blueprintsProcessed           int
+	giveawaysProcessed            int
+	rafflesProcessed              int
 	attendanceProcessed           int
 	attendanceSkipped             int
 	attendanceNulledSubmitted     int
@@ -43,6 +46,8 @@ func (m *MigrationReport) print() {
 	fmt.Println("\n========== MIGRATION REPORT ==========")
 	fmt.Printf("Members:\n")
 	fmt.Printf("  Processed: %d\n\n", m.membersProcessed)
+	fmt.Printf("RSI Info:\n")
+	fmt.Printf("  Processed: %d\n\n", m.rsiInfoProcessed)
 
 	fmt.Printf("Attendance Config:\n")
 	fmt.Printf("  Tags migrated: %d\n", m.configTagsProcessed)
@@ -52,7 +57,9 @@ func (m *MigrationReport) print() {
 	fmt.Printf("  Commands migrated: %d\n", m.commandsProcessed)
 	fmt.Printf("  SOS tickets migrated: %d\n", m.sosProcessed)
 	fmt.Printf("  Kanban cards migrated: %d\n", m.kanbanProcessed)
-	fmt.Printf("  Blueprint docs migrated: %d\n\n", m.blueprintsProcessed)
+	fmt.Printf("  Blueprint docs migrated: %d\n", m.blueprintsProcessed)
+	fmt.Printf("  Giveaways migrated: %d\n", m.giveawaysProcessed)
+	fmt.Printf("  Raffles migrated: %d\n\n", m.rafflesProcessed)
 
 	fmt.Printf("Attendance:\n")
 	fmt.Printf("  Processed: %d\n", m.attendanceProcessed)
@@ -122,7 +129,7 @@ func main() {
 	mdb := mongoClient.Database(*mongoDB)
 	rep := &MigrationReport{}
 
-	membersCount, err := backfillMembers(ctx, mdb, queries, rep)
+	membersCount, err := backfillMembers(ctx, mdb, pgPool, queries, rep)
 	if err != nil {
 		log.Fatalf("backfill members: %v", err)
 	}
@@ -170,6 +177,18 @@ func main() {
 	}
 	log.Printf("tokens backfilled: %d", tokensCount)
 
+	giveawaysCount, err := backfillGiveaways(ctx, mdb, pgPool, queries, rep)
+	if err != nil {
+		log.Fatalf("backfill giveaways: %v", err)
+	}
+	log.Printf("giveaways backfilled: %d", giveawaysCount)
+
+	rafflesCount, err := backfillRaffles(ctx, mdb, pgPool, queries, rep)
+	if err != nil {
+		log.Fatalf("backfill raffles: %v", err)
+	}
+	log.Printf("raffles backfilled: %d", rafflesCount)
+
 	log.Println("backfill completed")
 
 	if *report {
@@ -191,6 +210,9 @@ func ensureRequiredSchema(ctx context.Context, pool *pgxpool.Pool) error {
 		"sos_tickets",
 		"kanban_cards",
 		"blueprint_docs",
+		"giveaways",
+		"raffles",
+		"rsi_info",
 	}
 
 	missing := make([]string, 0)
@@ -235,7 +257,7 @@ func applyInitialSchema(ctx context.Context, pool *pgxpool.Pool) error {
 	return nil
 }
 
-func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+func backfillMembers(ctx context.Context, mdb *mongo.Database, pool *pgxpool.Pool, q *dbgen.Queries, rep *MigrationReport) (int, error) {
 	cur, err := mdb.Collection("members").Find(ctx, bson.D{})
 	if err != nil {
 		return 0, err
@@ -243,6 +265,7 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries,
 	defer cur.Close(ctx)
 
 	count := 0
+	rsiCount := 0
 	for cur.Next(ctx) {
 		var doc bson.M
 		if err := cur.Decode(&doc); err != nil {
@@ -263,6 +286,17 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries,
 			updated = joined
 		}
 
+		onRsi := asBool(doc["on_rsi"])
+		if !onRsi {
+			onRsi = asBool(doc["rsi_member"])
+		}
+		dmOptOut := asBool(doc["dm_opt_out"])
+		dateLeft := asTime(doc["date_left"])
+		if dateLeft.IsZero() {
+			dateLeft = asTime(doc["left_at"])
+		}
+		reasonLeft := firstNonEmptyString(doc["reason_left"], doc["left_reason"])
+
 		err := q.UpsertMember(ctx, dbgen.UpsertMemberParams{
 			ID:          id,
 			Name:        asString(doc["name"]),
@@ -273,9 +307,41 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries,
 			IsAlly:      asBool(doc["is_ally"]),
 			IsAffiliate: asBool(doc["is_affiliate"]),
 			IsGuest:     asBool(doc["is_guest"]),
+			DmOptOut:    dmOptOut,
 		})
 		if err != nil {
 			return count, fmt.Errorf("upsert member %s: %w", id, err)
+		}
+
+		_, err = pool.Exec(ctx, `
+			UPDATE members
+			SET on_rsi = $2,
+				date_left = $3,
+				reason_left = $4
+			WHERE id = $1
+		`, id, onRsi, toPgTs(dateLeft), toPgText(reasonLeft))
+		if err != nil {
+			return count, fmt.Errorf("update member lifecycle fields %s: %w", id, err)
+		}
+
+		handle := strings.TrimSpace(asString(doc["name"]))
+		primaryOrg := strings.TrimSpace(asString(doc["primary_org"]))
+		primaryOrgSID := strings.TrimSpace(asString(doc["primary_org_sid"]))
+		affiliations := asStringSlice(doc["affiliations"])
+		if len(affiliations) == 0 {
+			affiliations = asStringSlice(doc["affilations"])
+		}
+		if handle != "" && (primaryOrg != "" || primaryOrgSID != "" || len(affiliations) > 0) {
+			err = q.UpsertRsiInfo(ctx, dbgen.UpsertRsiInfoParams{
+				Handle:        handle,
+				PrimaryOrg:    toPgText(primaryOrg),
+				PrimaryOrgSid: toPgText(primaryOrgSID),
+				Affiliations:  affiliations,
+			})
+			if err != nil {
+				return count, fmt.Errorf("upsert rsi info %s: %w", handle, err)
+			}
+			rsiCount++
 		}
 
 		if err := q.ReplaceMemberBlueprints(ctx, id); err != nil {
@@ -297,6 +363,7 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries,
 		return count, err
 	}
 	rep.membersProcessed = count
+	rep.rsiInfoProcessed = rsiCount
 	return count, nil
 }
 
@@ -643,6 +710,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 			JoinedAtStart  bool
 			StayedUntilEnd bool
 			HasIssue       bool
+			IsManager      bool
 		}
 
 		participantMap := map[string]participantFlags{}
@@ -676,6 +744,22 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 			flags.StayedUntilEnd = true
 			participantMap[memberID] = flags
 		}
+		for _, memberID := range memberIDList(doc["managers"]) {
+			if memberID == "" {
+				continue
+			}
+			flags := participantMap[memberID]
+			flags.IsManager = true
+			participantMap[memberID] = flags
+		}
+		for _, memberID := range memberIDList(doc["manager_ids"]) {
+			if memberID == "" {
+				continue
+			}
+			flags := participantMap[memberID]
+			flags.IsManager = true
+			participantMap[memberID] = flags
+		}
 
 		for memberID, flags := range participantMap {
 			if memberID == "" {
@@ -703,6 +787,7 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 				StayedUntilEnd: flags.StayedUntilEnd,
 				HasIssue:       flags.HasIssue,
 				UpdatedAt:      toPgTs(dateUpdated),
+				IsManager:      flags.IsManager,
 			})
 			if err != nil {
 				return count, fmt.Errorf("upsert attendance participant %s/%s: %w", id, memberID, err)
@@ -841,6 +926,220 @@ func backfillTokens(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, 
 	rep.tokensNulledGiver = nulledGiver
 	rep.tokensNulledAttendance = nulledAttendance
 	return count, nil
+}
+
+func backfillGiveaways(ctx context.Context, mdb *mongo.Database, pool *pgxpool.Pool, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+	cur, err := firstNonEmptyCursor(ctx, mdb, "Giveaways", "giveaways")
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	count := 0
+	attendanceExistsCache := map[string]bool{}
+	for cur.Next(ctx) {
+		var doc bson.M
+		if err := cur.Decode(&doc); err != nil {
+			return count, err
+		}
+
+		id := asString(doc["_id"])
+		if id == "" {
+			continue
+		}
+
+		attendanceID := asString(doc["attendance_id"])
+		if attendanceID != "" {
+			if exists, ok := attendanceExistsCache[attendanceID]; ok {
+				if !exists {
+					attendanceID = ""
+				}
+			} else {
+				_, err := q.GetAttendanceByID(ctx, attendanceID)
+				exists := err == nil
+				attendanceExistsCache[attendanceID] = exists
+				if !exists {
+					attendanceID = ""
+				}
+			}
+		}
+
+		createdAt := asTimeWithDefault(doc["created_at"], time.Now().UTC())
+		updatedAt := asTimeWithDefault(doc["updated_at"], createdAt)
+		itemsJSON := marshalValueToJSON(doc["items"])
+
+		_, err = pool.Exec(ctx, `
+			INSERT INTO giveaways (
+				id, name, items_json, attendance_id, end_time, ended,
+				channel_id, embed_message_id, input_message_id, created_at, updated_at
+			)
+			VALUES (
+				$1, $2, $3, NULLIF($4, ''), $5, $6,
+				$7, $8, $9, $10, $11
+			)
+			ON CONFLICT (id) DO UPDATE
+			SET name = EXCLUDED.name,
+				items_json = EXCLUDED.items_json,
+				attendance_id = EXCLUDED.attendance_id,
+				end_time = EXCLUDED.end_time,
+				ended = EXCLUDED.ended,
+				channel_id = EXCLUDED.channel_id,
+				embed_message_id = EXCLUDED.embed_message_id,
+				input_message_id = EXCLUDED.input_message_id,
+				updated_at = EXCLUDED.updated_at
+		`,
+			id,
+			asString(doc["name"]),
+			itemsJSON,
+			attendanceID,
+			toPgTs(asTime(doc["end_time"])),
+			asBool(doc["ended"]),
+			asString(doc["channel_id"]),
+			asString(doc["embed_message_id"]),
+			asString(doc["input_message_id"]),
+			createdAt.UTC(),
+			updatedAt.UTC(),
+		)
+		if err != nil {
+			return count, fmt.Errorf("upsert giveaway %s: %w", id, err)
+		}
+
+		count++
+	}
+
+	if err := cur.Err(); err != nil {
+		return count, err
+	}
+
+	rep.giveawaysProcessed = count
+	return count, nil
+}
+
+func backfillRaffles(ctx context.Context, mdb *mongo.Database, pool *pgxpool.Pool, q *dbgen.Queries, rep *MigrationReport) (int, error) {
+	cur, err := mdb.Collection("raffles").Find(ctx, bson.D{})
+	if err != nil {
+		return 0, err
+	}
+	defer cur.Close(ctx)
+
+	count := 0
+	attendanceExistsCache := map[string]bool{}
+	for cur.Next(ctx) {
+		var doc bson.M
+		if err := cur.Decode(&doc); err != nil {
+			return count, err
+		}
+
+		id := asString(doc["_id"])
+		if id == "" {
+			continue
+		}
+
+		attendanceID := asString(doc["attendance_id"])
+		if attendanceID != "" {
+			if exists, ok := attendanceExistsCache[attendanceID]; ok {
+				if !exists {
+					attendanceID = ""
+				}
+			} else {
+				_, err := q.GetAttendanceByID(ctx, attendanceID)
+				exists := err == nil
+				attendanceExistsCache[attendanceID] = exists
+				if !exists {
+					attendanceID = ""
+				}
+			}
+		}
+
+		ticketsJSON := marshalValueToJSON(doc["tickets"])
+		winners := asStringSlice(doc["winners"])
+		createdAt := asTimeWithDefault(doc["created_at"], time.Now().UTC())
+		updatedAt := asTimeWithDefault(doc["updated_at"], createdAt)
+
+		_, err = pool.Exec(ctx, `
+			INSERT INTO raffles (
+				id, name, attendance_id, prize, quantity, tickets_json, winners,
+				ended, test, channel_id, message_id, created_at, updated_at
+			)
+			VALUES (
+				$1, $2, NULLIF($3, ''), $4, $5, $6, $7,
+				$8, $9, $10, $11, $12, $13
+			)
+			ON CONFLICT (id) DO UPDATE
+			SET name = EXCLUDED.name,
+				attendance_id = EXCLUDED.attendance_id,
+				prize = EXCLUDED.prize,
+				quantity = EXCLUDED.quantity,
+				tickets_json = EXCLUDED.tickets_json,
+				winners = EXCLUDED.winners,
+				ended = EXCLUDED.ended,
+				test = EXCLUDED.test,
+				channel_id = EXCLUDED.channel_id,
+				message_id = EXCLUDED.message_id,
+				updated_at = EXCLUDED.updated_at
+		`,
+			id,
+			asString(doc["name"]),
+			attendanceID,
+			asString(doc["prize"]),
+			asInt(doc["quantity"]),
+			ticketsJSON,
+			winners,
+			asBool(doc["ended"]),
+			asBool(doc["test"]),
+			asString(doc["channel_id"]),
+			asString(doc["message_id"]),
+			createdAt.UTC(),
+			updatedAt.UTC(),
+		)
+		if err != nil {
+			return count, fmt.Errorf("upsert raffle %s: %w", id, err)
+		}
+
+		count++
+	}
+
+	if err := cur.Err(); err != nil {
+		return count, err
+	}
+
+	rep.rafflesProcessed = count
+	return count, nil
+}
+
+func firstNonEmptyCursor(ctx context.Context, mdb *mongo.Database, names ...string) (*mongo.Cursor, error) {
+	for _, name := range names {
+		col := mdb.Collection(name)
+		count, err := col.CountDocuments(ctx, bson.D{}, options.Count().SetLimit(1))
+		if err != nil {
+			return nil, fmt.Errorf("count collection %s: %w", name, err)
+		}
+		if count > 0 {
+			return col.Find(ctx, bson.D{})
+		}
+	}
+
+	return mdb.Collection(names[0]).Find(ctx, bson.D{})
+}
+
+func marshalValueToJSON(v any) string {
+	if v == nil {
+		return "{}"
+	}
+	raw, err := bson.MarshalExtJSON(v, false, false)
+	if err != nil {
+		return "{}"
+	}
+	return string(raw)
+}
+
+func firstNonEmptyString(values ...any) string {
+	for _, value := range values {
+		if s := strings.TrimSpace(asString(value)); s != "" {
+			return s
+		}
+	}
+	return ""
 }
 
 func memberIDList(v any) []string {
