@@ -3,7 +3,11 @@
 
 package members
 
-import dbgen "github.com/sol-armada/sol-bot/database/sqlc/dbgen"
+import (
+	pgtype "github.com/jackc/pgx/v5/pgtype"
+	dbgen "github.com/sol-armada/sol-bot/database/sqlc/dbgen"
+	"time"
+)
 
 type ConverterImpl struct{}
 
@@ -15,6 +19,7 @@ func (c *ConverterImpl) FromGetMemberRow(source dbgen.GetMemberRow) Member {
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
+	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
@@ -39,6 +44,7 @@ func (c *ConverterImpl) FromListMembersByBlueprintRow(source dbgen.ListMembersBy
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
+	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
@@ -63,6 +69,7 @@ func (c *ConverterImpl) FromListMembersByIDsRow(source dbgen.ListMembersByIDsRow
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
+	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
@@ -87,6 +94,7 @@ func (c *ConverterImpl) FromListMembersPageRow(source dbgen.ListMembersPageRow) 
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
+	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
@@ -111,6 +119,7 @@ func (c *ConverterImpl) FromListRandomMembersByRankRow(source dbgen.ListRandomMe
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
+	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
@@ -149,4 +158,8 @@ func (c *ConverterImpl) FromRsiInfoRows(source []dbgen.RsiInfo) []*RsiInfo {
 		}
 	}
 	return pMembersRsiInfoList
+}
+func (c *ConverterImpl) pgtypeTimestamptzToPTimeTime(source pgtype.Timestamptz) *time.Time {
+	timeTime := PgTypeTimestamptzToTime(source)
+	return &timeTime
 }

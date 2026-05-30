@@ -19,7 +19,7 @@ type Converter interface {
 	// goverter:map ID Id
 	// goverter:ignore Notes RsiInfo Avatar Validated ValidatedAt ValidationCode Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
-	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId LeftAt FoundBy
+	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	// goverter:ignore RsiInfo
 	FromGetMemberRow(row dbgen.GetMemberRow) Member
@@ -27,28 +27,28 @@ type Converter interface {
 	// goverter:map ID Id
 	// goverter:ignore Notes RsiInfo Avatar Validated ValidatedAt ValidationCode Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
-	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId LeftAt FoundBy
+	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListMembersByIDsRow(row dbgen.ListMembersByIDsRow) Member
 
 	// goverter:map ID Id
 	// goverter:ignore Notes RsiInfo Avatar Validated ValidatedAt ValidationCode Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
-	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId LeftAt FoundBy
+	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListMembersPageRow(row dbgen.ListMembersPageRow) Member
 
 	// goverter:map ID Id
 	// goverter:ignore Notes RsiInfo Avatar Validated ValidatedAt ValidationCode Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
-	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId LeftAt FoundBy
+	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListMembersByBlueprintRow(row dbgen.ListMembersByBlueprintRow) Member
 
 	// goverter:map ID Id
 	// goverter:ignore Notes RsiInfo Avatar Validated ValidatedAt ValidationCode Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
-	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId LeftAt FoundBy
+	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListRandomMembersByRankRow(row dbgen.ListRandomMembersByRankRow) Member
 
