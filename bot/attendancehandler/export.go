@@ -27,8 +27,12 @@ func exportButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 		return errors.Wrap(err, "getting attendance record")
 	}
 
-	members := attendance.GetMembers(true)
-	if len(members) == 0 {
+	participants, err := attendance.Participants()
+	if err != nil {
+		return errors.Wrap(err, "getting attendance participants")
+	}
+
+	if len(participants) == 0 {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -57,9 +61,9 @@ func exportButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 
 	sb := strings.Builder{}
 	sb.WriteString("```\n")
-	for i, member := range members {
-		n := member.Name
-		if len(members)-1 != i {
+	for i, participant := range participants {
+		n := participant.Member.Name
+		if len(participants)-1 != i {
 			n += ","
 		}
 		sb.WriteString(n)

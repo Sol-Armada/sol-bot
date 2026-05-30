@@ -19,14 +19,14 @@ const (
 )
 
 type TokenRecord struct {
-	Id           string    `json:"id" bson:"_id"`
-	MemberId     string    `json:"member_id" bson:"member_id"`
-	Amount       int       `json:"amount" bson:"amount"`
-	Reason       Reason    `json:"reason" bson:"reason"`
-	AttendanceId *string   `json:"attendance_id" bson:"attendance_id"`
-	Comment      *string   `json:"comment" bson:"comment"`
-	GiverId      *string   `json:"giver_id" bson:"giver_id"`
-	CreatedAt    time.Time `json:"created_at" bson:"created_at"`
+	Id           string    `json:"id" `
+	MemberId     string    `json:"member_id" `
+	Amount       int       `json:"amount" `
+	Reason       Reason    `json:"reason" `
+	AttendanceId *string   `json:"attendance_id" `
+	Comment      *string   `json:"comment" `
+	GiverId      *string   `json:"giver_id" `
+	CreatedAt    time.Time `json:"created_at" `
 }
 
 var tokenStore tokenBackend

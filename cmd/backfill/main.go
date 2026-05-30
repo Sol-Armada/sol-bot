@@ -91,7 +91,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("connect mongo: %v", err)
 	}
-	defer mongoClient.Disconnect(ctx)
+	defer mongoClient.Disconnect(ctx) //nolint:errcheck
 
 	if err := mongoClient.Ping(ctx, nil); err != nil {
 		log.Fatalf("ping mongo: %v", err)
@@ -273,7 +273,6 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries,
 			IsAlly:      asBool(doc["is_ally"]),
 			IsAffiliate: asBool(doc["is_affiliate"]),
 			IsGuest:     asBool(doc["is_guest"]),
-			OnRsi:       asBool(doc["rsi_member"]),
 		})
 		if err != nil {
 			return count, fmt.Errorf("upsert member %s: %w", id, err)
@@ -618,8 +617,6 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 			}
 		}
 
-		payoutsTotal, payoutsPerMember, payoutsOrgTake, hasPayout := payoutsFromDoc(doc["payouts"])
-
 		err := q.UpsertAttendance(ctx, dbgen.UpsertAttendanceParams{
 			ID:          id,
 			Name:        asString(doc["name"]),
@@ -640,23 +637,6 @@ func backfillAttendance(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 
 		if submittedByWasNulled {
 			nulledSubmitted++
-		}
-
-		if hasPayout {
-			err := q.UpsertAttendancePayout(ctx, dbgen.UpsertAttendancePayoutParams{
-				AttendanceID: id,
-				Total:        payoutsTotal,
-				PerMember:    payoutsPerMember,
-				OrgTake:      payoutsOrgTake,
-				DateUpdated:  toPgTs(dateUpdated),
-			})
-			if err != nil {
-				return count, fmt.Errorf("upsert attendance payout %s: %w", id, err)
-			}
-		}
-
-		if err := q.ReplaceAttendanceParticipants(ctx, id); err != nil {
-			return count, fmt.Errorf("replace attendance participants %s: %w", id, err)
 		}
 
 		type participantFlags struct {
@@ -895,19 +875,6 @@ func memberIDField(v any) string {
 		}
 	}
 	return ""
-}
-
-func payoutsFromDoc(v any) (int64, int64, int64, bool) {
-	var m map[string]any
-	switch t := v.(type) {
-	case map[string]any:
-		m = t
-	case bson.M:
-		m = t
-	default:
-		return 0, 0, 0, false
-	}
-	return int64(asInt(m["total"])), int64(asInt(m["per_member"])), int64(asInt(m["org_take"])), true
 }
 
 func toPgText(v string) pgtype.Text {

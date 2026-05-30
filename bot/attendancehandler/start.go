@@ -2,44 +2,48 @@ package attendancehandler
 
 import (
 	"context"
-	"slices"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	attnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/attendance"
 )
 
 func startEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	attendance, err := attnc.Get(attendanceId)
+	a, err := attendance.Get(attendanceId)
 	if err != nil {
 		return err
 	}
 
-	for _, member := range attendance.Members {
-		if member.Id == "" || slices.Contains(attendance.FromStart, member.Id) {
-			continue
-		}
-
-		attendance.FromStart = append(attendance.FromStart, member.Id)
-	}
-
-	attendance.Active = true
-	attendance.Status = attnc.AttendanceStatusActive
-
-	if err := attendance.Save(); err != nil {
+	participants, err := a.Participants()
+	if err != nil {
 		return err
 	}
 
-	attendanceMessage, err := attendance.ToDiscordMessage()
+	for _, participant := range participants {
+		if participant.JoinedAtStart {
+			continue
+		}
+
+		participant.JoinedAtStart = true
+		if err := participant.Save(a.Id); err != nil {
+			return err
+		}
+	}
+
+	if err := a.SetStatus(attendance.AttendanceStatusActive); err != nil {
+		return err
+	}
+
+	attendanceMessage, err := a.ToDiscordMessage()
 	if err != nil {
 		return err
 	}
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    attendance.ChannelId,
-		ID:         attendance.MessageId,
+		Channel:    a.ChannelId,
+		ID:         a.MessageId,
 		Components: &attendanceMessage.Components,
 		Embeds:     &attendanceMessage.Embeds,
 	}); err != nil {

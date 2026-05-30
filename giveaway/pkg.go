@@ -172,18 +172,17 @@ func SaveGiveaways() error {
 	return nil
 }
 
-func (g *Giveaway) CanParticipate(memberId string) bool {
+func (g *Giveaway) CanParticipate(memberId string) (bool, error) {
 	if g.AttendanceId == "" {
-		return true
+		return true, nil
 	}
 
 	a, err := attendance.Get(g.AttendanceId)
 	if err != nil {
-		slog.Error("failed to get attendance for giveaway", "error", err)
-		return false
+		return false, err
 	}
 
-	return a.HasMember(memberId, true)
+	return a.HasParticipant(memberId)
 }
 
 func (g *Giveaway) SetEndTime(time_m int) *Giveaway {
@@ -238,7 +237,9 @@ func (g *Giveaway) End() error {
 
 	var mentions strings.Builder
 	for _, winner := range winners {
-		mentions.WriteString("<@" + winner + "> ")
+		mentions.WriteString("<@")
+		mentions.WriteString(winner)
+		mentions.WriteString("> ")
 	}
 
 	msg, err := g.sess.ChannelMessageSendComplex(g.ChannelId, &discordgo.MessageSend{

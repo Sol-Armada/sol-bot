@@ -64,10 +64,18 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 	if len(data.Options) > 0 && member.IsOfficer() {
 		logger.Debug("getting profile of other member")
 
-		otherMemberId := data.Options[0].UserValue(s).ID
+		force := getOptionValue(data.Options, "force_update").BoolValue()
+		otherMemberId := func() string {
+			v := getOptionValue(data.Options, "member")
+			if v != nil {
+				return v.UserValue(s).ID
+			}
+			return ""
+		}()
 
 		if otherMemberId != "" {
-			otherMember, err := members.Get(otherMemberId)
+			var err error
+			member, err = members.Get(otherMemberId)
 			if err != nil {
 				if !errors.Is(err, members.MemberNotFound) {
 					return errors.Wrap(err, "getting member for profile command")
@@ -77,76 +85,81 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 				if err != nil {
 					return errors.Wrap(err, "creating new guild member")
 				}
-				otherMember = members.New(discordMember)
+				member = members.New(discordMember)
+			}
+		}
+
+		if force { // update the member before getting their profile
+			logger.Debug("force updating member")
+
+			guildMember, err := s.GuildMember(i.GuildID, member.Id)
+			if err != nil {
+				return errors.Wrap(err, "getting guild member")
 			}
 
-			if len(data.Options) > 1 && data.Options[1].BoolValue() { // update the member before getting their profile
-				logger.Debug("force updating member")
+			member.Name = member.GetTrueNick(guildMember)
 
-				guildMember, err := s.GuildMember(i.GuildID, otherMember.Id)
-				if err != nil {
-					return errors.Wrap(err, "getting guild member")
-				}
-
-				otherMember.Name = otherMember.GetTrueNick(guildMember)
-
-				profile, err := rsi.GetRSIInfo(otherMember.Name)
-				if err != nil {
-					if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
-						return err
-					}
-
-					if strings.Contains(err.Error(), "context deadline exceeded") {
-						return context.DeadlineExceeded
-					}
-
-					if !errors.Is(err, rsi.ErrUserNotFound) {
-						return errors.Wrap(err, "getting rsi info")
-					}
-
-					logger.Debug("rsi user not found", "member", otherMember, "error", err.Error())
-					otherMember.ResetRSIStatus()
-				} else {
-					otherMember.ApplyRSIProfile(profile)
-					if err := otherMember.Save(); err != nil {
-						return errors.Wrap(err, "saving member after applying RSI profile")
-					}
-				}
-
-				discordMember, err := s.GuildMember(i.GuildID, otherMember.Id)
-				if err != nil {
-					return errors.Wrap(err, "getting discord member")
-				}
-
-				if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
-					logger.Debug("is recruit")
-					otherMember.Rank = ranks.Recruit
-					otherMember.IsAffiliate = false
-					otherMember.IsAlly = false
-					otherMember.IsGuest = false
-				}
-				if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.ALLY")) {
-					logger.Debug("is ally")
-					otherMember.Rank = ranks.None
-					otherMember.IsAffiliate = false
-					otherMember.IsAlly = true
-					otherMember.IsGuest = false
-				}
-				if discordMember.User.Bot {
-					logger.Debug("is bot")
-					otherMember.Rank = ranks.None
-					otherMember.IsAffiliate = false
-					otherMember.IsAlly = false
-					otherMember.IsGuest = false
-					otherMember.IsBot = true
-				}
-
-				if err := otherMember.Save(); err != nil {
+			profile, err := rsi.GetRSIInfo(member.Name)
+			if err != nil {
+				if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
 					return err
 				}
+
+				if strings.Contains(err.Error(), "context deadline exceeded") {
+					return context.DeadlineExceeded
+				}
+
+				if !errors.Is(err, rsi.ErrUserNotFound) {
+					return errors.Wrap(err, "getting rsi info")
+				}
+
+				logger.Debug("rsi user not found", "member", member, "error", err.Error())
+			} else {
+				affiliations := make([]string, len(profile.Affiliation))
+				for i, aff := range profile.Affiliation {
+					affiliations[i] = aff.Name
+				}
+
+				if err := member.UpdateRsiInfo(); err != nil {
+					return errors.Wrap(err, "updating member RSI info")
+				}
+
+				if err := member.Save(); err != nil {
+					return errors.Wrap(err, "saving member after applying RSI profile")
+				}
 			}
 
-			member = otherMember
+			discordMember, err := s.GuildMember(i.GuildID, member.Id)
+			if err != nil {
+				return errors.Wrap(err, "getting discord member")
+			}
+
+			if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.RECRUIT")) {
+				logger.Debug("is recruit")
+				member.Rank = ranks.Recruit
+				member.IsAffiliate = false
+				member.IsAlly = false
+				member.IsGuest = false
+			}
+			if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.ALLY")) {
+				logger.Debug("is ally")
+				member.Rank = ranks.None
+				member.IsAffiliate = false
+				member.IsAlly = true
+				member.IsGuest = false
+			}
+			if discordMember.User.Bot {
+				logger.Debug("is bot")
+				member.Rank = ranks.None
+				member.IsAffiliate = false
+				member.IsAlly = false
+				member.IsGuest = false
+				member.IsBot = true
+			}
+
+			if err := member.Save(); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -194,8 +207,8 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 	if member.Validated {
 		validated = "Yes"
 	}
-	if member.RSIMember {
-		po := member.PrimaryOrg
+	if member.OnRsi() {
+		po := member.RsiInfo.PrimaryOrg
 		if po == "" {
 			po = "None set"
 		}
@@ -331,4 +344,13 @@ func (c *ProfileCommand) Setup() (*discordgo.ApplicationCommand, error) {
 
 func (c *ProfileCommand) SetupAliases() ([]*discordgo.ApplicationCommand, error) {
 	return nil, nil
+}
+
+func getOptionValue(options []*discordgo.ApplicationCommandInteractionDataOption, name string) *discordgo.ApplicationCommandInteractionDataOption {
+	for _, option := range options {
+		if option.Name == name {
+			return option
+		}
+	}
+	return nil
 }

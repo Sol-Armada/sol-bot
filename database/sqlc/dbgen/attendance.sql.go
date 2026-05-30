@@ -52,13 +52,19 @@ func (q *Queries) DeleteAttendance(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteAttendancePayout = `-- name: DeleteAttendancePayout :exec
-DELETE FROM attendance_payouts
+const deleteAttendanceParticipant = `-- name: DeleteAttendanceParticipant :exec
+DELETE FROM attendance_participants
 WHERE attendance_id = $1
+  AND member_id = $2
 `
 
-func (q *Queries) DeleteAttendancePayout(ctx context.Context, attendanceID string) error {
-	_, err := q.db.Exec(ctx, deleteAttendancePayout, attendanceID)
+type DeleteAttendanceParticipantParams struct {
+	AttendanceID string `json:"attendance_id"`
+	MemberID     string `json:"member_id"`
+}
+
+func (q *Queries) DeleteAttendanceParticipant(ctx context.Context, arg DeleteAttendanceParticipantParams) error {
+	_, err := q.db.Exec(ctx, deleteAttendanceParticipant, arg.AttendanceID, arg.MemberID)
 	return err
 }
 
@@ -83,25 +89,6 @@ func (q *Queries) GetAttendanceByID(ctx context.Context, id string) (Attendance,
 		&i.ChannelID,
 		&i.MessageID,
 		&i.DateCreated,
-		&i.DateUpdated,
-	)
-	return i, err
-}
-
-const getAttendancePayout = `-- name: GetAttendancePayout :one
-SELECT attendance_id, total, per_member, org_take, date_updated
-FROM attendance_payouts
-WHERE attendance_id = $1
-`
-
-func (q *Queries) GetAttendancePayout(ctx context.Context, attendanceID string) (AttendancePayout, error) {
-	row := q.db.QueryRow(ctx, getAttendancePayout, attendanceID)
-	var i AttendancePayout
-	err := row.Scan(
-		&i.AttendanceID,
-		&i.Total,
-		&i.PerMember,
-		&i.OrgTake,
 		&i.DateUpdated,
 	)
 	return i, err
@@ -313,16 +300,6 @@ func (q *Queries) ListRecordedAttendance(ctx context.Context, limitRows int32) (
 	return items, nil
 }
 
-const replaceAttendanceParticipants = `-- name: ReplaceAttendanceParticipants :exec
-DELETE FROM attendance_participants
-WHERE attendance_id = $1
-`
-
-func (q *Queries) ReplaceAttendanceParticipants(ctx context.Context, attendanceID string) error {
-	_, err := q.db.Exec(ctx, replaceAttendanceParticipants, attendanceID)
-	return err
-}
-
 const upsertAttendance = `-- name: UpsertAttendance :exec
 INSERT INTO attendance (
     id,
@@ -406,7 +383,8 @@ INSERT INTO attendance_participants (
     joined_at_start,
     stayed_until_end,
     has_issue,
-    updated_at
+    updated_at,
+    is_manager
 	)
 VALUES (
     $1,
@@ -414,18 +392,25 @@ VALUES (
     $3,
     $4,
     $5,
-    $6
+    COALESCE($6, NOW()),
+    $7
 	)
-ON CONFLICT (attendance_id, member_id) DO NOTHING
+ON CONFLICT (attendance_id, member_id) DO UPDATE
+SET joined_at_start = EXCLUDED.joined_at_start,
+    stayed_until_end = EXCLUDED.stayed_until_end,
+    has_issue = EXCLUDED.has_issue,
+    updated_at = EXCLUDED.updated_at,
+    is_manager = EXCLUDED.is_manager
 `
 
 type UpsertAttendanceParticipantParams struct {
-	AttendanceID   string             `json:"attendance_id"`
-	MemberID       string             `json:"member_id"`
-	JoinedAtStart  bool               `json:"joined_at_start"`
-	StayedUntilEnd bool               `json:"stayed_until_end"`
-	HasIssue       bool               `json:"has_issue"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	AttendanceID   string      `json:"attendance_id"`
+	MemberID       string      `json:"member_id"`
+	JoinedAtStart  bool        `json:"joined_at_start"`
+	StayedUntilEnd bool        `json:"stayed_until_end"`
+	HasIssue       bool        `json:"has_issue"`
+	UpdatedAt      interface{} `json:"updated_at"`
+	IsManager      bool        `json:"is_manager"`
 }
 
 func (q *Queries) UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error {
@@ -436,47 +421,7 @@ func (q *Queries) UpsertAttendanceParticipant(ctx context.Context, arg UpsertAtt
 		arg.StayedUntilEnd,
 		arg.HasIssue,
 		arg.UpdatedAt,
-	)
-	return err
-}
-
-const upsertAttendancePayout = `-- name: UpsertAttendancePayout :exec
-INSERT INTO attendance_payouts (
-    attendance_id,
-    total,
-    per_member,
-    org_take,
-    date_updated
-	)
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4,
-    $5
-	)
-ON CONFLICT (attendance_id) DO UPDATE
-SET total = EXCLUDED.total,
-    per_member = EXCLUDED.per_member,
-    org_take = EXCLUDED.org_take,
-    date_updated = EXCLUDED.date_updated
-`
-
-type UpsertAttendancePayoutParams struct {
-	AttendanceID string             `json:"attendance_id"`
-	Total        int64              `json:"total"`
-	PerMember    int64              `json:"per_member"`
-	OrgTake      int64              `json:"org_take"`
-	DateUpdated  pgtype.Timestamptz `json:"date_updated"`
-}
-
-func (q *Queries) UpsertAttendancePayout(ctx context.Context, arg UpsertAttendancePayoutParams) error {
-	_, err := q.db.Exec(ctx, upsertAttendancePayout,
-		arg.AttendanceID,
-		arg.Total,
-		arg.PerMember,
-		arg.OrgTake,
-		arg.DateUpdated,
+		arg.IsManager,
 	)
 	return err
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
@@ -19,11 +18,9 @@ type AttendanceCommand struct{}
 var _ command.ApplicationCommand = (*AttendanceCommand)(nil)
 
 var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"create":  createCommandHandler,
-	"add":     addMembersCommandHandler,
-	"remove":  removeMembersCommandHandler,
-	"refresh": refreshCommandHandler,
-	// "revert":            revertCommandHandler,
+	"create":            createCommandHandler,
+	"add":               addMembersCommandHandler,
+	"remove":            removeMembersCommandHandler,
 	"add_event_name":    addNameCommandHandler,
 	"remove_event_name": removeNameCommandHandler,
 }
@@ -31,7 +28,6 @@ var subCommands = map[string]func(ctx context.Context, s *discordgo.Session, i *
 var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
 	"add":               addRemoveMembersAutocompleteHandler,
 	"remove":            addRemoveMembersAutocompleteHandler,
-	"revert":            revertAutocompleteHandler,
 	"create":            createAutocompleteHandler,
 	"remove_event_name": createAutocompleteHandler,
 }
@@ -40,9 +36,7 @@ var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *disc
 	"start":            startEventButtonHandler,
 	"end":              endEventButtonHandler,
 	"delete":           deleteButtonHandler,
-	"payout":           addPayoutButtonHandler,
-	"record":           recordButtonHandler,
-	"recheck":          recheckIssuesButtonHandler,
+	"refresh":          refreshButtonHandler,
 	"verifydelete":     verifyDeleteButtonHandler,
 	"canceldelete":     cancelDeleteButtonHandler,
 	"stayed":           stayedSelectHandler,
@@ -58,8 +52,6 @@ var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *disc
 var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
 	"distribute": distributeModalHandler,
 }
-
-var lastRefreshTime time.Time
 
 func New() command.ApplicationCommand {
 	return &AttendanceCommand{}
@@ -99,12 +91,6 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 			Required:     true,
 			Autocomplete: true,
 		},
-		// {
-		// 	Name:        "tokens",
-		// 	Description: "If the event is tokened (default: false)",
-		// 	Type:        discordgo.ApplicationCommandOptionBoolean,
-		// 	Required:    false,
-		// },
 	}
 	for i := range 10 {
 		o := &discordgo.ApplicationCommandOption{
@@ -177,14 +163,6 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 		Options:     removeFromAttendanceOptions,
 	})
 	// end remove member from attendance record
-
-	// refresh attendance records
-	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{
-		Type:        discordgo.ApplicationCommandOptionSubCommand,
-		Name:        "refresh",
-		Description: "refresh the last 3 attendance records",
-	})
-	// end refresh attendance records
 
 	// add event name
 	subCommands = append(subCommands, &discordgo.ApplicationCommandOption{

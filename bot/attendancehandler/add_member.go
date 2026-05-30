@@ -45,44 +45,40 @@ func addMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 
 		member, err := members.Get(discordMember.UserValue(s).ID)
 		if err != nil {
-			if !errors.Is(err, members.MemberNotFound) {
-				return errors.Wrap(err, "getting member for new attendance")
+			if errors.Is(err, members.MemberNotFound) {
+				_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: fmt.Sprintf("Member %s is not registered in the database and was not added to the attendance record.", discordMember.UserValue(s).Username),
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+				if err != nil {
+					return errors.Wrap(err, "responding to interaction for unregistered member")
+				}
+				continue
 			}
 
-			// if the member is not found, create a new one
-			guildMember, err := s.GuildMember(i.GuildID, discordMember.UserValue(s).ID)
-			if err != nil {
-				return errors.Wrap(err, "getting guild member")
-			}
-			member = members.New(guildMember)
-			_ = member.Save()
-
-			// attendance.WithIssues = append(attendance.WithIssues, member)
-
-			// continue
+			return errors.Wrap(err, "getting member for add attendance")
 		}
 
-		attendance.AddMember(member)
+		if err := attendance.AddMember(member); err != nil {
+			return errors.Wrap(err, "adding member to attendance")
+		}
 	}
 
-	// save now incase there is an error with creating the message
-	if err := attendance.Save(); err != nil {
-		return errors.Wrap(err, "saving attendance record")
-	}
-
-	attandanceMessage, err := attendance.ToDiscordMessage()
+	message, err := attendance.ToDiscordMessage()
 	if err != nil {
 		return errors.Wrap(err, "creating attendance message")
 	}
 
-	if _, err := s.ChannelMessageEditEmbeds(attendance.ChannelId, attendance.MessageId, attandanceMessage.Embeds); err != nil {
+	if _, err := s.ChannelMessageEditEmbeds(attendance.ChannelId, attendance.MessageId, message.Embeds); err != nil {
 		return errors.Wrap(err, "sending attendance message")
 	}
 
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	if _, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId),
 		Flags:   discordgo.MessageFlagsEphemeral,
-	})
+	}); err != nil {
+		return errors.Wrap(err, "sending followup message")
+	}
 
 	return nil
 }

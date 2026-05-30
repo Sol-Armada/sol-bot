@@ -108,6 +108,7 @@ type Member struct {
 	IsAffiliate bool               `json:"is_affiliate"`
 	IsGuest     bool               `json:"is_guest"`
 	OnRsi       bool               `json:"on_rsi"`
+	DmOptOut    bool               `json:"dm_opt_out"`
 }
 
 type MemberBlueprint struct {
@@ -129,6 +130,13 @@ type Raffle struct {
 	MessageID    string             `json:"message_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RsiInfo struct {
+	Handle        string      `json:"handle"`
+	PrimaryOrg    pgtype.Text `json:"primary_org"`
+	PrimaryOrgSid pgtype.Text `json:"primary_org_sid"`
+	Affiliations  []string    `json:"affiliations"`
 }
 
 type SchemaMigration struct {

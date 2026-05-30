@@ -8,14 +8,14 @@ import (
 )
 
 type Card struct {
-	Id          string          `bson:"_id"`
-	Title       string          `bson:"title"`
-	Description string          `bson:"description"`
-	Status      string          `bson:"status"`
-	Assignee    *members.Member `bson:"assignee"`
-	CreatedBy   *members.Member `bson:"created_by"`
-	CreatedAt   *time.Time      `bson:"created_at"`
-	UpdatedAt   *time.Time      `bson:"updated_at"`
+	Id          string          ``
+	Title       string          ``
+	Description string          ``
+	Status      string          ``
+	Assignee    *members.Member ``
+	CreatedBy   *members.Member ``
+	CreatedAt   *time.Time      ``
+	UpdatedAt   *time.Time      ``
 }
 
 func NewCard(title, description, status string, assignee, createdBy *members.Member) *Card {

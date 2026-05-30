@@ -18,13 +18,13 @@ type Querier interface {
 	DeleteAllAttendanceTags(ctx context.Context) error
 	DeleteAttendance(ctx context.Context, id string) error
 	DeleteAttendanceName(ctx context.Context, name string) error
-	DeleteAttendancePayout(ctx context.Context, attendanceID string) error
+	DeleteAttendanceParticipant(ctx context.Context, arg DeleteAttendanceParticipantParams) error
 	DeleteAttendanceTag(ctx context.Context, tag string) error
 	DeleteMember(ctx context.Context, id string) error
 	GetAttendanceByID(ctx context.Context, id string) (Attendance, error)
-	GetAttendancePayout(ctx context.Context, attendanceID string) (AttendancePayout, error)
-	GetMember(ctx context.Context, id string) (Member, error)
+	GetMember(ctx context.Context, id string) (GetMemberRow, error)
 	GetMemberIDs(ctx context.Context) ([]string, error)
+	GetRsiInfoByHandle(ctx context.Context, handle string) (RsiInfo, error)
 	GetTokenBalances(ctx context.Context) ([]GetTokenBalancesRow, error)
 	GetTokenByID(ctx context.Context, id string) (Token, error)
 	GetWeeklyCommandCounts(ctx context.Context) ([]GetWeeklyCommandCountsRow, error)
@@ -39,23 +39,23 @@ type Querier interface {
 	ListAttendancePage(ctx context.Context, arg ListAttendancePageParams) ([]Attendance, error)
 	ListAttendanceParticipants(ctx context.Context, attendanceID string) ([]AttendanceParticipant, error)
 	ListAttendanceTags(ctx context.Context) ([]string, error)
-	ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]Member, error)
-	ListMembersByIDs(ctx context.Context, ids []string) ([]Member, error)
-	ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]Member, error)
+	ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]ListMembersByBlueprintRow, error)
+	ListMembersByIDs(ctx context.Context, ids []string) ([]ListMembersByIDsRow, error)
+	ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]ListMembersPageRow, error)
 	ListPromotions(ctx context.Context) ([]ListPromotionsRow, error)
-	ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]Member, error)
+	ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]ListRandomMembersByRankRow, error)
 	ListRecordedAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
+	ListRsiInfoByHandles(ctx context.Context, handles []string) ([]RsiInfo, error)
 	ListTokensByAttendanceID(ctx context.Context, attendanceID pgtype.Text) ([]Token, error)
 	ListTokensByMemberAndAttendance(ctx context.Context, arg ListTokensByMemberAndAttendanceParams) ([]Token, error)
 	ListTokensSince(ctx context.Context, createdAfter pgtype.Timestamptz) ([]Token, error)
-	ReplaceAttendanceParticipants(ctx context.Context, attendanceID string) error
 	ReplaceMemberBlueprints(ctx context.Context, memberID string) error
 	UpsertAttendance(ctx context.Context, arg UpsertAttendanceParams) error
 	UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error
-	UpsertAttendancePayout(ctx context.Context, arg UpsertAttendancePayoutParams) error
 	UpsertBlueprintDoc(ctx context.Context, arg UpsertBlueprintDocParams) error
 	UpsertKanbanCard(ctx context.Context, arg UpsertKanbanCardParams) error
 	UpsertMember(ctx context.Context, arg UpsertMemberParams) error
+	UpsertRsiInfo(ctx context.Context, arg UpsertRsiInfoParams) error
 	UpsertSOSTicket(ctx context.Context, arg UpsertSOSTicketParams) error
 }
 

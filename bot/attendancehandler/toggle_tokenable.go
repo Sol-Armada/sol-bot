@@ -2,13 +2,14 @@ package attendancehandler
 
 import (
 	"context"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
 )
 
 func toggleTokenableButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	attendanceId := i.MessageComponentData().CustomID
+	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
 	attendance, err := attendance.Get(attendanceId)
 	if err != nil {

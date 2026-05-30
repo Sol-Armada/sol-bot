@@ -20,7 +20,7 @@ import (
 )
 
 type Raffle struct {
-	Id          string         `json:"id" bson:"_id"`
+	Id          string         `json:"id" `
 	Name        string         `json:"name"`
 	AttedanceId string         `json:"attendance_id"`
 	Prize       string         `json:"prize"`

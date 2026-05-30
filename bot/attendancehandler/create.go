@@ -8,7 +8,7 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/pkg/errors"
 	"github.com/rs/xid"
-	attdnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
@@ -28,9 +28,8 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		},
 	})
 
-	data := i.Interaction.ApplicationCommandData().Options[0]
-
-	eventName := data.Options[0].StringValue()
+	data := i.Interaction.ApplicationCommandData().GetOption("create")
+	eventName := data.GetOption("name").StringValue()
 
 	valid, err := config.ValidAttendanceName(eventName)
 	if err != nil {
@@ -49,62 +48,57 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		exists = true
 	}
 
-	attendance := attdnc.New(eventName, commandMember)
+	a, err := attendance.New(eventName, commandMember)
+	if err != nil {
+		return errors.Wrap(err, "creating new attendance record")
+	}
 
-	options := data.Options[1:]
-	for _, option := range options {
-		if option.Name == "tokens" {
-			attendance.Tokenable = option.BoolValue()
-			attendance.Status = attdnc.AttendanceStatusCreated
-			attendance.Active = false
-			continue
-		}
-
+	for _, option := range data.Options {
 		if option.Type == discordgo.ApplicationCommandOptionUser {
 			member, err := members.Get(option.UserValue(s).ID)
 			if err != nil {
 				if !errors.Is(err, members.MemberNotFound) {
 					return errors.Wrap(err, "getting member for new attendance")
 				}
-
-				if member == nil {
-					attendance.WithIssues = append(attendance.WithIssues, &members.Member{
-						Id:   option.UserValue(s).ID,
-						Name: option.UserValue(s).Username,
-					})
+				_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+					Content: fmt.Sprintf("Member %s is not registered in the database and was not added to the attendance record.", option.UserValue(s).Username),
+					Flags:   discordgo.MessageFlagsEphemeral,
+				})
+				if err != nil {
+					return errors.Wrap(err, "responding to interaction for unregistered member")
 				}
-
-				attendance.WithIssues = append(attendance.WithIssues, member)
 				continue
 			}
 
-			attendance.AddMember(member)
+			if err := a.AddMember(member); err != nil {
+				return errors.Wrap(err, "adding member to new attendance")
+			}
 		}
 	}
 
 	// save now incase there is an error with creating the message
-	if err := attendance.Save(); err != nil {
+	if err := a.Save(); err != nil {
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	attandanceMessage, err := attendance.ToDiscordMessage()
+	attandanceMessage, err := a.ToDiscordMessage()
 	if err != nil {
 		return errors.Wrap(err, "creating attendance message")
 	}
 
-	message, err := s.ChannelMessageSendComplex(attendance.ChannelId, attandanceMessage)
+	message, err := s.ChannelMessageSendComplex(a.ChannelId, attandanceMessage)
 	if err != nil {
 		return errors.Wrap(err, "sending attendance message")
 	}
-	attendance.MessageId = message.ID
+	a.MessageId = message.ID
 
-	if err := attendance.Save(); err != nil {
+	if err := a.Save(); err != nil {
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	content := fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s created", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId)
+	content := fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s created", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), a.MessageId)
 	if exists {
-		content = fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), attendance.MessageId)
+		content = fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), a.MessageId)
 	}
 	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
 		Content: content,

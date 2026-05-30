@@ -3,7 +3,6 @@ package attendance
 import (
 	"errors"
 	"regexp"
-	"slices"
 	"strings"
 	"time"
 
@@ -22,42 +21,20 @@ const (
 	AttendanceStatusReverted Status = "reverted"
 )
 
-type Payouts struct {
-	Total     int64 `json:"total"`
-	PerMember int64 `json:"per_member"`
-	OrgTake   int64 `json:"org_take"`
-}
-
-type Participant struct {
-	Member         *members.Member `json:"member"`
-	JoinedAtStart  bool            `json:"joined_at_start"`
-	StayedUntilEnd bool            `json:"stayed_until_end"`
-	HasIssue       bool            `json:"has_issue"`
-	IsManager      bool            `json:"is_manager"`
-}
-
 type Attendance struct {
-	Id           string            `json:"id" bson:"_id"`
-	Name         string            `json:"name"`
-	SubmittedBy  *members.Member   `json:"submitted_by" bson:"submitted_by"`
-	Members      []*members.Member `json:"members"`
-	Participants []Participant     `json:"participants"`
-	WithIssues   []*members.Member `json:"with_issues" bson:"with_issues"`
-	Recorded     bool              `json:"recorded"`
-	Payouts      *Payouts          `json:"payouts" bson:"payouts"`
-	Successful   bool              `json:"successful" bson:"successful"`
-	Active       bool              `json:"active" bson:"active"`
-	Tokenable    bool              `json:"tokenable" bson:"tokenable"`
-	Status       Status            `json:"status" bson:"status"`
+	Id          string          `json:"id" `
+	Name        string          `json:"name"`
+	SubmittedBy *members.Member `json:"submitted_by" `
+	Recorded    bool            `json:"recorded"`
+	Successful  bool            `json:"successful" `
+	Tokenable   bool            `json:"tokenable" `
+	Status      Status          `json:"status" `
 
-	FromStart []string `json:"from_start" bson:"from_start"`
-	Stayed    []string `json:"stayed" bson:"stayed"`
+	ChannelId string `json:"channel_id" `
+	MessageId string `json:"message_id" `
 
-	ChannelId string `json:"channel_id" bson:"channel_id"`
-	MessageId string `json:"message_id" bson:"message_id"`
-
-	DateCreated time.Time `json:"date_created" bson:"date_created"`
-	DateUpdated time.Time `json:"date_updated" bson:"date_updated"`
+	DateCreated time.Time `json:"date_created" `
+	DateUpdated time.Time `json:"date_updated" `
 }
 
 var (
@@ -70,7 +47,7 @@ func Setup() error {
 	return setupAttendanceBackend()
 }
 
-func New(name string, submittedBy *members.Member) *Attendance {
+func New(name string, submittedBy *members.Member) (*Attendance, error) {
 	attendance := &Attendance{
 		Id:          xid.New().String(),
 		Name:        name,
@@ -78,13 +55,12 @@ func New(name string, submittedBy *members.Member) *Attendance {
 		DateUpdated: time.Now().UTC(),
 		SubmittedBy: submittedBy,
 
-		Active: true,
-		Status: AttendanceStatusActive,
+		Status: AttendanceStatusCreated,
 
 		ChannelId: settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"),
 	}
 
-	return attendance
+	return attendance, attendance.Save()
 }
 
 func Get(id string) (*Attendance, error) {
@@ -137,7 +113,9 @@ func NewFromThreadMessages(threadMessages []*discordgo.Message) (*Attendance, er
 			return nil, err
 		}
 
-		attendance.AddMember(member)
+		if err := attendance.AddMember(member); err != nil {
+			return nil, err
+		}
 	}
 
 	return attendance, nil
@@ -147,27 +125,7 @@ func GetMemberAttendanceCount(memberId string) (int, error) {
 	return attendanceStore.GetCount(memberId)
 }
 
-func GetMemberAttendanceRecords(memberId string) ([]*Attendance, error) {
-	records := []*Attendance{}
-	attendances, err := List(nil, 0, 0)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, attendance := range attendances {
-		for _, member := range attendance.Members {
-			if member.Id == memberId {
-				records = append(records, attendance)
-				break
-			}
-		}
-	}
-
-	return records, nil
-}
-
 func (a *Attendance) Record() error {
-	a.Active = false
 	a.Recorded = true
 	a.Status = AttendanceStatusRecorded
 	return a.Save()
@@ -179,6 +137,12 @@ func (a *Attendance) Revert() error {
 	return a.Save()
 }
 
+func (a *Attendance) AddMember(member *members.Member) error {
+	return attendanceStore.CreateParticipant(a.Id, &Participant{
+		Member: member,
+	})
+}
+
 func (a *Attendance) Save() error {
 	if attendanceStore == nil {
 		return errors.New("attendance store not found")
@@ -187,52 +151,126 @@ func (a *Attendance) Save() error {
 	return attendanceStore.Upsert(a)
 }
 
-func (a *Attendance) removeDuplicates() {
-	a.Members = uniqueMembers(a.Members)
-	a.WithIssues = uniqueMembers(a.WithIssues)
-}
-
-func uniqueMembers(mmbrs []*members.Member) []*members.Member {
-	memberSet := make(map[string]*members.Member)
-	for _, member := range mmbrs {
-		if member == nil {
-			continue
-		}
-
-		memberSet[member.Id] = member
-	}
-
-	uniqueList := make([]*members.Member, 0, len(memberSet))
-	for _, member := range memberSet {
-		uniqueList = append(uniqueList, member)
-	}
-
-	return uniqueList
-}
-
 func (a *Attendance) Delete() error {
 	return attendanceStore.Delete(a.Id)
 }
 
-func (a *Attendance) AddPayout(total, perMember, orgTake int64) error {
-	a.Payouts = &Payouts{
-		Total:     total,
-		PerMember: perMember,
-		OrgTake:   orgTake,
+func (a *Attendance) Participants() ([]*Participant, error) {
+	return attendanceStore.ListParticipants(a.Id)
+}
+
+func (a *Attendance) Members() ([]*members.Member, error) {
+	return attendanceStore.ListMembers(a.Id)
+}
+
+func (a *Attendance) WithIssues() ([]*members.Member, error) {
+	mbrs, err := a.Members()
+	if err != nil {
+		return nil, err
 	}
 
+	withIssues := []*members.Member{}
+	for _, member := range mbrs {
+		if member == nil {
+			continue
+		}
+
+		if len(Issues(member)) > 0 {
+			withIssues = append(withIssues, member)
+		}
+	}
+
+	return withIssues, nil
+}
+
+func (a *Attendance) HasParticipant(memberId string) (bool, error) {
+	participants, err := a.Participants()
+	if err != nil {
+		return false, err
+	}
+
+	for _, participant := range participants {
+		if participant.Member.Id == memberId {
+			return true, nil
+		}
+	}
+
+	return false, nil
+}
+
+func (a *Attendance) PraticipantsFromStart() ([]*Participant, error) {
+	participants, err := a.Participants()
+	if err != nil {
+		return nil, err
+	}
+
+	fromStart := []*Participant{}
+	for _, participant := range participants {
+		if participant.JoinedAtStart {
+			fromStart = append(fromStart, participant)
+		}
+	}
+
+	return fromStart, nil
+}
+
+func (a *Attendance) GetParticipant(memberId string) (*Participant, error) {
+	participants, err := a.Participants()
+	if err != nil {
+		return nil, err
+	}
+
+	for _, participant := range participants {
+		if participant.Member.Id == memberId {
+			return participant, nil
+		}
+	}
+
+	return nil, nil
+}
+
+func (a *Attendance) RecheckIssues() error {
+	participants, err := a.Participants()
+	if err != nil {
+		return err
+	}
+
+	for _, participant := range participants {
+		if participant.Member == nil {
+			continue
+		}
+
+		if err := participant.Member.UpdateRsiInfo(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (a *Attendance) RemoveParticipant(id string) error {
+	return attendanceStore.RemoveParticipant(a.Id, id)
+}
+
+func (a *Attendance) SetStatus(status Status) error {
+	a.Status = status
 	return a.Save()
 }
 
-func (a *Attendance) TheyStayed(m *members.Member) bool {
-	return slices.Contains(a.Stayed, m.Id)
+func (a *Attendance) SetParticipantManager(memberId string) error {
+	participant, err := a.GetParticipant(memberId)
+	if err != nil {
+		return err
+	}
+
+	return participant.SetManager(a.Id)
 }
 
-func (a *Attendance) GetMember(id string) (*members.Member, bool) {
-	for _, member := range a.Members {
-		if member.Id == id {
-			return member, true
-		}
+func (a *Attendance) SetParticipantStayedUntilEnd(memberId string) error {
+	participant, err := a.GetParticipant(memberId)
+	if err != nil {
+		return err
 	}
-	return nil, false
+
+	return participant.SetStayedUntilEnd(a.Id, true)
 }

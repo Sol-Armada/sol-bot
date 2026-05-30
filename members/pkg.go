@@ -13,77 +13,83 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/ranks"
+	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
 )
 
 type Member struct {
-	Id             string     `json:"id" bson:"_id"`
-	Name           string     `json:"name" bson:"name"`
-	Rank           ranks.Rank `json:"rank" bson:"rank"`
-	Notes          string     `json:"notes" bson:"notes"`
-	PrimaryOrg     string     `json:"primary_org" bson:"primary_org"`
-	RSIMember      bool       `json:"rsi_member" bson:"rsi_member"`
-	BadAffiliation bool       `json:"bad_affiliation" bson:"bad_affiliation"`
-	Affilations    []string   `json:"affiliations" bson:"affilations"`
-	Avatar         string     `json:"avatar" bson:"avatar"`
-	Updated        time.Time  `json:"updated" bson:"updated"`
-	Validated      bool       `json:"validated" bson:"validated"`
-	ValidatedAt    *time.Time `json:"validated_at" bson:"validated_at"`
-	ValidationCode string     `json:"validation_code" bson:"validation_code"`
-	Joined         time.Time  `json:"joined" bson:"joined"`
-	Suffix         string     `json:"suffix" bson:"suffix"`
+	Id             string     `json:"id"`
+	Name           string     `json:"name"`
+	Rank           ranks.Rank `json:"rank"`
+	Notes          string     `json:"notes"`
+	Avatar         string     `json:"avatar"`
+	Updated        time.Time  `json:"updated"`
+	Validated      bool       `json:"validated"`
+	ValidatedAt    *time.Time `json:"validated_at"`
+	ValidationCode string     `json:"validation_code"`
+	Joined         time.Time  `json:"joined"`
+	Suffix         string     `json:"suffix"`
+	DmOptOut       bool       `json:"dm_opt_out"`
 
-	MemberSince time.Time `json:"member_since" bson:"member_since"`
+	RsiInfo *RsiInfo `json:"rsi_info"`
 
-	IsBot       bool `json:"is_bot" bson:"is_bot"`
-	IsAlly      bool `json:"is_ally" bson:"is_ally"`
-	IsAffiliate bool `json:"is_affiliate" bson:"is_affiliate"`
-	IsGuest     bool `json:"is_guest" bson:"is_guest"`
+	MemberSince time.Time `json:"member_since"`
 
-	DKP      []string `json:"dkp" bson:"dkp"`
-	DKPSpent int      `json:"dkp_spent" bson:"dkp_spent"`
+	IsBot       bool `json:"is_bot"`
+	IsAlly      bool `json:"is_ally"`
+	IsAffiliate bool `json:"is_affiliate"`
+	IsGuest     bool `json:"is_guest"`
 
-	Merits   []*Merit   `json:"merits" bson:"merits"`
-	Demerits []*Demerit `json:"demerits" bson:"demerits"`
+	DKP      []string `json:"dkp"`
+	DKPSpent int      `json:"dkp_spent"`
 
-	BlueprintIds []string `json:"blueprintIds" bson:"blueprintIds"`
+	Merits   []*Merit   `json:"merits"`
+	Demerits []*Demerit `json:"demerits"`
+
+	BlueprintIds []string `json:"blueprintIds"`
 
 	// onboarding info
-	OnboardedAt *time.Time     `json:"onboarded_at" bson:"onboarded_at"`
-	Age         int            `json:"age" bson:"age"`
-	Pronouns    string         `json:"pronouns" bson:"pronouns"`
-	Playtime    int            `json:"playtime" bson:"playtime"`
-	Gameplay    []GameplayType `json:"gameplay" bson:"gameplay"`
-	Recruiter   *string        `json:"recruiter" bson:"recruiter"`
-	ChannelId   string         `json:"channel_id" bson:"channel_id"`
-	MessageId   string         `json:"message_id" bson:"message_id"`
-	LeftAt      *time.Time     `json:"left_at" bson:"left_at"`
-	FoundBy     string         `json:"found_by" bson:"found_by"`
-	TimeZone    string         `json:"time_zone" bson:"time_zone"`
-	Other       string         `json:"other" bson:"other"`
+	OnboardedAt *time.Time     `json:"onboarded_at"`
+	Age         int            `json:"age"`
+	Pronouns    string         `json:"pronouns"`
+	Playtime    int            `json:"playtime"`
+	Gameplay    []GameplayType `json:"gameplay"`
+	Recruiter   *string        `json:"recruiter"`
+	ChannelId   string         `json:"channel_id"`
+	MessageId   string         `json:"message_id"`
+	LeftAt      *time.Time     `json:"left_at"`
+	FoundBy     string         `json:"found_by"`
+	TimeZone    string         `json:"time_zone"`
+	Other       string         `json:"other"`
 
-	LegacyAge       string `json:"legacy_age" bson:"legacy_age"`
-	LegacyPlaytime  string `json:"legacy_playtime" bson:"legacy_playtime"`
-	LegacyGameplay  string `json:"legacy_gameplay" bson:"legacy_gameplay"`
-	LegacyRecruiter string `json:"legacy_recruiter" bson:"legacy_recruiter"`
-	LegacyOther     string `json:"legacy_other" bson:"legacy_other"`
+	LegacyAge       string `json:"legacy_age"`
+	LegacyPlaytime  string `json:"legacy_playtime"`
+	LegacyGameplay  string `json:"legacy_gameplay"`
+	LegacyRecruiter string `json:"legacy_recruiter"`
+	LegacyOther     string `json:"legacy_other"`
 }
 
+type RsiInfo struct {
+	Handle        string   `json:"handle"`
+	PrimaryOrg    string   `json:"primary_org"`
+	PrimaryOrgSid string   `json:"primary_org_sid"`
+	Affiliations  []string `json:"affiliations"`
+}
 type AttendedEvent struct {
-	ID   string `json:"id" bson:"_id"`
-	Name string `json:"name" bson:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 type Merit struct {
-	Giver  Member    `json:"giver" bson:"giver"`
-	Reason string    `json:"reason" bson:"reason"`
-	When   time.Time `json:"when" bson:"when"`
+	Giver  Member    `json:"giver"`
+	Reason string    `json:"reason"`
+	When   time.Time `json:"when"`
 }
 
 type Demerit struct {
-	Giver  Member    `json:"giver" bson:"giver"`
-	Reason string    `json:"reason" bson:"reason"`
-	When   time.Time `json:"when" bson:"when"`
+	Giver  Member    `json:"giver"`
+	Reason string    `json:"reason"`
+	When   time.Time `json:"when"`
 }
 
 type MemberError error
@@ -112,11 +118,41 @@ func New(discordMember *discordgo.Member) *Member {
 }
 
 func Get(id string) (*Member, error) {
-	return membersBackend.Get(id)
+	member, err := membersBackend.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	rsiInfo, err := membersBackend.GetRsiInfo(member.Name)
+	if err != nil {
+		return nil, err
+	}
+	member.RsiInfo = rsiInfo
+	return member, nil
 }
 
 func GetList(ids []string) ([]*Member, error) {
-	return membersBackend.GetList(ids)
+	members, err := membersBackend.GetList(ids)
+	if err != nil {
+		return nil, err
+	}
+
+	rsiInfoList, err := membersBackend.ListRsiInfoByHandles(extractNames(members))
+	if err != nil {
+		return nil, err
+	}
+
+	rsiInfoMap := make(map[string]*RsiInfo)
+	for _, rsiInfo := range rsiInfoList {
+		rsiInfoMap[rsiInfo.Handle] = rsiInfo
+	}
+
+	for _, member := range members {
+		if rsiInfo, ok := rsiInfoMap[member.Name]; ok {
+			member.RsiInfo = rsiInfo
+		}
+	}
+
+	return members, nil
 }
 
 func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
@@ -158,7 +194,6 @@ func (m *Member) GetTrueNick(discordMember *discordgo.Member) string {
 }
 
 func (m *Member) Save() error {
-	m.Updated = time.Now().UTC()
 	return membersBackend.Upsert(m)
 }
 
@@ -364,6 +399,46 @@ func (m *Member) UpdateRoles(discordRoles []string) {
 	m.IsGuest = true
 }
 
+func (m *Member) UpdateRsiInfo() error {
+	info, err := rsi.GetRSIInfo(m.Name)
+	if err != nil {
+		return err
+	}
+
+	affiliations := make([]string, len(info.Affiliation))
+	for i, aff := range info.Affiliation {
+		affiliations[i] = aff.Name
+	}
+
+	m.RsiInfo = &RsiInfo{
+		Handle:        m.Name,
+		PrimaryOrg:    info.Organization.Name,
+		PrimaryOrgSid: info.Organization.SID,
+		Affiliations:  affiliations,
+	}
+	return m.RsiInfo.Save()
+}
+
+func (m *Member) OnRsi() bool {
+	return m.RsiInfo != nil
+}
+
+func (m *Member) BadAffiliation() bool {
+	if m.RsiInfo == nil {
+		return false
+	}
+	for _, aff := range m.RsiInfo.Affiliations {
+		if slices.Contains(settings.GetStringSlice("ENEMIES"), aff) {
+			return true
+		}
+	}
+	return false
+}
+
+func (r *RsiInfo) Save() error {
+	return membersBackend.UpsertRsiInfo(r)
+}
+
 func createRoleMap(roles []string) map[string]bool {
 	roleMap := make(map[string]bool, len(roles))
 	for _, roleID := range roles {
@@ -373,4 +448,19 @@ func createRoleMap(roles []string) map[string]bool {
 		roleMap[roleID] = true
 	}
 	return roleMap
+}
+
+func (m *Member) OptOutOfDMs() error {
+	m.DmOptOut = true
+	return m.Save()
+}
+
+func extractNames(members []*Member) []string {
+	names := make([]string, 0, len(members))
+	for _, member := range members {
+		if member != nil {
+			names = append(names, member.Name)
+		}
+	}
+	return names
 }

@@ -33,7 +33,7 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 	member.UpdateRoles(m.Member.Roles)
 
-	err = (&utils.ExponentialBackoff{
+	if err := (&utils.ExponentialBackoff{
 		MaxRetries: 3,
 		Multiplier: 1.1,
 		MaxDelay:   time.Second,
@@ -42,36 +42,33 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 		if err != nil {
 			return err
 		}
-		member.ApplyRSIProfile(profile)
-		return nil
-	})
 
-	if errors.Is(err, rsi.ErrUserNotFound) {
-		slog.Default().Debug("rsi user not found", "error", err)
-		member.ResetRSIStatus()
-		err = nil
-	}
+		affiliations := make([]string, len(profile.Affiliation))
+		for i, aff := range profile.Affiliation {
+			affiliations[i] = aff.Name
+		}
 
-	if err != nil {
+		return member.UpdateRsiInfo()
+	}); err != nil && !errors.Is(err, rsi.ErrUserNotFound) {
 		slog.Error("updating RSI info", "error", err)
 		return
 	}
 
-	memberMessage := member.GetOnboardingMessage()
-	if _, err = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel: member.ChannelId,
-		ID:      member.MessageId,
-		Content: &memberMessage.Content,
-		Embeds:  &memberMessage.Embeds,
-	}); err != nil {
-		slog.Error("editing member message on name change", "error", err)
-	}
+	// memberMessage := member.GetOnboardingMessage()
+	// if _, err = s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+	// 	Channel: member.ChannelId,
+	// 	ID:      member.MessageId,
+	// 	Content: &memberMessage.Content,
+	// 	Embeds:  &memberMessage.Embeds,
+	// }); err != nil {
+	// 	slog.Error("editing member message on name change", "error", err)
+	// }
 
 	nameUpdateActivity := &activity.Activity{
 		Who:  member,
 		When: time.Now().UTC(),
 		Meta: activity.Meta{
-			What: activity.VoiceJoin,
+			What: activity.NameChange,
 			Where: map[string]string{
 				"old": m.Member.Nick,
 				"new": m.User.Username,

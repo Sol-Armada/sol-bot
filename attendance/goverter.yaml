@@ -1,0 +1,4 @@
+packages:
+  - path: .
+    output:
+      format: converters.gen.go

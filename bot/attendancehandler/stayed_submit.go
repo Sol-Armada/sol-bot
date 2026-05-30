@@ -3,7 +3,6 @@ package attendancehandler
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -26,13 +25,19 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 	var content strings.Builder
 	content.WriteString("Tokens has been distributed")
 
-	for _, member := range attendance.Members {
+	participants, err := attendance.Participants()
+	if err != nil {
+		return err
+	}
+
+	for _, participant := range participants {
+		member := participant.Member
+
 		t, err := tokens.GetByMemberIdAndAttendanceId(member.Id, attendanceId)
 		if err != nil {
 			return err
 		}
 		if len(t) > 0 {
-			fmt.Fprintf(&content, "\n<@%s> already received tokens for this event", member.Id)
 			continue
 		}
 
@@ -48,7 +53,7 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 			amount += 20
 		}
 
-		if slices.Contains(attendance.Stayed, member.Id) {
+		if participant.StayedUntilEnd {
 			if err := tokens.New(member.Id, 10, tokens.ReasonAttendanceFull, nil, &attendanceId, nil).Save(); err != nil {
 				return err
 			}
@@ -58,7 +63,7 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 		fmt.Fprintf(&content, "\n<@%s> has received %d Tokens", member.Id, amount)
 	}
 
-	attendanceMessage, err := attendance.ToDiscordMessage()
+	message, err := attendance.ToDiscordMessage()
 	if err != nil {
 		return err
 	}
@@ -66,8 +71,8 @@ func stayedSubmitButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
 		Channel:    attendance.ChannelId,
 		ID:         attendance.MessageId,
-		Components: &attendanceMessage.Components,
-		Embeds:     &attendanceMessage.Embeds,
+		Components: &message.Components,
+		Embeds:     &message.Embeds,
 	}); err != nil {
 		return err
 	}

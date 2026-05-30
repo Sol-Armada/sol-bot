@@ -38,14 +38,34 @@ func (q *Queries) DeleteMember(ctx context.Context, id string) error {
 }
 
 const getMember = `-- name: GetMember :one
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
-FROM members
+SELECT 
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE id = $1
 `
 
-func (q *Queries) GetMember(ctx context.Context, id string) (Member, error) {
+type GetMemberRow struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Rank         int32              `json:"rank"`
+	Joined       pgtype.Timestamptz `json:"joined"`
+	Updated      pgtype.Timestamptz `json:"updated"`
+	IsBot        bool               `json:"is_bot"`
+	IsAlly       bool               `json:"is_ally"`
+	IsAffiliate  bool               `json:"is_affiliate"`
+	IsGuest      bool               `json:"is_guest"`
+	OnRsi        bool               `json:"on_rsi"`
+	DmOptOut     bool               `json:"dm_opt_out"`
+	PrimaryOrg   pgtype.Text        `json:"primary_org"`
+	Affiliations []string           `json:"affiliations"`
+}
+
+func (q *Queries) GetMember(ctx context.Context, id string) (GetMemberRow, error) {
 	row := q.db.QueryRow(ctx, getMember, id)
-	var i Member
+	var i GetMemberRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -57,6 +77,9 @@ func (q *Queries) GetMember(ctx context.Context, id string) (Member, error) {
 		&i.IsAffiliate,
 		&i.IsGuest,
 		&i.OnRsi,
+		&i.DmOptOut,
+		&i.PrimaryOrg,
+		&i.Affiliations,
 	)
 	return i, err
 }
@@ -88,22 +111,42 @@ func (q *Queries) GetMemberIDs(ctx context.Context) ([]string, error) {
 }
 
 const listMembersByBlueprint = `-- name: ListMembersByBlueprint :many
-SELECT m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi
+SELECT 
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  ri.primary_org,
+  ri.affiliations
 FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 INNER JOIN member_blueprints mb ON mb.member_id = m.id
 WHERE mb.blueprint_id = $1
 ORDER BY m.id
 `
 
-func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]Member, error) {
+type ListMembersByBlueprintRow struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Rank         int32              `json:"rank"`
+	Joined       pgtype.Timestamptz `json:"joined"`
+	Updated      pgtype.Timestamptz `json:"updated"`
+	IsBot        bool               `json:"is_bot"`
+	IsAlly       bool               `json:"is_ally"`
+	IsAffiliate  bool               `json:"is_affiliate"`
+	IsGuest      bool               `json:"is_guest"`
+	OnRsi        bool               `json:"on_rsi"`
+	DmOptOut     bool               `json:"dm_opt_out"`
+	PrimaryOrg   pgtype.Text        `json:"primary_org"`
+	Affiliations []string           `json:"affiliations"`
+}
+
+func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]ListMembersByBlueprintRow, error) {
 	rows, err := q.db.Query(ctx, listMembersByBlueprint, blueprintID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Member
+	var items []ListMembersByBlueprintRow
 	for rows.Next() {
-		var i Member
+		var i ListMembersByBlueprintRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -115,6 +158,9 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 			&i.IsAffiliate,
 			&i.IsGuest,
 			&i.OnRsi,
+			&i.DmOptOut,
+			&i.PrimaryOrg,
+			&i.Affiliations,
 		); err != nil {
 			return nil, err
 		}
@@ -127,20 +173,40 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 }
 
 const listMembersByIDs = `-- name: ListMembersByIDs :many
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
-FROM members
+SELECT 
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE id = ANY($1::text[])
 `
 
-func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]Member, error) {
+type ListMembersByIDsRow struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Rank         int32              `json:"rank"`
+	Joined       pgtype.Timestamptz `json:"joined"`
+	Updated      pgtype.Timestamptz `json:"updated"`
+	IsBot        bool               `json:"is_bot"`
+	IsAlly       bool               `json:"is_ally"`
+	IsAffiliate  bool               `json:"is_affiliate"`
+	IsGuest      bool               `json:"is_guest"`
+	OnRsi        bool               `json:"on_rsi"`
+	DmOptOut     bool               `json:"dm_opt_out"`
+	PrimaryOrg   pgtype.Text        `json:"primary_org"`
+	Affiliations []string           `json:"affiliations"`
+}
+
+func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]ListMembersByIDsRow, error) {
 	rows, err := q.db.Query(ctx, listMembersByIDs, ids)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Member
+	var items []ListMembersByIDsRow
 	for rows.Next() {
-		var i Member
+		var i ListMembersByIDsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -152,6 +218,9 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]Member,
 			&i.IsAffiliate,
 			&i.IsGuest,
 			&i.OnRsi,
+			&i.DmOptOut,
+			&i.PrimaryOrg,
+			&i.Affiliations,
 		); err != nil {
 			return nil, err
 		}
@@ -164,8 +233,12 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]Member,
 }
 
 const listMembersPage = `-- name: ListMembersPage :many
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
-FROM members
+SELECT 
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE (NOT $1::boolean OR is_bot = FALSE)
 ORDER BY id
 OFFSET $2::int
@@ -178,15 +251,31 @@ type ListMembersPageParams struct {
 	LimitRows   int32 `json:"limit_rows"`
 }
 
-func (q *Queries) ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]Member, error) {
+type ListMembersPageRow struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Rank         int32              `json:"rank"`
+	Joined       pgtype.Timestamptz `json:"joined"`
+	Updated      pgtype.Timestamptz `json:"updated"`
+	IsBot        bool               `json:"is_bot"`
+	IsAlly       bool               `json:"is_ally"`
+	IsAffiliate  bool               `json:"is_affiliate"`
+	IsGuest      bool               `json:"is_guest"`
+	OnRsi        bool               `json:"on_rsi"`
+	DmOptOut     bool               `json:"dm_opt_out"`
+	PrimaryOrg   pgtype.Text        `json:"primary_org"`
+	Affiliations []string           `json:"affiliations"`
+}
+
+func (q *Queries) ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]ListMembersPageRow, error) {
 	rows, err := q.db.Query(ctx, listMembersPage, arg.ExcludeBots, arg.OffsetRows, arg.LimitRows)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Member
+	var items []ListMembersPageRow
 	for rows.Next() {
-		var i Member
+		var i ListMembersPageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -198,6 +287,9 @@ func (q *Queries) ListMembersPage(ctx context.Context, arg ListMembersPageParams
 			&i.IsAffiliate,
 			&i.IsGuest,
 			&i.OnRsi,
+			&i.DmOptOut,
+			&i.PrimaryOrg,
+			&i.Affiliations,
 		); err != nil {
 			return nil, err
 		}
@@ -234,6 +326,7 @@ SELECT
   END::int AS next_rank
 FROM members m
 LEFT JOIN attendance_counts ac ON ac.member_id = m.id
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE m.rank <= 7
   AND m.is_guest = FALSE
   AND m.is_ally = FALSE
@@ -243,6 +336,7 @@ WHERE m.rank <= 7
     (m.rank = 6 AND COALESCE(ac.attendance_count, 0) >= 10) OR
     (m.rank = 5 AND COALESCE(ac.attendance_count, 0) >= 20)
   )
+  AND ri.primary_org = 'SOLARMADA'
 ORDER BY attendance_count DESC, m.id
 `
 
@@ -281,8 +375,12 @@ func (q *Queries) ListPromotions(ctx context.Context) ([]ListPromotionsRow, erro
 }
 
 const listRandomMembersByRank = `-- name: ListRandomMembersByRank :many
-SELECT id, name, rank, joined, updated, is_bot, is_ally, is_affiliate, is_guest, on_rsi
-FROM members
+SELECT 
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE rank <= $1::int
   AND rank <> 0
 ORDER BY random()
@@ -294,15 +392,31 @@ type ListRandomMembersByRankParams struct {
 	LimitRows int32 `json:"limit_rows"`
 }
 
-func (q *Queries) ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]Member, error) {
+type ListRandomMembersByRankRow struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Rank         int32              `json:"rank"`
+	Joined       pgtype.Timestamptz `json:"joined"`
+	Updated      pgtype.Timestamptz `json:"updated"`
+	IsBot        bool               `json:"is_bot"`
+	IsAlly       bool               `json:"is_ally"`
+	IsAffiliate  bool               `json:"is_affiliate"`
+	IsGuest      bool               `json:"is_guest"`
+	OnRsi        bool               `json:"on_rsi"`
+	DmOptOut     bool               `json:"dm_opt_out"`
+	PrimaryOrg   pgtype.Text        `json:"primary_org"`
+	Affiliations []string           `json:"affiliations"`
+}
+
+func (q *Queries) ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]ListRandomMembersByRankRow, error) {
 	rows, err := q.db.Query(ctx, listRandomMembersByRank, arg.MaxRank, arg.LimitRows)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Member
+	var items []ListRandomMembersByRankRow
 	for rows.Next() {
-		var i Member
+		var i ListRandomMembersByRankRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -314,6 +428,9 @@ func (q *Queries) ListRandomMembersByRank(ctx context.Context, arg ListRandomMem
 			&i.IsAffiliate,
 			&i.IsGuest,
 			&i.OnRsi,
+			&i.DmOptOut,
+			&i.PrimaryOrg,
+			&i.Affiliations,
 		); err != nil {
 			return nil, err
 		}
@@ -346,14 +463,14 @@ INSERT INTO members (
     is_ally,
   is_affiliate,
   is_guest,
-  on_rsi
+  dm_opt_out
 )
 VALUES (
     $1,
     $2,
     $3,
     $4,
-    $5,
+    COALESCE($5, NOW()),
     $6,
     $7,
     $8,
@@ -369,7 +486,7 @@ SET name = EXCLUDED.name,
     is_ally = EXCLUDED.is_ally,
     is_affiliate = EXCLUDED.is_affiliate,
   is_guest = EXCLUDED.is_guest,
-  on_rsi = EXCLUDED.on_rsi
+  dm_opt_out = EXCLUDED.dm_opt_out
 `
 
 type UpsertMemberParams struct {
@@ -377,12 +494,12 @@ type UpsertMemberParams struct {
 	Name        string             `json:"name"`
 	Rank        int32              `json:"rank"`
 	Joined      pgtype.Timestamptz `json:"joined"`
-	Updated     pgtype.Timestamptz `json:"updated"`
+	Updated     interface{}        `json:"updated"`
 	IsBot       bool               `json:"is_bot"`
 	IsAlly      bool               `json:"is_ally"`
 	IsAffiliate bool               `json:"is_affiliate"`
 	IsGuest     bool               `json:"is_guest"`
-	OnRsi       bool               `json:"on_rsi"`
+	DmOptOut    bool               `json:"dm_opt_out"`
 }
 
 func (q *Queries) UpsertMember(ctx context.Context, arg UpsertMemberParams) error {
@@ -396,7 +513,7 @@ func (q *Queries) UpsertMember(ctx context.Context, arg UpsertMemberParams) erro
 		arg.IsAlly,
 		arg.IsAffiliate,
 		arg.IsGuest,
-		arg.OnRsi,
+		arg.DmOptOut,
 	)
 	return err
 }

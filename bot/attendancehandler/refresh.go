@@ -2,65 +2,47 @@ package attendancehandler
 
 import (
 	"context"
-	"fmt"
 	"strings"
-	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	attdnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func refreshCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+func refreshButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
-	logger.Debug("refreshing attendance command handler")
+	logger.Debug("refresh button handler")
 
-	if lastRefreshTime.After(time.Now().Add(-1 * time.Minute)) {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "Already refreshed in the last minute!",
-			Flags:   discordgo.MessageFlagsEphemeral,
-		})
-		return nil
-	}
+	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	attendance, err := attdnc.List(nil, 3, 1)
+	a, err := attendance.Get(id)
 	if err != nil {
-		return errors.Wrap(err, "getting attendance records")
+		return errors.Wrap(err, "getting attendance record")
 	}
 
-	m, err := s.InteractionResponse(i.Interaction)
+	if err := a.RecheckIssues(); err != nil {
+		return errors.Wrap(err, "rechecking issues for attendance record")
+	}
+
+	message, err := a.ToDiscordMessage()
 	if err != nil {
-		return errors.Wrap(err, "responding to attendance command interaction")
+		return errors.Wrap(err, "creating attendance message")
 	}
 
-	for idx, a := range attendance {
-		msg, err := a.ToDiscordMessage()
-		if err != nil {
-			return errors.Wrap(err, "creating attendance message")
-		}
-
-		if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-			Channel:    a.ChannelId,
-			ID:         a.MessageId,
-			Embeds:     &msg.Embeds,
-			Components: &msg.Components,
-		}); err != nil && !strings.Contains(err.Error(), "Unknown Message") {
-			return err
-		}
-
-		_, _ = s.FollowupMessageEdit(i.Interaction, m.ID, &discordgo.WebhookEdit{
-			Content: new(fmt.Sprintf("Attendance refreshing... (%d/%d)", idx+1, len(attendance))),
-		})
-
-		time.Sleep(250 * time.Millisecond)
+	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
+		Channel: a.ChannelId,
+		ID:      a.MessageId,
+		Content: &message.Content,
+		Embeds:  &message.Embeds,
+	}); err != nil {
+		return errors.Wrap(err, "editing attendance message for rechecking issues")
 	}
 
-	_, _ = s.FollowupMessageEdit(i.Interaction, m.ID, &discordgo.WebhookEdit{
-		Content: new("Attendance refreshed!"),
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
 	})
-
-	lastRefreshTime = time.Now()
-
-	return nil
 }

@@ -10,40 +10,6 @@ import (
 	"github.com/sol-armada/sol-bot/utils"
 )
 
-func revertAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	logger := utils.GetLoggerFromContext(ctx)
-	logger.Debug("taking attendance autocomplete")
-
-	data := i.ApplicationCommandData()
-
-	choices := []*discordgo.ApplicationCommandOptionChoice{}
-
-	if data.Options[0].Options[0].Focused {
-		attendanceRecords, err := attdnc.List(nil, 10, 1)
-		if err != nil {
-			return errors.Wrap(err, "getting recorded attendance records")
-		}
-
-		for _, record := range attendanceRecords {
-			choices = append(choices, &discordgo.ApplicationCommandOptionChoice{
-				Name:  record.Name + " (" + record.Id + ")",
-				Value: record.Id,
-			})
-		}
-	}
-
-	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionApplicationCommandAutocompleteResult,
-		Data: &discordgo.InteractionResponseData{
-			Choices: choices,
-		},
-	}); err != nil {
-		return errors.Wrap(err, "responding to revert attendance auto complete")
-	}
-
-	return nil
-}
-
 func revertButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("reverting attendance command handler")

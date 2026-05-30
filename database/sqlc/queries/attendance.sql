@@ -89,40 +89,6 @@ SET name = EXCLUDED.name,
     date_created = EXCLUDED.date_created,
     date_updated = EXCLUDED.date_updated;
 
--- name: UpsertAttendancePayout :exec
-INSERT INTO attendance_payouts (
-    attendance_id,
-    total,
-    per_member,
-    org_take,
-    date_updated
-	)
-VALUES (
-    sqlc.arg(attendance_id),
-    sqlc.arg(total),
-    sqlc.arg(per_member),
-    sqlc.arg(org_take),
-    sqlc.arg(date_updated)
-	)
-ON CONFLICT (attendance_id) DO UPDATE
-SET total = EXCLUDED.total,
-    per_member = EXCLUDED.per_member,
-    org_take = EXCLUDED.org_take,
-    date_updated = EXCLUDED.date_updated;
-
--- name: DeleteAttendancePayout :exec
-DELETE FROM attendance_payouts
-WHERE attendance_id = sqlc.arg(attendance_id);
-
--- name: GetAttendancePayout :one
-SELECT *
-FROM attendance_payouts
-WHERE attendance_id = $1;
-
--- name: ReplaceAttendanceParticipants :exec
-DELETE FROM attendance_participants
-WHERE attendance_id = sqlc.arg(attendance_id);
-
 -- name: UpsertAttendanceParticipant :exec
 INSERT INTO attendance_participants (
     attendance_id,
@@ -130,7 +96,8 @@ INSERT INTO attendance_participants (
     joined_at_start,
     stayed_until_end,
     has_issue,
-    updated_at
+    updated_at,
+    is_manager
 	)
 VALUES (
     sqlc.arg(attendance_id),
@@ -138,9 +105,20 @@ VALUES (
     sqlc.arg(joined_at_start),
     sqlc.arg(stayed_until_end),
     sqlc.arg(has_issue),
-    sqlc.arg(updated_at)
+    COALESCE(sqlc.arg(updated_at), NOW()),
+    sqlc.arg(is_manager)
 	)
-ON CONFLICT (attendance_id, member_id) DO NOTHING;
+ON CONFLICT (attendance_id, member_id) DO UPDATE
+SET joined_at_start = EXCLUDED.joined_at_start,
+    stayed_until_end = EXCLUDED.stayed_until_end,
+    has_issue = EXCLUDED.has_issue,
+    updated_at = EXCLUDED.updated_at,
+    is_manager = EXCLUDED.is_manager;
+
+-- name: DeleteAttendanceParticipant :exec
+DELETE FROM attendance_participants
+WHERE attendance_id = sqlc.arg(attendance_id)
+  AND member_id = sqlc.arg(member_id);
 
 -- name: ListAttendanceParticipants :many
 SELECT *

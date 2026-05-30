@@ -382,6 +382,8 @@ func processChunkMembers(
 		default:
 		}
 
+		time.Sleep(1 * time.Second)
+
 		globalIndex := chunkStart + i
 		mlogger := logger.With(
 			"id", discordMember.User.ID,
@@ -402,33 +404,27 @@ func processChunkMembers(
 			continue
 		}
 
-		// Update member data
 		UpdateMemberData(member, discordMember, recruitRoleID, allyRoleID, mlogger)
 
-		// Update RSI info with retry logic
-		err = rsiBackoff.Execute(func() error {
+		if err := rsiBackoff.Execute(func() error {
 			profile, err := rsi.GetRSIInfo(member.Name)
 			if err != nil {
 				return err
 			}
-			member.ApplyRSIProfile(profile)
+			affiliations := make([]string, 0, len(profile.Affiliation))
+			for _, aff := range profile.Affiliation {
+				affiliations = append(affiliations, aff.SID)
+			}
+			member.UpdateRsiInfo()
 			return member.Save()
-		})
-		if errors.Is(err, rsi.ErrUserNotFound) {
-			mlogger.Debug("rsi user not found", "error", err)
-			member.ResetRSIStatus()
-			err = nil
-		}
-		if err != nil {
+		}); err != nil && !errors.Is(err, rsi.ErrUserNotFound) {
 			mlogger.Error("updating RSI info", "error", err)
 			*processingErrors = append(*processingErrors, err)
-		} else {
-			// Add to chunk batch for saving
-			mlogger.Debug("adding member to chunk save batch")
-			chunkMembers = append(chunkMembers, *member)
+			continue
 		}
 
-		time.Sleep(1 * time.Second) // Small delay to avoid hitting rate limits
+		mlogger.Debug("adding member to chunk save batch")
+		chunkMembers = append(chunkMembers, *member)
 	}
 
 	return chunkMembers

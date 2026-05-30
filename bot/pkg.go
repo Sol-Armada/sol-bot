@@ -22,6 +22,7 @@ import (
 	"github.com/sol-armada/sol-bot/bot/profilehandler"
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/rankupshandler"
+	"github.com/sol-armada/sol-bot/bot/settingshandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/database/postgresql"
@@ -56,7 +57,7 @@ var commands = map[string]command.ApplicationCommand{
 	"tokens":     tokenshandler.New(),
 	"rankups":    rankupshandler.New(),
 	"blueprint":  blueprinthandler.New(),
-
+	"settings":   settingshandler.New(),
 	// "merit":      merithandler.New(),
 	// "demerit":    demerithandler.New(),
 	// "wikelo":     wikelohandler.New(),
@@ -75,10 +76,6 @@ var onboardingButtonHanlders = map[string]Handler{
 var onboardingModalHandlers = map[string]Handler{
 	"onboard":   onboardingModalHandler,
 	"rsihandle": onboardingTryAgainModalHandler,
-}
-
-var attendanceModalHandlers = map[string]Handler{
-	"payout": attendancehandler.AddPayoutModalHandler,
 }
 
 var validateButtonHandlers = map[string]Handler{
@@ -183,7 +180,17 @@ func (b *Bot) Setup() error {
 	b.logger.Debug("adding interaction handler")
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
-		member, err := members.Get(i.Member.User.ID)
+		var id string
+		switch {
+		case i.Member != nil:
+			id = i.Member.User.ID
+		case i.User != nil:
+			id = i.User.ID
+		default:
+			b.logger.Error("interaction with no user or member", "interaction_type", i.Type)
+			return
+		}
+		member, err := members.Get(id)
 		if err != nil {
 			if !errors.Is(err, members.MemberNotFound) {
 				b.logger.Error("getting member for incoming interaction", "error", err)
@@ -203,8 +210,7 @@ func (b *Bot) Setup() error {
 		ctx := utils.SetMemberToContext(b.ctx, member)
 
 		logger := b.logger.With(
-			"guild", b.GuildId,
-			"user", i.Member.User.ID,
+			"user", id,
 			"interaction_type", i.Type,
 		)
 
@@ -230,7 +236,7 @@ func (b *Bot) Setup() error {
 		if cmd, ok := commands[commandName]; ok {
 			cmdToStore := command.Command{
 				Name: commandName,
-				User: i.Member.User.ID,
+				User: id,
 				When: time.Now(),
 				Type: i.Type,
 			}
@@ -374,10 +380,6 @@ func (b *Bot) Setup() error {
 			switch command[0] {
 			case "onboarding":
 				if h, ok := onboardingModalHandlers[subCommand]; ok {
-					err = h(ctx, s, i)
-				}
-			case "attendance":
-				if h, ok := attendanceModalHandlers[subCommand]; ok {
 					err = h(ctx, s, i)
 				}
 			default:

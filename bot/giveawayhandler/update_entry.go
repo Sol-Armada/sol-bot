@@ -20,7 +20,12 @@ func updateEntry(ctx context.Context, s *discordgo.Session, i *discordgo.Interac
 
 	g := giveaway.GetGiveaway(giveawayId)
 
-	if !g.CanParticipate(member.Id) {
+	allowed, err := g.CanParticipate(member.Id)
+	if err != nil {
+		return err
+	}
+
+	if !allowed {
 		customerrors.ErrorResponse(s, i.Interaction, "You did not attend this event! You don't qualify for this giveaway.", nil)
 		return nil
 	}

@@ -1,31 +1,51 @@
 -- name: GetMember :one
-SELECT *
-FROM members
+SELECT 
+  m.*,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE id = $1;
 
 -- name: ListMembersByIDs :many
-SELECT *
-FROM members
+SELECT 
+  m.*,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE id = ANY(sqlc.arg(ids)::text[]);
 
 -- name: ListMembersPage :many
-SELECT *
-FROM members
+SELECT 
+  m.*,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE (NOT sqlc.arg(exclude_bots)::boolean OR is_bot = FALSE)
 ORDER BY id
 OFFSET sqlc.arg(offset_rows)::int
 LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: ListMembersByBlueprint :many
-SELECT m.*
+SELECT 
+  m.*,
+  ri.primary_org,
+  ri.affiliations
 FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 INNER JOIN member_blueprints mb ON mb.member_id = m.id
 WHERE mb.blueprint_id = sqlc.arg(blueprint_id)
 ORDER BY m.id;
 
 -- name: ListRandomMembersByRank :many
-SELECT *
-FROM members
+SELECT 
+  m.*,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE rank <= sqlc.arg(max_rank)::int
   AND rank <> 0
 ORDER BY random()
@@ -42,19 +62,19 @@ INSERT INTO members (
     is_ally,
   is_affiliate,
   is_guest,
-  on_rsi
+  dm_opt_out
 )
 VALUES (
     sqlc.arg(id),
     sqlc.arg(name),
     sqlc.arg(rank),
     sqlc.arg(joined),
-    sqlc.arg(updated),
+    COALESCE(sqlc.arg(updated), NOW()),
     sqlc.arg(is_bot),
     sqlc.arg(is_ally),
     sqlc.arg(is_affiliate),
   sqlc.arg(is_guest),
-  sqlc.arg(on_rsi)
+  sqlc.arg(dm_opt_out)
 )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
@@ -65,7 +85,7 @@ SET name = EXCLUDED.name,
     is_ally = EXCLUDED.is_ally,
     is_affiliate = EXCLUDED.is_affiliate,
   is_guest = EXCLUDED.is_guest,
-  on_rsi = EXCLUDED.on_rsi;
+  dm_opt_out = EXCLUDED.dm_opt_out;
 
 -- name: ReplaceMemberBlueprints :exec
 DELETE FROM member_blueprints
@@ -110,6 +130,7 @@ SELECT
   END::int AS next_rank
 FROM members m
 LEFT JOIN attendance_counts ac ON ac.member_id = m.id
+LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE m.rank <= 7
   AND m.is_guest = FALSE
   AND m.is_ally = FALSE
@@ -119,4 +140,5 @@ WHERE m.rank <= 7
     (m.rank = 6 AND COALESCE(ac.attendance_count, 0) >= 10) OR
     (m.rank = 5 AND COALESCE(ac.attendance_count, 0) >= 20)
   )
+  AND ri.primary_org = 'SOLARMADA'
 ORDER BY attendance_count DESC, m.id;

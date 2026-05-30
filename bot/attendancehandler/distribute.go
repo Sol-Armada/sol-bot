@@ -17,38 +17,48 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 		return err
 	}
 
-	fromStartMembers := make([]discordgo.SelectMenuOption, 0, len(a.FromStart))
-	for _, id := range a.FromStart {
-		member, ok := a.GetMember(id)
-		if !ok {
-			continue
-		}
-
-		fromStartMembers = append(fromStartMembers, discordgo.SelectMenuOption{
-			Label: member.Name,
-			Value: member.Id,
-		})
+	fromStartParticipants, err := a.PraticipantsFromStart()
+	if err != nil {
+		return err
 	}
 
 	components := []discordgo.MessageComponent{
 		discordgo.Label{
 			Label: "Select members who where event managers",
 			Component: discordgo.SelectMenu{
-				CustomID:  fmt.Sprintf("attendance:distribute:%s", attendanceId),
-				Options:   fromStartMembers,
-				MaxValues: len(fromStartMembers),
+				CustomID: "managers",
+				Options: func() []discordgo.SelectMenuOption {
+					opts := make([]discordgo.SelectMenuOption, len(fromStartParticipants))
+					for i, participant := range fromStartParticipants {
+						opts[i] = discordgo.SelectMenuOption{
+							Label: participant.Member.Name,
+							Value: participant.Member.Id,
+						}
+					}
+					return opts
+				}(),
+				MaxValues: len(fromStartParticipants),
 			},
 		},
 	}
 
-	if len(fromStartMembers) > 0 {
+	if len(fromStartParticipants) > 0 {
 		components = append(components,
 			discordgo.Label{
 				Label: "Select members who where at the start",
 				Component: discordgo.SelectMenu{
-					CustomID:  fmt.Sprintf("attendance:distribute:%s", attendanceId),
-					Options:   fromStartMembers,
-					MaxValues: len(fromStartMembers),
+					CustomID: "from_start",
+					Options: func() []discordgo.SelectMenuOption {
+						opts := make([]discordgo.SelectMenuOption, len(fromStartParticipants))
+						for i, participant := range fromStartParticipants {
+							opts[i] = discordgo.SelectMenuOption{
+								Label: participant.Member.Name,
+								Value: participant.Member.Id,
+							}
+						}
+						return opts
+					}(),
+					MaxValues: len(fromStartParticipants),
 				},
 			},
 		)
@@ -67,59 +77,80 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 func distributeModalHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	attendanceId := strings.Split(i.ModalSubmitData().CustomID, ":")[2]
 
-	attendance, err := attendance.Get(attendanceId)
+	a, err := attendance.Get(attendanceId)
 	if err != nil {
 		return err
 	}
 
-	selectComponent := i.ModalSubmitData().Components[0].(*discordgo.Label).Component.(*discordgo.SelectMenu)
+	data := i.ModalSubmitData()
 
-	selectedMembers := make([]string, 0, len(selectComponent.Values))
-	selectedMembers = append(selectedMembers, selectComponent.Values...)
+	var managersSelect, fromStartSelect *discordgo.SelectMenu
 
-	var content strings.Builder
-	distributedTo, err := attendance.DistributeTokens(selectedMembers)
+	for _, component := range data.Components {
+		if label, ok := component.(*discordgo.Label); ok {
+			if selectComponent, ok := label.Component.(*discordgo.SelectMenu); ok {
+				switch selectComponent.CustomID {
+				case "managers":
+					managersSelect = selectComponent
+				case "from_start":
+					fromStartSelect = selectComponent
+				}
+			}
+		}
+	}
+
+	selectedManagers := make([]string, 0, len(managersSelect.Values))
+	selectedManagers = append(selectedManagers, managersSelect.Values...)
+
+	for _, managerId := range selectedManagers {
+		if err := a.SetParticipantManager(managerId); err != nil {
+			return err
+		}
+	}
+
+	selectedMembers := make([]string, 0, len(fromStartSelect.Values))
+	selectedMembers = append(selectedMembers, fromStartSelect.Values...)
+
+	for _, memberId := range selectedMembers {
+		if err := a.SetParticipantStayedUntilEnd(memberId); err != nil {
+			return err
+		}
+	}
+
+	distributedTo, err := a.DistributeTokens()
 	if err != nil {
 		return err
 	}
 
-	attendanceMessage, err := attendance.ToDiscordMessage()
+	attendanceMessage, err := a.ToDiscordMessage()
 	if err != nil {
 		return err
 	}
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    attendance.ChannelId,
-		ID:         attendance.MessageId,
+		Channel:    a.ChannelId,
+		ID:         a.MessageId,
 		Components: &attendanceMessage.Components,
 		Embeds:     &attendanceMessage.Embeds,
 	}); err != nil {
 		return err
 	}
 
-	for id, amount := range distributedTo {
-		if amount == 0 {
-			fmt.Fprintf(&content, "\n<@%s> already received Tokens for this event", id)
-		} else {
-			fmt.Fprintf(&content, "\n<@%s> has received %d Tokens", id, amount)
-		}
-	}
-
-	if content.Len() == 0 {
+	if distributedTo == "" {
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseUpdateMessage,
 		})
 	}
 
-	msg, err := s.ChannelMessage(attendance.ChannelId, attendance.MessageId)
+	msg, err := s.ChannelMessage(a.ChannelId, a.MessageId)
 	if err != nil {
 		return err
 	}
 
 	ch := msg.Thread
 	if ch == nil {
-		ch, err = s.MessageThreadStartComplex(attendance.ChannelId, attendance.MessageId, &discordgo.ThreadStart{
-			Name:                "Thread for " + attendance.Name + " (" + attendance.Id + ")",
+		ch, err = s.MessageThreadStartComplex(a.ChannelId, a.MessageId, &discordgo.ThreadStart{
+			Name:                "Thread for " + a.Name + " (" + a.Id + ")",
 			Type:                discordgo.ChannelTypeGuildPublicThread,
 			Invitable:           true,
 			AutoArchiveDuration: 1440,
@@ -129,7 +160,7 @@ func distributeModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 		}
 	}
 
-	if _, err := s.ChannelMessageSend(ch.ID, content.String()); err != nil {
+	if _, err := s.ChannelMessageSend(ch.ID, distributedTo); err != nil {
 		return err
 	}
 

@@ -6,6 +6,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/utils"
 )
 
 func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
@@ -33,6 +34,8 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 	}); err != nil {
 		return err
 	}
+
+	go directMessageAttendees(s, utils.GetLoggerFromContext(ctx), attendance)
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseUpdateMessage,

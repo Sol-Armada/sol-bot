@@ -31,7 +31,12 @@ func addEntries(ctx context.Context, s *discordgo.Session, i *discordgo.Interact
 			return err
 		}
 
-		if _, ok := attendanceRecord.GetMember(i.Member.User.ID); !ok {
+		participated, err := attendanceRecord.HasParticipant(i.Member.User.ID)
+		if err != nil {
+			return err
+		}
+
+		if !participated {
 			return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 				Type: discordgo.InteractionResponseChannelMessageWithSource,
 				Data: &discordgo.InteractionResponseData{

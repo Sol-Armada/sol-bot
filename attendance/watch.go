@@ -16,7 +16,7 @@ func Watch(ctx context.Context, out chan Attendance) error {
 			close(out)
 			return nil
 		case <-ticker.C:
-			attendances, err := List(nil, 0, 0)
+			attendances, err := List(0, 0)
 			if err != nil {
 				return err
 			}

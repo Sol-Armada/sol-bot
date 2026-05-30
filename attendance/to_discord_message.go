@@ -1,6 +1,7 @@
 package attendance
 
 import (
+	"cmp"
 	"fmt"
 	"sort"
 	"strconv"
@@ -8,12 +9,16 @@ import (
 	"time"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/tokens"
 )
 
 func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
-	name := fmt.Sprintf("Attendees (%d)", len(a.Members))
+	participants, err := a.Participants()
+	if err != nil {
+		return nil, err
+	}
+
+	name := fmt.Sprintf("Attendees (%d)", len(participants))
 	fields := []*discordgo.MessageEmbedField{
 		{
 			Name:  "Submitted By",
@@ -26,40 +31,20 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 		},
 	}
 
-	if len(a.Members) > 0 {
-		sort.Slice(a.Members, func(i, j int) bool {
-			if a.Members[i].IsGuest {
+	if len(participants) > 0 {
+		sort.Slice(participants, func(i, j int) bool {
+			memberA := participants[i].Member
+			memberB := participants[j].Member
+			switch {
+			case cmp.Or(memberB.IsGuest, memberB.IsAffiliate, memberB.IsAlly) && !cmp.Or(memberA.IsGuest, memberA.IsAffiliate, memberA.IsAlly):
+				return true
+			case cmp.Or(memberA.IsGuest, memberA.IsAffiliate, memberA.IsAlly) && !cmp.Or(memberB.IsGuest, memberB.IsAffiliate, memberB.IsAlly):
 				return false
+			case memberA.Rank != memberB.Rank:
+				return memberA.Rank < memberB.Rank
+			default:
+				return memberA.Name < memberB.Name
 			}
-			if a.Members[i].IsAffiliate {
-				return false
-			}
-
-			if a.Members[i].IsAlly {
-				return false
-			}
-
-			if a.Members[j].IsGuest {
-				return true
-			}
-
-			if a.Members[j].IsAffiliate {
-				return true
-			}
-
-			if a.Members[j].IsAlly {
-				return true
-			}
-
-			if a.Members[i].Rank < a.Members[j].Rank {
-				return true
-			}
-
-			if a.Members[i].Rank != ranks.None && a.Members[i].Rank == a.Members[j].Rank {
-				return a.Members[i].Name < a.Members[j].Name
-			}
-
-			return false
 		})
 
 		tokenRecords, err := tokens.GetByAttendanceId(a.Id)
@@ -73,7 +58,7 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 		}
 
 		var row strings.Builder
-		for i, member := range a.Members {
+		for i, participant := range participants {
 			// for every 10 members, make a new field
 			if i%10 == 0 && i != 0 {
 				fields = append(fields, &discordgo.MessageEmbedField{
@@ -85,23 +70,32 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 			}
 
 			field := fields[len(fields)-1]
-			row.WriteString("<@" + member.Id + ">")
+			row.WriteString("<@")
+			row.WriteString(participant.Member.Id)
+			row.WriteString(">")
 
-			if tokenRecords, ok := tokenRecordsMap[member.Id]; ok {
-				for i, r := range tokenRecords {
-					if i == 0 {
-						row.WriteString(" (")
+			if a.Status == AttendanceStatusRecorded {
+				if tokenRecords, ok := tokenRecordsMap[participant.Member.Id]; ok {
+					for i, r := range tokenRecords {
+						if i == 0 {
+							row.WriteString(" (")
+						}
+						if r.Amount <= 0 {
+							continue
+						}
+						row.WriteString("")
+						row.WriteString(strconv.Itoa(r.Amount))
+						if i != len(tokenRecords)-1 {
+							row.WriteString(" + ")
+						}
+						if i == len(tokenRecords)-1 {
+							row.WriteString(")")
+						}
 					}
-					if r.Amount <= 0 {
-						continue
-					}
-					row.WriteString("" + strconv.Itoa(r.Amount))
-					if i != len(tokenRecords)-1 {
-						row.WriteString(" + ")
-					}
-					if i == len(tokenRecords)-1 {
-						row.WriteString(")")
-					}
+				}
+			} else {
+				if participant.JoinedAtStart {
+					row.WriteString(" (On Time)")
 				}
 			}
 
@@ -117,14 +111,19 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 		}
 	}
 
-	if len(a.WithIssues) > 0 {
+	withIssues, err := a.WithIssues()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(withIssues) > 0 {
 		fields = append(fields, &discordgo.MessageEmbedField{
 			Name:   "Attendees with Issues",
 			Value:  "",
 			Inline: true,
 		})
 
-		for i, member := range a.WithIssues {
+		for i, member := range withIssues {
 			if member == nil {
 				continue
 			}
@@ -147,14 +146,6 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 				})
 			}
 		}
-	}
-
-	if a.Payouts != nil {
-		fields = append(fields, &discordgo.MessageEmbedField{
-			Name:   "Payouts",
-			Value:  "Total: " + strconv.Itoa(int(a.Payouts.Total)) + "\nPer Member: " + strconv.Itoa(int(a.Payouts.PerMember)) + "\nOrg Take: " + strconv.Itoa(int(a.Payouts.OrgTake)),
-			Inline: false,
-		})
 	}
 
 	embeds := []*discordgo.MessageEmbed{
@@ -247,13 +238,13 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 					CustomID: "attendance:delete:" + a.Id,
 				},
 				discordgo.Button{
-					Label:    "Recheck Issues",
+					Label:    "Refresh",
 					Style:    discordgo.PrimaryButton,
 					Disabled: a.Recorded,
 					Emoji: &discordgo.ComponentEmoji{
 						Name: "🔁",
 					},
-					CustomID: "attendance:recheck:" + a.Id,
+					CustomID: "attendance:refresh:" + a.Id,
 				},
 			},
 		})

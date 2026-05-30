@@ -25,11 +25,15 @@ type memberBackend interface {
 	GetIDsOnly() ([]string, error)
 	Delete(id string) error
 	ListPromotions() ([]dbgen.ListPromotionsRow, error)
+	GetRsiInfo(id string) (*RsiInfo, error)
+	ListRsiInfoByHandles(handles []string) ([]*RsiInfo, error)
+	UpsertRsiInfo(rsiInfo *RsiInfo) error
 }
 
 type postgresMembersBackend struct {
-	pool    *pgxpool.Pool
-	queries *dbgen.Queries
+	pool      *pgxpool.Pool
+	queries   *dbgen.Queries
+	converter Converter
 }
 
 func (b *postgresMembersBackend) Get(id string) (*Member, error) {
@@ -40,7 +44,7 @@ func (b *postgresMembersBackend) Get(id string) (*Member, error) {
 		}
 		return nil, err
 	}
-	member := fromPgMember(row)
+	member := b.converter.FromGetMemberRow(row)
 	return &member, nil
 }
 
@@ -49,10 +53,10 @@ func (b *postgresMembersBackend) GetList(ids []string) ([]*Member, error) {
 	if err != nil {
 		return nil, err
 	}
-	members := make([]*Member, 0, len(rows))
-	for _, row := range rows {
-		member := fromPgMember(row)
-		members = append(members, &member)
+	convertedMembers := b.converter.FromListMembersByIDsRows(rows)
+	members := make([]*Member, 0, len(convertedMembers))
+	for i := range convertedMembers {
+		members = append(members, &convertedMembers[i])
 	}
 	return members, nil
 }
@@ -65,11 +69,7 @@ func (b *postgresMembersBackend) GetRandom(max int, maxRank ranks.Rank) ([]Membe
 	if err != nil {
 		return nil, err
 	}
-	members := make([]Member, 0, len(rows))
-	for _, row := range rows {
-		members = append(members, fromPgMember(row))
-	}
-	return members, nil
+	return b.converter.FromListRandomMembersByRankRows(rows), nil
 }
 
 func (b *postgresMembersBackend) List(page int) ([]Member, error) {
@@ -85,11 +85,7 @@ func (b *postgresMembersBackend) List(page int) ([]Member, error) {
 	if err != nil {
 		return nil, err
 	}
-	members := make([]Member, 0, len(rows))
-	for _, row := range rows {
-		members = append(members, fromPgMember(row))
-	}
-	return members, nil
+	return b.converter.FromListMembersPageRows(rows), nil
 }
 
 func (b *postgresMembersBackend) ListByBlueprint(blueprintID string) ([]Member, error) {
@@ -97,11 +93,7 @@ func (b *postgresMembersBackend) ListByBlueprint(blueprintID string) ([]Member, 
 	if err != nil {
 		return nil, err
 	}
-	members := make([]Member, 0, len(rows))
-	for _, row := range rows {
-		members = append(members, fromPgMember(row))
-	}
-	return members, nil
+	return b.converter.FromListMembersByBlueprintRows(rows), nil
 }
 
 func (b *postgresMembersBackend) Upsert(member *Member) error {
@@ -123,6 +115,7 @@ func (b *postgresMembersBackend) Upsert(member *Member) error {
 		IsAlly:      member.IsAlly,
 		IsAffiliate: member.IsAffiliate,
 		IsGuest:     member.IsGuest,
+		DmOptOut:    member.DmOptOut,
 	}); err != nil {
 		return err
 	}
@@ -165,18 +158,32 @@ func (b *postgresMembersBackend) ListPromotions() ([]dbgen.ListPromotionsRow, er
 	return rows, nil
 }
 
-func fromPgMember(row dbgen.Member) Member {
-	return Member{
-		Id:          row.ID,
-		Name:        row.Name,
-		Rank:        ranks.Rank(row.Rank),
-		Joined:      fromPgTimestamptz(row.Joined),
-		Updated:     fromPgTimestamptz(row.Updated),
-		IsBot:       row.IsBot,
-		IsAlly:      row.IsAlly,
-		IsAffiliate: row.IsAffiliate,
-		IsGuest:     row.IsGuest,
+func (b *postgresMembersBackend) GetRsiInfo(handle string) (*RsiInfo, error) {
+	row, err := b.queries.GetRsiInfoByHandle(context.Background(), handle)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
 	}
+	return b.converter.FromRsiInfoRow(row), nil
+}
+
+func (b *postgresMembersBackend) ListRsiInfoByHandles(handles []string) ([]*RsiInfo, error) {
+	rows, err := b.queries.ListRsiInfoByHandles(context.Background(), handles)
+	if err != nil {
+		return nil, err
+	}
+	return b.converter.FromRsiInfoRows(rows), nil
+}
+
+func (b *postgresMembersBackend) UpsertRsiInfo(rsiInfo *RsiInfo) error {
+	return b.queries.UpsertRsiInfo(context.Background(), dbgen.UpsertRsiInfoParams{
+		Handle:        rsiInfo.Handle,
+		PrimaryOrg:    pgtype.Text{String: rsiInfo.PrimaryOrg, Valid: rsiInfo.PrimaryOrg != ""},
+		PrimaryOrgSid: pgtype.Text{String: rsiInfo.PrimaryOrgSid, Valid: rsiInfo.PrimaryOrgSid != ""},
+		Affiliations:  rsiInfo.Affiliations,
+	})
 }
 
 func toPgTimestamptz(t time.Time) pgtype.Timestamptz {
@@ -186,18 +193,15 @@ func toPgTimestamptz(t time.Time) pgtype.Timestamptz {
 	return pgtype.Timestamptz{Time: t.UTC(), Valid: true}
 }
 
-func fromPgTimestamptz(t pgtype.Timestamptz) time.Time {
-	if !t.Valid {
-		return time.Time{}
-	}
-	return t.Time.UTC()
-}
-
 func setupMembersBackend() error {
 	pgClient := postgresql.Get()
 	if pgClient == nil {
 		return errors.New("postgresql client not initialized")
 	}
-	membersBackend = &postgresMembersBackend{pool: pgClient.Pool, queries: pgClient.Queries}
+	membersBackend = &postgresMembersBackend{
+		pool:      pgClient.Pool,
+		queries:   pgClient.Queries,
+		converter: &ConverterImpl{},
+	}
 	return nil
 }

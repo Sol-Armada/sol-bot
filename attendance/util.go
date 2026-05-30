@@ -3,7 +3,6 @@ package attendance
 import (
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
-	"github.com/sol-armada/sol-bot/settings"
 )
 
 func Issues(member *members.Member) []string {
@@ -18,68 +17,43 @@ func Issues(member *members.Member) []string {
 		return issues
 	}
 
-	// if member.OnboardedAt == nil {
-	// 	issues = append(issues, "not onboarded")
-	// 	return issues
-	// }
-
 	if member.IsGuest {
 		issues = append(issues, "guest")
 		return issues
 	}
 
-	if !member.RSIMember {
+	if !member.OnRsi() {
 		issues = append(issues, "not on rsi")
 		return issues
 	}
 
-	if !member.RSIMember && member.IsAlly {
+	if !member.OnRsi() && member.IsAlly {
 		issues = append(issues, "marked as ally, but not a rsi member")
 		return issues
 	}
 
-	if member.RSIMember && member.IsAffiliate {
+	if member.OnRsi() && member.IsAffiliate {
 		issues = append(issues, "is affiliate")
 		return issues
 	}
 
-	if member.RSIMember && member.BadAffiliation {
+	if member.OnRsi() && member.BadAffiliation() {
 		issues = append(issues, "bad affiliation")
 	}
 
-	if member.RSIMember && member.PrimaryOrg == "REDACTED" {
+	if member.OnRsi() && member.RsiInfo.PrimaryOrgSid == "REDACTED" {
 		issues = append(issues, "redacted org")
 		return issues
 	}
 
-	if member.RSIMember && member.Rank <= ranks.Technician && member.PrimaryOrg != settings.GetString("rsi_org_sid") {
+	if member.OnRsi() && member.Rank <= ranks.Technician && member.RsiInfo.PrimaryOrgSid != "SOLARMADA" {
 		issues = append(issues, "ranked, but org not set as primary")
 		return issues
 	}
 
-	if member.RSIMember && member.IsAlly {
+	if member.OnRsi() && member.IsAlly {
 		issues = []string{}
 	}
-
-	// attendedEvents, err := GetMemberAttendanceCount(member.Id)
-	// if err != nil {
-	// 	return issues
-	// }
-
-	// switch member.Rank {
-	// case ranks.Recruit:
-	// 	if attendedEvents >= 3 {
-	// 		issues = append(issues, "max event credits for this rank (3)")
-	// 	}
-	// case ranks.Member:
-	// 	if attendedEvents >= 10 {
-	// 		issues = append(issues, "max event credits for this rank (10)")
-	// 	}
-	// case ranks.Technician:
-	// 	if attendedEvents >= 20 {
-	// 		issues = append(issues, "max event credits for this rank (20)")
-	// 	}
-	// }
 
 	return issues
 }

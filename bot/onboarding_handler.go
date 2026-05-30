@@ -436,8 +436,8 @@ SKIP:
 
 	fields := []*discordgo.MessageEmbedField{
 		{Name: "RSI Profile", Value: "https://robertsspaceindustries.com/citizens/" + member.Name},
-		{Name: "Primary Org", Value: "https://robertsspaceindustries.com/orgs/" + member.PrimaryOrg},
-		{Name: "Affiliate Orgs", Value: strings.Join(member.Affilations, ", ")},
+		{Name: "Primary Org", Value: "https://robertsspaceindustries.com/orgs/" + member.RsiInfo.PrimaryOrg},
+		{Name: "Affiliate Orgs", Value: strings.Join(member.RsiInfo.Affiliations, ", ")},
 		{Name: "Playtime", Value: member.LegacyPlaytime},
 		{Name: "Gameplay", Value: member.LegacyGameplay},
 		{Name: "Age", Value: member.LegacyAge},
