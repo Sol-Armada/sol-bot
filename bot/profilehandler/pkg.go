@@ -139,21 +139,18 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 				member.Rank = ranks.Recruit
 				member.IsAffiliate = false
 				member.IsAlly = false
-				member.IsGuest = false
 			}
 			if slices.Contains(discordMember.Roles, settings.GetString("DISCORD.ROLE_IDS.ALLY")) {
 				logger.Debug("is ally")
 				member.Rank = ranks.None
 				member.IsAffiliate = false
 				member.IsAlly = true
-				member.IsGuest = false
 			}
 			if discordMember.User.Bot {
 				logger.Debug("is bot")
 				member.Rank = ranks.None
 				member.IsAffiliate = false
 				member.IsAlly = false
-				member.IsGuest = false
 				member.IsBot = true
 			}
 
@@ -199,7 +196,7 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 		emFields[1].Value = "Ally/Friend"
 	}
 
-	if member.IsGuest {
+	if member.Rank == ranks.Guest {
 		emFields[1].Value = "Guest"
 	}
 

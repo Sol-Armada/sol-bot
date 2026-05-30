@@ -18,7 +18,6 @@ func OnRoleChange(s *discordgo.Session, m *discordgo.GuildMemberUpdate) error {
 		}
 
 		member.MemberSince = time.Now().UTC()
-		member.IsGuest = false
 		member.IsAffiliate = false
 		member.IsAlly = false
 

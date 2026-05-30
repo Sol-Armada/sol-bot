@@ -61,7 +61,6 @@ INSERT INTO members (
     is_bot,
     is_ally,
   is_affiliate,
-  is_guest,
   dm_opt_out
 )
 VALUES (
@@ -73,7 +72,6 @@ VALUES (
     sqlc.arg(is_bot),
     sqlc.arg(is_ally),
     sqlc.arg(is_affiliate),
-  sqlc.arg(is_guest),
   sqlc.arg(dm_opt_out)
 )
 ON CONFLICT (id) DO UPDATE
@@ -84,7 +82,6 @@ SET name = EXCLUDED.name,
     is_bot = EXCLUDED.is_bot,
     is_ally = EXCLUDED.is_ally,
     is_affiliate = EXCLUDED.is_affiliate,
-  is_guest = EXCLUDED.is_guest,
   dm_opt_out = EXCLUDED.dm_opt_out;
 
 -- name: ReplaceMemberBlueprints :exec
@@ -134,7 +131,6 @@ FROM members m
 LEFT JOIN attendance_counts ac ON ac.member_id = m.id
 LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE m.rank <= 7
-  AND m.is_guest = FALSE
   AND m.is_ally = FALSE
   AND m.is_affiliate = FALSE
   AND (

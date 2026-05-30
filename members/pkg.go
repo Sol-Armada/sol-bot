@@ -39,7 +39,6 @@ type Member struct {
 	IsBot       bool `json:"is_bot"`
 	IsAlly      bool `json:"is_ally"`
 	IsAffiliate bool `json:"is_affiliate"`
-	IsGuest     bool `json:"is_guest"`
 
 	DKP      []string `json:"dkp"`
 	DKPSpent int      `json:"dkp_spent"`
@@ -106,10 +105,9 @@ func Setup() error {
 
 func New(discordMember *discordgo.Member) *Member {
 	m := &Member{
-		Id:      discordMember.User.ID,
-		Avatar:  discordMember.Avatar,
-		Joined:  discordMember.JoinedAt.UTC(),
-		IsGuest: true,
+		Id:     discordMember.User.ID,
+		Avatar: discordMember.Avatar,
+		Joined: discordMember.JoinedAt.UTC(),
 	}
 
 	m.Name = m.GetTrueNick(discordMember)
@@ -380,23 +378,18 @@ func (m *Member) UpdateRoles(discordRoles []string) {
 
 	m.IsAffiliate = false
 	m.IsAlly = false
-	m.IsGuest = false
 	m.IsBot = false
 
 	if roleMap[recruitRoleID] {
 		m.Rank = ranks.Recruit
-		m.IsGuest = false
 		return
 	}
 
 	if roleMap[allyRoleID] {
 		m.Rank = ranks.None
 		m.IsAlly = true
-		m.IsGuest = false
 		return
 	}
-
-	m.IsGuest = true
 }
 
 func (m *Member) UpdateRsiInfo() error {

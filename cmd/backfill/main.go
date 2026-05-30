@@ -306,7 +306,6 @@ func backfillMembers(ctx context.Context, mdb *mongo.Database, pool *pgxpool.Poo
 			IsBot:       asBool(doc["is_bot"]),
 			IsAlly:      asBool(doc["is_ally"]),
 			IsAffiliate: asBool(doc["is_affiliate"]),
-			IsGuest:     asBool(doc["is_guest"]),
 			DmOptOut:    dmOptOut,
 		})
 		if err != nil {

@@ -352,7 +352,6 @@ FROM members m
 LEFT JOIN attendance_counts ac ON ac.member_id = m.id
 LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE m.rank <= 7
-  AND m.is_guest = FALSE
   AND m.is_ally = FALSE
   AND m.is_affiliate = FALSE
   AND (
@@ -490,7 +489,6 @@ INSERT INTO members (
     is_bot,
     is_ally,
   is_affiliate,
-  is_guest,
   dm_opt_out
 )
 VALUES (
@@ -502,8 +500,7 @@ VALUES (
     $6,
     $7,
     $8,
-  $9,
-  $10
+  $9
 )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
@@ -513,7 +510,6 @@ SET name = EXCLUDED.name,
     is_bot = EXCLUDED.is_bot,
     is_ally = EXCLUDED.is_ally,
     is_affiliate = EXCLUDED.is_affiliate,
-  is_guest = EXCLUDED.is_guest,
   dm_opt_out = EXCLUDED.dm_opt_out
 `
 
@@ -526,7 +522,6 @@ type UpsertMemberParams struct {
 	IsBot       bool               `json:"is_bot"`
 	IsAlly      bool               `json:"is_ally"`
 	IsAffiliate bool               `json:"is_affiliate"`
-	IsGuest     bool               `json:"is_guest"`
 	DmOptOut    bool               `json:"dm_opt_out"`
 }
 
@@ -540,7 +535,6 @@ func (q *Queries) UpsertMember(ctx context.Context, arg UpsertMemberParams) erro
 		arg.IsBot,
 		arg.IsAlly,
 		arg.IsAffiliate,
-		arg.IsGuest,
 		arg.DmOptOut,
 	)
 	return err

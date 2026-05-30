@@ -23,7 +23,6 @@ func (c *ConverterImpl) FromGetMemberRow(source dbgen.GetMemberRow) Member {
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
-	membersMember.IsGuest = source.IsGuest
 	return membersMember
 }
 func (c *ConverterImpl) FromGetMemberRows(source []dbgen.GetMemberRow) []Member {
@@ -48,7 +47,6 @@ func (c *ConverterImpl) FromListMembersByBlueprintRow(source dbgen.ListMembersBy
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
-	membersMember.IsGuest = source.IsGuest
 	return membersMember
 }
 func (c *ConverterImpl) FromListMembersByBlueprintRows(source []dbgen.ListMembersByBlueprintRow) []Member {
@@ -73,7 +71,6 @@ func (c *ConverterImpl) FromListMembersByIDsRow(source dbgen.ListMembersByIDsRow
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
-	membersMember.IsGuest = source.IsGuest
 	return membersMember
 }
 func (c *ConverterImpl) FromListMembersByIDsRows(source []dbgen.ListMembersByIDsRow) []Member {
@@ -98,7 +95,6 @@ func (c *ConverterImpl) FromListMembersPageRow(source dbgen.ListMembersPageRow) 
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
-	membersMember.IsGuest = source.IsGuest
 	return membersMember
 }
 func (c *ConverterImpl) FromListMembersPageRows(source []dbgen.ListMembersPageRow) []Member {
@@ -123,7 +119,6 @@ func (c *ConverterImpl) FromListRandomMembersByRankRow(source dbgen.ListRandomMe
 	membersMember.IsBot = source.IsBot
 	membersMember.IsAlly = source.IsAlly
 	membersMember.IsAffiliate = source.IsAffiliate
-	membersMember.IsGuest = source.IsGuest
 	return membersMember
 }
 func (c *ConverterImpl) FromListRandomMembersByRankRows(source []dbgen.ListRandomMembersByRankRow) []Member {

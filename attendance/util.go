@@ -17,7 +17,7 @@ func Issues(member *members.Member) []string {
 		return issues
 	}
 
-	if member.IsGuest {
+	if member.Rank == ranks.None || member.Rank == ranks.Guest {
 		issues = append(issues, "guest")
 		return issues
 	}

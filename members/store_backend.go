@@ -114,7 +114,6 @@ func (b *postgresMembersBackend) Upsert(member *Member) error {
 		IsBot:       member.IsBot,
 		IsAlly:      member.IsAlly,
 		IsAffiliate: member.IsAffiliate,
-		IsGuest:     member.IsGuest,
 		DmOptOut:    member.DmOptOut,
 	}); err != nil {
 		return err

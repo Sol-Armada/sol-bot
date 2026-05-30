@@ -1,7 +1,6 @@
 package attendance
 
 import (
-	"cmp"
 	"fmt"
 	"sort"
 	"strconv"
@@ -36,10 +35,6 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 			memberA := participants[i].Member
 			memberB := participants[j].Member
 			switch {
-			case cmp.Or(memberB.IsGuest, memberB.IsAffiliate, memberB.IsAlly) && !cmp.Or(memberA.IsGuest, memberA.IsAffiliate, memberA.IsAlly):
-				return true
-			case cmp.Or(memberA.IsGuest, memberA.IsAffiliate, memberA.IsAlly) && !cmp.Or(memberB.IsGuest, memberB.IsAffiliate, memberB.IsAlly):
-				return false
 			case memberA.Rank != memberB.Rank:
 				return memberA.Rank < memberB.Rank
 			default:
