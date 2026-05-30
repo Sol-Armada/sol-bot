@@ -11,22 +11,16 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/rsi"
-	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
 var logger *slog.Logger
 
 const (
-	// Processing constants
 	memberProcessingChunkSize = 10
 	discordAPIRetries         = 3
-	rsiAPIRetries             = 10
 
-	// Timeout constants
 	discordAPIMaxDelay = 5 * time.Minute
-	rsiAPIMaxDelay     = 60 * time.Second
 	healthCheckDelay   = 10 * time.Second
 )
 
@@ -144,15 +138,6 @@ func (b *Bot) GetDiscordMembers(logger *slog.Logger) ([]*discordgo.Member, error
 	return members, nil
 }
 
-func (b *Bot) GetMember(id string) (*discordgo.Member, error) {
-	member, err := b.GuildMember(b.GuildId, id)
-	if err != nil {
-		return nil, errors.Wrap(err, "getting guild member")
-	}
-
-	return member, nil
-}
-
 func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*discordgo.Member) error {
 	defer func() {
 		removeStatusMessage("member_monitor")
@@ -164,32 +149,13 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		return nil
 	}
 
-	// Cache role IDs for efficiency - moved outside loop
-	recruitRoleID := settings.GetString("DISCORD.ROLE_IDS.RECRUIT")
-	allyRoleID := settings.GetString("DISCORD.ROLE_IDS.ALLY")
-
-	// Track processing errors
 	var processingErrors []error
-
-	// Create RSI backoff for rate limiting with skip condition for user not found errors
-	rsiBackoff := utils.NewExponentialBackoffWithSkipCondition(
-		1*time.Second,  // initial delay
-		rsiAPIMaxDelay, // max delay for RSI calls
-		2.0,            // multiplier
-		rsiAPIRetries,  // max retries for RSI
-		logger,
-		func(err error) bool {
-			// Skip retries for 404/user not found errors or 403/forbidden errors
-			return errors.Is(err, rsi.ErrUserNotFound) || errors.Is(err, rsi.ErrForbidden)
-		},
-	)
 
 	logger.Info(fmt.Sprintf("updating %d members", len(discordMembers)))
 	if err := bot.UpdateCustomStatus("Updating members..."); err != nil {
 		logger.Error("updating custom status", "error", err)
 	}
 
-	// Process members in chunks to reduce memory usage and improve performance
 	for chunkStart := 0; chunkStart < len(discordMembers); chunkStart += memberProcessingChunkSize {
 		select {
 		case <-ctx.Done():
@@ -206,7 +172,7 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		upsertStatusMessage("member_monitor", fmt.Sprintf("Updating members... (%d/%d)", chunkEnd, len(discordMembers)))
 
 		// Process each member in the chunk
-		processedMembers := processChunkMembers(ctx, chunk, chunkStart, recruitRoleID, allyRoleID, rsiBackoff, logger, &processingErrors)
+		processedMembers := processChunkMembers(ctx, chunk, chunkStart, logger, &processingErrors)
 
 		// Save chunk in batch
 		if len(processedMembers) > 0 {
@@ -220,7 +186,6 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 		}
 	}
 
-	// Log any processing errors but don't fail the entire operation
 	if len(processingErrors) > 0 {
 		logger.Warn("encountered errors during member processing", "error_count", len(processingErrors))
 	}
@@ -230,7 +195,6 @@ func updateMembers(ctx context.Context, logger *slog.Logger, discordMembers []*d
 
 // fetchAndValidateDiscordMembers fetches Discord members with retry logic and validates them
 func fetchAndValidateDiscordMembers(logger *slog.Logger) ([]*discordgo.Member, error) {
-	// Create exponential backoff for Discord API calls
 	backoff := utils.NewExponentialBackoff(
 		1*time.Second,      // initial delay
 		discordAPIMaxDelay, // max delay
@@ -259,7 +223,6 @@ func fetchAndValidateDiscordMembers(logger *slog.Logger) ([]*discordgo.Member, e
 
 // fetchDiscordMembersWithRateLimit handles rate limiting and API calls
 func fetchDiscordMembersWithRateLimit(logger *slog.Logger, discordMembers *[]*discordgo.Member) error {
-	// Rate limit protection
 	if bot.Ratelimiter != nil {
 		rateBucket := bot.Ratelimiter.GetBucket("guild_member_check")
 		if rateBucket != nil && rateBucket.Remaining == 0 {
@@ -268,7 +231,6 @@ func fetchDiscordMembersWithRateLimit(logger *slog.Logger, discordMembers *[]*di
 		}
 	}
 
-	// Double-check bot is not nil before calling
 	if bot == nil {
 		return errors.New("bot instance is nil")
 	}
@@ -367,8 +329,6 @@ func processChunkMembers(
 	ctx context.Context,
 	chunk []*discordgo.Member,
 	chunkStart int,
-	recruitRoleID, allyRoleID string,
-	rsiBackoff *utils.ExponentialBackoff,
 	logger *slog.Logger,
 	processingErrors *[]error,
 ) []members.Member {
@@ -404,22 +364,13 @@ func processChunkMembers(
 			continue
 		}
 
-		UpdateMemberData(member, discordMember, recruitRoleID, allyRoleID, mlogger)
+		if err := member.UpdateFromDiscordMember(discordMember); err != nil {
+			*processingErrors = append(*processingErrors, errors.Wrap(err, "updating member from discord member"))
+			continue
+		}
 
-		if err := rsiBackoff.Execute(func() error {
-			profile, err := rsi.GetRSIInfo(member.Name)
-			if err != nil {
-				return err
-			}
-			affiliations := make([]string, 0, len(profile.Affiliation))
-			for _, aff := range profile.Affiliation {
-				affiliations = append(affiliations, aff.SID)
-			}
-			member.UpdateRsiInfo()
-			return member.Save()
-		}); err != nil && !errors.Is(err, rsi.ErrUserNotFound) {
-			mlogger.Error("updating RSI info", "error", err)
-			*processingErrors = append(*processingErrors, err)
+		if err := member.UpdateRsiInfo(); err != nil {
+			*processingErrors = append(*processingErrors, errors.Wrap(err, "updating RSI info"))
 			continue
 		}
 
@@ -441,30 +392,8 @@ func getOrCreateMember(discordMember *discordgo.Member, logger *slog.Logger) (*m
 
 		logger.Debug("creating new member")
 		member = members.New(discordMember)
-		if member == nil {
-			return nil, err
-		}
 	}
 
-	logger.Debug("member retrieved/created", "member_nil", member == nil)
+	logger.Debug("member retrieved/created")
 	return member, nil
-}
-
-// updateMemberData updates basic member information from Discord
-func UpdateMemberData(member *members.Member, discordMember *discordgo.Member, recruitRoleID, allyRoleID string, logger *slog.Logger) {
-	// Update basic member fields
-	logger.Debug("updating member fields", "current_name", member.Name)
-	truenick := member.GetTrueNick(discordMember)
-	logger.Debug("got true nick", "truenick", truenick)
-	member.Name = strings.ReplaceAll(truenick, ".", "")
-
-	if member.Joined.IsZero() {
-		logger.Debug("setting joined date", "joined_at", discordMember.JoinedAt)
-		member.Joined = discordMember.JoinedAt.UTC()
-	}
-
-	// Update avatar
-	member.Avatar = discordMember.User.Avatar
-
-	member.UpdateRoles(discordMember.Roles)
 }

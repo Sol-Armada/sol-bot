@@ -455,6 +455,21 @@ func (m *Member) OptOutOfDMs() error {
 	return m.Save()
 }
 
+func (m *Member) UpdateFromDiscordMember(discordMember *discordgo.Member) error {
+	truenick := m.GetTrueNick(discordMember)
+	m.Name = strings.ReplaceAll(truenick, ".", "")
+
+	if m.Joined.IsZero() {
+		m.Joined = discordMember.JoinedAt.UTC()
+	}
+
+	m.Avatar = discordMember.User.Avatar
+
+	m.UpdateRoles(discordMember.Roles)
+
+	return m.Save()
+}
+
 func extractNames(members []*Member) []string {
 	names := make([]string, 0, len(members))
 	for _, member := range members {
