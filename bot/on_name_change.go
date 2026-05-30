@@ -13,7 +13,7 @@ import (
 )
 
 func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
-	slog.Debug("member name changed")
+	slog.Debug("member name changed", "user_id", m.User.ID, "old_name", m.Member.Nick, "new_name", m.BeforeUpdate.Nick)
 
 	if m.User.Bot {
 		return
@@ -31,7 +31,7 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 		return
 	}
 
-	member.UpdateRoles(m.Member.Roles)
+	member.UpdateRank(m.Member.Roles)
 
 	if err := (&utils.ExponentialBackoff{
 		MaxRetries: 3,

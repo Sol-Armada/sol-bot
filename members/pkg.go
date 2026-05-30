@@ -370,26 +370,15 @@ func (m *Member) IsOfficer() bool {
 	return m.Rank <= ranks.Lieutenant
 }
 
-func (m *Member) UpdateRoles(discordRoles []string) {
-	recruitRoleID := settings.GetString("DISCORD.ROLE_IDS.RECRUIT")
-	allyRoleID := settings.GetString("DISCORD.ROLE_IDS.ALLY")
-
-	roleMap := createRoleMap(discordRoles)
-
-	m.IsAffiliate = false
-	m.IsAlly = false
-	m.IsBot = false
-
-	if roleMap[recruitRoleID] {
-		m.Rank = ranks.Recruit
-		return
+func (m *Member) UpdateRank(discordRoles []string) {
+	rankIds := ranks.GetRoleIDs()
+	for rankName, roleID := range rankIds {
+		if slices.Contains(discordRoles, roleID) {
+			m.Rank = ranks.GetRankByName(rankName)
+			return
+		}
 	}
-
-	if roleMap[allyRoleID] {
-		m.Rank = ranks.None
-		m.IsAlly = true
-		return
-	}
+	m.Rank = ranks.Guest
 }
 
 func (m *Member) UpdateRsiInfo() error {
@@ -432,13 +421,13 @@ func (r *RsiInfo) Save() error {
 	return membersBackend.UpsertRsiInfo(r)
 }
 
-func createRoleMap(roles []string) map[string]bool {
-	roleMap := make(map[string]bool, len(roles))
+func createRoleMap(roles []string) map[string]struct{} {
+	roleMap := make(map[string]struct{}, len(roles))
 	for _, roleID := range roles {
 		if roleID == "" {
 			continue
 		}
-		roleMap[roleID] = true
+		roleMap[roleID] = struct{}{}
 	}
 	return roleMap
 }
@@ -458,7 +447,7 @@ func (m *Member) UpdateFromDiscordMember(discordMember *discordgo.Member) error 
 
 	m.Avatar = discordMember.User.Avatar
 
-	m.UpdateRoles(discordMember.Roles)
+	m.UpdateRank(discordMember.Roles)
 
 	return m.Save()
 }

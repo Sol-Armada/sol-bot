@@ -54,6 +54,10 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 
 		var row strings.Builder
 		for i, participant := range participants {
+			if len(Issues(participant.Member)) > 0 {
+				continue
+			}
+
 			// for every 10 members, make a new field
 			if i%10 == 0 && i != 0 {
 				fields = append(fields, &discordgo.MessageEmbedField{

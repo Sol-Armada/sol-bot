@@ -97,6 +97,10 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 				return errors.Wrap(err, "getting guild member")
 			}
 
+			if err := member.UpdateFromDiscordMember(guildMember); err != nil {
+				return errors.Wrap(err, "updating member from discord member")
+			}
+
 			member.Name = member.GetTrueNick(guildMember)
 
 			profile, err := rsi.GetRSIInfo(member.Name)

@@ -1,6 +1,11 @@
 package ranks
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/sol-armada/sol-bot/settings"
+)
 
 type Rank int
 
@@ -106,4 +111,18 @@ func (r Rank) ShortString() string {
 		return "TEC"
 	}
 	return ""
+}
+
+func GetRoleIDs() map[string]string {
+	roleMap := make(map[string]string)
+
+	// Manually build from known role names
+	roles := []string{"admiral", "commander", "lieutenant", "specialist", "technician", "member", "recruit", "ally", "affiliate"}
+	for _, role := range roles {
+		key := fmt.Sprintf("discord.role_ids.%s", role)
+		if val := settings.GetString(key); val != "" {
+			roleMap[role] = val
+		}
+	}
+	return roleMap
 }
