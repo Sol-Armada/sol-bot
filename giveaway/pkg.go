@@ -208,7 +208,11 @@ func (g *Giveaway) End() error {
 	g.Ended = true
 
 	if err := g.sess.ChannelMessageUnpin(g.ChannelId, g.EmbedMessageId); err != nil {
-		return errors.Join(err, errors.New("failed to unpin giveaway embed message"))
+		if !errors.Is(err, discordgo.ErrStateNotFound) {
+			return errors.Join(err, ErrUnableToUnpinGiveaway)
+		}
+
+		slog.Warn("failed to unpin giveaway message, it may have already been unpinned", "error", err)
 	}
 
 	// get the winners

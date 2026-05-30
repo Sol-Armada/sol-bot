@@ -469,7 +469,7 @@ func (app *Application) scheduleMemberMonitor() error {
 
 	logger.Info("scheduling member monitor")
 	j, err := app.scheduler.NewJob(
-		gocron.CronJob("*/5 * * * *", false),
+		gocron.CronJob("*/30 * * * *", false),
 		gocron.NewTask(func(ctx context.Context) error {
 			return bot.MemberMonitor(ctx, monitorLogger)
 		}),
