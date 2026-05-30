@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -107,10 +106,9 @@ func (r *Runner) ApplyMigration(migrationsDir, name string) error {
 	defer r.pool.Exec(r.ctx, "SELECT pg_advisory_unlock(1)") //nolint:errcheck
 
 	// Read migration file
-	upPath := filepath.Join(migrationsDir, name+".up.sql")
-	sqlContent, err := os.ReadFile(upPath)
+	sqlContent, err := readMigrationSQL(migrationsDir, name+".up.sql")
 	if err != nil {
-		return fmt.Errorf("read migration file %s: %w", upPath, err)
+		return fmt.Errorf("read migration file %s: %w", name+".up.sql", err)
 	}
 
 	sql := string(sqlContent)
@@ -163,10 +161,9 @@ func (r *Runner) RevertMigration(migrationsDir, name string) error {
 	}
 
 	// Read migration file
-	downPath := filepath.Join(migrationsDir, name+".down.sql")
-	sqlContent, err := ioutil.ReadFile(downPath)
+	sqlContent, err := readMigrationSQL(migrationsDir, name+".down.sql")
 	if err != nil {
-		return fmt.Errorf("read migration file %s: %w", downPath, err)
+		return fmt.Errorf("read migration file %s: %w", name+".down.sql", err)
 	}
 
 	sql := string(sqlContent)
@@ -267,32 +264,65 @@ func (r *Runner) RevertN(migrationsDir string, steps int) error {
 
 // discoverMigrations scans the migrations directory and returns all migration names in order.
 func (r *Runner) discoverMigrations(dir string) ([]string, error) {
-	files, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return nil, fmt.Errorf("read migrations directory: %w", err)
-	}
-
 	upRegex := regexp.MustCompile(`^(\d+)_(.+)\.up\.sql$`)
 	var migrations []string
 	seen := make(map[string]bool)
 
-	for _, file := range files {
-		if !file.IsDir() && strings.HasSuffix(file.Name(), ".up.sql") {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			return nil, fmt.Errorf("read migrations directory: %w", err)
+		}
+
+		embeddedEntries, embeddedErr := embeddedMigrations.ReadDir(".")
+		if embeddedErr != nil {
+			return nil, fmt.Errorf("read migrations directory: %w", err)
+		}
+
+		for _, entry := range embeddedEntries {
+			fileName := entry.Name()
+			if entry.IsDir() || !strings.HasSuffix(fileName, ".up.sql") {
+				continue
+			}
+
+			match := upRegex.FindStringSubmatch(fileName)
+			if match == nil {
+				continue
+			}
+
+			name := strings.TrimSuffix(fileName, ".up.sql")
+			if _, embeddedErr := embeddedMigrations.ReadFile(name + ".down.sql"); embeddedErr != nil {
+				return nil, fmt.Errorf("missing .down.sql for %s", name)
+			}
+
+			if !seen[name] {
+				migrations = append(migrations, name)
+				seen[name] = true
+			}
+		}
+	} else {
+		for _, file := range files {
+			if file.IsDir() || !strings.HasSuffix(file.Name(), ".up.sql") {
+				continue
+			}
+
 			match := upRegex.FindStringSubmatch(file.Name())
-			if match != nil {
-				// Migration name is everything before .up.sql (e.g., "000001_init")
-				name := strings.TrimSuffix(file.Name(), ".up.sql")
+			if match == nil {
+				continue
+			}
 
-				// Validate corresponding .down.sql exists
-				downPath := filepath.Join(dir, name+".down.sql")
-				if _, err := ioutil.ReadFile(downPath); err != nil {
-					return nil, fmt.Errorf("missing .down.sql for %s", name)
-				}
+			// Migration name is everything before .up.sql (e.g., "000001_init")
+			name := strings.TrimSuffix(file.Name(), ".up.sql")
 
-				if !seen[name] {
-					migrations = append(migrations, name)
-					seen[name] = true
-				}
+			// Validate corresponding .down.sql exists
+			downPath := filepath.Join(dir, name+".down.sql")
+			if _, err := os.ReadFile(downPath); err != nil {
+				return nil, fmt.Errorf("missing .down.sql for %s", name)
+			}
+
+			if !seen[name] {
+				migrations = append(migrations, name)
+				seen[name] = true
 			}
 		}
 	}
@@ -303,6 +333,25 @@ func (r *Runner) discoverMigrations(dir string) ([]string, error) {
 	})
 
 	return migrations, nil
+}
+
+func readMigrationSQL(migrationsDir, fileName string) ([]byte, error) {
+	path := filepath.Join(migrationsDir, fileName)
+	sqlContent, err := os.ReadFile(path)
+	if err == nil {
+		return sqlContent, nil
+	}
+
+	if !os.IsNotExist(err) {
+		return nil, err
+	}
+
+	embeddedContent, embeddedErr := embeddedMigrations.ReadFile(fileName)
+	if embeddedErr != nil {
+		return nil, err
+	}
+
+	return embeddedContent, nil
 }
 
 // Status returns a summary of applied and pending migrations.
