@@ -113,7 +113,7 @@ func NewFromThreadMessages(threadMessages []*discordgo.Message) (*Attendance, er
 			return nil, err
 		}
 
-		if err := attendance.AddMember(member); err != nil {
+		if err := attendance.AddParticipant(member); err != nil {
 			return nil, err
 		}
 	}
@@ -137,11 +137,11 @@ func (a *Attendance) Revert() error {
 	return a.Save()
 }
 
-func (a *Attendance) AddMember(member *members.Member) error {
-	return attendanceStore.CreateParticipant(a.Id, &Participant{
-		Member: member,
-	})
-}
+// func (a *Attendance) AddMember(member *members.Member) error {
+// 	return attendanceStore.CreateParticipant(a.Id, &Participant{
+// 		Member: member,
+// 	})
+// }
 
 func (a *Attendance) Save() error {
 	if attendanceStore == nil {
@@ -248,8 +248,14 @@ func (a *Attendance) RecheckIssues() error {
 	return nil
 }
 
-func (a *Attendance) RemoveParticipant(id string) error {
-	return attendanceStore.RemoveParticipant(a.Id, id)
+func (a *Attendance) AddParticipant(member *members.Member) error {
+	return attendanceStore.CreateParticipant(a.Id, &Participant{
+		Member: member,
+	})
+}
+
+func (a *Attendance) RemoveParticipant(member *members.Member) error {
+	return attendanceStore.RemoveParticipant(a.Id, member.Id)
 }
 
 func (a *Attendance) SetStatus(status Status) error {

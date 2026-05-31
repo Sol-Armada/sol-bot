@@ -7,6 +7,7 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -22,6 +23,9 @@ func refreshButtonHandler(ctx context.Context, s *discordgo.Session, i *discordg
 	}
 
 	if err := a.RecheckIssues(); err != nil {
+		if err == rsi.ErrForbidden {
+		}
+
 		return errors.Wrap(err, "rechecking issues for attendance record")
 	}
 

@@ -29,6 +29,7 @@ import (
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
@@ -335,8 +336,13 @@ func (b *Bot) Setup() error {
 						return
 					}
 
+					response := "I ran into an error! You didn't do anything wrong. I have notified the right people and hopfully this gets fixed."
+					switch {
+					case errors.Is(err, rsi.ErrForbidden):
+						response = "RSI is currently not allowing me to access user profiles. Give it some time and try again."
+					}
 					if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, &discordgo.WebhookEdit{
-						Content: new("I ran into an error! You didn't do anything wrong. I have notified the right people and hopfully this gets fixed."),
+						Content: &response,
 					}); err != nil {
 						logger.Error("editing followup message", "error", err)
 					}
@@ -398,6 +404,8 @@ func (b *Bot) Setup() error {
 				msg = "You don't have permission to do that"
 			case InvalidAttendanceRecord:
 				msg = "That is not a valid attendance record"
+			case rsi.ErrForbidden:
+				msg = "RSI is currently not allowing me to access user profiles. Give it some time and try again"
 			default:
 			}
 

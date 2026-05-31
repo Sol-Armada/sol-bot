@@ -33,21 +33,26 @@ var autoCompletes = map[string]func(ctx context.Context, s *discordgo.Session, i
 }
 
 var buttons = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
-	"start":            startEventButtonHandler,
-	"end":              endEventButtonHandler,
-	"delete":           deleteButtonHandler,
-	"refresh":          refreshButtonHandler,
-	"verifydelete":     verifyDeleteButtonHandler,
-	"canceldelete":     cancelDeleteButtonHandler,
-	"stayed":           stayedSelectHandler,
-	"stayed_submit":    stayedSubmitButtonHandler,
-	"successful":       successfulButtonHandler,
-	"unsuccessful":     unsuccessfulButtonHandler,
-	"export":           exportButtonHandler,
-	"revert":           revertButtonHandler,
-	"distribute":       distributeButtonHandler,
-	"toggle_tokenable": toggleTokenableButtonHandler,
+	"start":                   startEventButtonHandler,
+	"end":                     endEventButtonHandler,
+	"delete":                  deleteButtonHandler,
+	"refresh":                 refreshButtonHandler,
+	"verifydelete":            verifyDeleteButtonHandler,
+	"canceldelete":            cancelDeleteButtonHandler,
+	"stayed":                  stayedSelectHandler,
+	"stayed_submit":           stayedSubmitButtonHandler,
+	"successful":              successfulButtonHandler,
+	"unsuccessful":            unsuccessfulButtonHandler,
+	"export":                  exportButtonHandler,
+	"revert":                  revertButtonHandler,
+	"distribute":              distributeButtonHandler,
+	"toggle_tokenable":        toggleTokenableButtonHandler,
+	"add_remove_participants": addRemoveParticipantsButtonHandler,
+	"add_participants":        addParticipantsSelectMenuHandler,
+	"remove_participants":     removeParticipantsSelectMenuHandler,
 }
+
+var selectMenus = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{}
 
 var modals = map[string]func(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error{
 	"distribute": distributeModalHandler,
@@ -290,5 +295,15 @@ func (c *AttendanceCommand) ModalHandler(ctx context.Context, s *discordgo.Sessi
 }
 
 func (c *AttendanceCommand) SelectMenuHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	return nil
+	logger := utils.GetLoggerFromContext(ctx)
+	logger.Debug("attendance select menu handler")
+
+	data := i.Interaction.MessageComponentData()
+	action := strings.Split(data.CustomID, ":")[1]
+	handler, ok := selectMenus[action]
+	if !ok {
+		return customerrors.InvalidSelectMenu
+	}
+
+	return handler(ctx, s, i)
 }

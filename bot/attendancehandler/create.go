@@ -70,7 +70,7 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 				continue
 			}
 
-			if err := a.AddMember(member); err != nil {
+			if err := a.AddParticipant(member); err != nil {
 				return errors.Wrap(err, "adding member to new attendance")
 			}
 		}

@@ -230,7 +230,7 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 				discordgo.Button{
 					Label:    "Delete",
 					Style:    discordgo.DangerButton,
-					Disabled: a.Recorded,
+					Disabled: a.Status == AttendanceStatusRecorded,
 					Emoji: &discordgo.ComponentEmoji{
 						Name: "🗑️",
 					},
@@ -239,11 +239,20 @@ func (a *Attendance) ToDiscordMessage() (*discordgo.MessageSend, error) {
 				discordgo.Button{
 					Label:    "Refresh",
 					Style:    discordgo.PrimaryButton,
-					Disabled: a.Recorded,
+					Disabled: a.Status == AttendanceStatusRecorded,
 					Emoji: &discordgo.ComponentEmoji{
 						Name: "🔁",
 					},
 					CustomID: "attendance:refresh:" + a.Id,
+				},
+				discordgo.Button{
+					Label:    "Add/Remove Participants",
+					Style:    discordgo.PrimaryButton,
+					Disabled: a.Status == AttendanceStatusRecorded,
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "➕",
+					},
+					CustomID: "attendance:add_remove_participants:" + a.Id,
 				},
 			},
 		})
