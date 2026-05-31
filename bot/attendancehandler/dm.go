@@ -27,11 +27,10 @@ func directMessageAttendees(s *discordgo.Session, logger *slog.Logger, a *attend
 
 		errGroup.Go(func() error {
 			defer func() { <-semaphore }()
-
 			member := participant.Member
 
-			if member.DmOptOut {
-				return nil
+			if member.DmOptOut || participant.Messaged {
+				return participant.SetMessaged(a.Id, true)
 			}
 
 			dm, err := s.UserChannelCreate(member.Id)
@@ -99,7 +98,8 @@ func directMessageAttendees(s *discordgo.Session, logger *slog.Logger, a *attend
 			}); err != nil {
 				return errors.Wrap(err, fmt.Sprintf("sending DM to member %s", member.Id))
 			}
-			return nil
+
+			return participant.SetMessaged(a.Id, true)
 		})
 	}
 	if err := errGroup.Wait(); err != nil {

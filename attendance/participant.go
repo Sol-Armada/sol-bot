@@ -9,6 +9,7 @@ type Participant struct {
 	JoinedAtStart  bool            `json:"joined_at_start"`
 	StayedUntilEnd bool            `json:"stayed_until_end"`
 	IsManager      bool            `json:"is_manager"`
+	Messaged       bool            `json:"messaged"`
 }
 
 func (p *Participant) Save(attendanceID string) error {
@@ -27,5 +28,10 @@ func (p *Participant) SetStayedUntilEnd(attendanceID string, stayed bool) error 
 
 func (p *Participant) SetJoinedAtStart(attendanceID string, joined bool) error {
 	p.JoinedAtStart = joined
+	return p.Save(attendanceID)
+}
+
+func (p *Participant) SetMessaged(attendanceID string, messaged bool) error {
+	p.Messaged = messaged
 	return p.Save(attendanceID)
 }

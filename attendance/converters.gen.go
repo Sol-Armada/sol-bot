@@ -38,6 +38,7 @@ func (c *ConverterImpl) FromDbParticipantRow(source dbgen.AttendanceParticipant)
 	attendanceParticipant.JoinedAtStart = source.JoinedAtStart
 	attendanceParticipant.StayedUntilEnd = source.StayedUntilEnd
 	attendanceParticipant.IsManager = source.IsManager
+	attendanceParticipant.Messaged = source.Messaged
 	return &attendanceParticipant
 }
 func (c *ConverterImpl) FromDbParticipantRows(source []dbgen.AttendanceParticipant) []*Participant {

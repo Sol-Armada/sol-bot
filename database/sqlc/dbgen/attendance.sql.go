@@ -223,7 +223,7 @@ func (q *Queries) ListAttendancePage(ctx context.Context, arg ListAttendancePage
 }
 
 const listAttendanceParticipants = `-- name: ListAttendanceParticipants :many
-SELECT attendance_id, member_id, joined_at_start, stayed_until_end, has_issue, created_at, updated_at, is_manager
+SELECT attendance_id, member_id, joined_at_start, stayed_until_end, has_issue, created_at, updated_at, is_manager, messaged
 FROM attendance_participants
 WHERE attendance_id = $1
 ORDER BY member_id
@@ -247,6 +247,7 @@ func (q *Queries) ListAttendanceParticipants(ctx context.Context, attendanceID s
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.IsManager,
+			&i.Messaged,
 		); err != nil {
 			return nil, err
 		}
@@ -384,7 +385,8 @@ INSERT INTO attendance_participants (
     stayed_until_end,
     has_issue,
     updated_at,
-    is_manager
+    is_manager,
+    messaged
 	)
 VALUES (
     $1,
@@ -393,14 +395,16 @@ VALUES (
     $4,
     $5,
     COALESCE($6, NOW()),
-    $7
+    $7,
+    $8
 	)
 ON CONFLICT (attendance_id, member_id) DO UPDATE
 SET joined_at_start = EXCLUDED.joined_at_start,
     stayed_until_end = EXCLUDED.stayed_until_end,
     has_issue = EXCLUDED.has_issue,
     updated_at = EXCLUDED.updated_at,
-    is_manager = EXCLUDED.is_manager
+    is_manager = EXCLUDED.is_manager,
+    messaged = EXCLUDED.messaged
 `
 
 type UpsertAttendanceParticipantParams struct {
@@ -411,6 +415,7 @@ type UpsertAttendanceParticipantParams struct {
 	HasIssue       bool        `json:"has_issue"`
 	UpdatedAt      interface{} `json:"updated_at"`
 	IsManager      bool        `json:"is_manager"`
+	Messaged       bool        `json:"messaged"`
 }
 
 func (q *Queries) UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error {
@@ -422,6 +427,7 @@ func (q *Queries) UpsertAttendanceParticipant(ctx context.Context, arg UpsertAtt
 		arg.HasIssue,
 		arg.UpdatedAt,
 		arg.IsManager,
+		arg.Messaged,
 	)
 	return err
 }

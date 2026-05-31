@@ -45,6 +45,7 @@ type AttendanceParticipant struct {
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	IsManager      bool               `json:"is_manager"`
+	Messaged       bool               `json:"messaged"`
 }
 
 type AttendancePayout struct {

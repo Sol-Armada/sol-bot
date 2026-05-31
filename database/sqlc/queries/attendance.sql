@@ -97,7 +97,8 @@ INSERT INTO attendance_participants (
     stayed_until_end,
     has_issue,
     updated_at,
-    is_manager
+    is_manager,
+    messaged
 	)
 VALUES (
     sqlc.arg(attendance_id),
@@ -106,14 +107,16 @@ VALUES (
     sqlc.arg(stayed_until_end),
     sqlc.arg(has_issue),
     COALESCE(sqlc.arg(updated_at), NOW()),
-    sqlc.arg(is_manager)
+    sqlc.arg(is_manager),
+    sqlc.arg(messaged)
 	)
 ON CONFLICT (attendance_id, member_id) DO UPDATE
 SET joined_at_start = EXCLUDED.joined_at_start,
     stayed_until_end = EXCLUDED.stayed_until_end,
     has_issue = EXCLUDED.has_issue,
     updated_at = EXCLUDED.updated_at,
-    is_manager = EXCLUDED.is_manager;
+    is_manager = EXCLUDED.is_manager,
+    messaged = EXCLUDED.messaged;
 
 -- name: DeleteAttendanceParticipant :exec
 DELETE FROM attendance_participants
