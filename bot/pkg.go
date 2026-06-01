@@ -541,11 +541,11 @@ func (b *Bot) startJobs() {
 			),
 			gocron.WithName(job.Name),
 		); err != nil {
-			b.logger.Error("failed to create job", "job", job.Name, "error", err)
+			b.logger.Error("failed to create job", "job_name", job.Name, "error", err)
 			return
 		}
 
-		b.logger.Info("scheduled job", "job", job.Name, "cron", job.Cron)
+		b.logger.Info("scheduled job", "job_name", job.Name, "cron", job.Cron)
 	}
 
 	s.Start()
