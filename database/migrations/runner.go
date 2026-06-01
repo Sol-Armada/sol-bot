@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 
@@ -251,7 +252,7 @@ func (r *Runner) RevertN(migrationsDir string, steps int) error {
 	}
 
 	// Revert in reverse order (last applied first)
-	for i := 0; i < steps; i++ {
+	for i := range steps {
 		idx := len(applied) - 1 - i
 		name := applied[idx]
 		if err := r.RevertMigration(migrationsDir, name); err != nil {
@@ -328,9 +329,7 @@ func (r *Runner) discoverMigrations(dir string) ([]string, error) {
 	}
 
 	// Sort by version prefix
-	sort.Slice(migrations, func(i, j int) bool {
-		return migrations[i] < migrations[j]
-	})
+	slices.Sort(migrations)
 
 	return migrations, nil
 }
