@@ -27,15 +27,17 @@ type job struct {
 	Run  func(context.Context, *discordgo.Session, JobMonitor) error
 }
 
-var Jobs = []job{
-	{
-		Name: "Promotions Report",
-		Cron: settings.GetStringWithDefault("PROMOTIONS_REPORT_CRON", "0 0 * * *"),
-		Run:  promotionsReport,
-	},
-	{
-		Name: "Member Monitor",
-		Cron: settings.GetStringWithDefault("MEMBER_MONITOR_CRON", "*/2 * * * *"),
-		Run:  MemberMonitor,
-	},
+func GetJobs() []job {
+	return []job{
+		{
+			Name: "Promotions Report",
+			Cron: settings.GetStringWithDefault("PROMOTIONS_REPORT_CRON", "0 0 * * *"),
+			Run:  promotionsReport,
+		},
+		{
+			Name: "Member Monitor",
+			Cron: settings.GetStringWithDefault("MEMBER_MONITOR_CRON", "*/2 * * * *"),
+			Run:  MemberMonitor,
+		},
+	}
 }

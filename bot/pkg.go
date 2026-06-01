@@ -527,7 +527,7 @@ func (b *Bot) startJobs() {
 	}
 	b.schedular = &s
 
-	for _, job := range jobs.Jobs {
+	for _, job := range jobs.GetJobs() {
 		if _, err = s.NewJob(
 			gocron.CronJob(job.Cron, false),
 			gocron.NewTask(
