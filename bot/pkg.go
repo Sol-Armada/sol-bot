@@ -496,8 +496,31 @@ func (b *Bot) Setup() error {
 	return nil
 }
 
+type statusJobMonitor struct {
+	id string
+}
+
+func newStatusJobMonitor(jobName string) statusJobMonitor {
+	return statusJobMonitor{id: jobName}
+}
+
+func (m statusJobMonitor) Update(message string) {
+	message = strings.TrimSpace(message)
+	if message == "" {
+		return
+	}
+
+	upsertStatusMessage(m.id, message)
+}
+
+func (m statusJobMonitor) Done() {
+	removeStatusMessage(m.id)
+}
+
 func (b *Bot) startJobs() {
-	s, err := gocron.NewScheduler()
+	s, err := gocron.NewScheduler(
+		gocron.WithLogger(b.logger),
+	)
 	if err != nil {
 		b.logger.Error("failed to create scheduler", "error", err)
 		return
@@ -509,7 +532,11 @@ func (b *Bot) startJobs() {
 			gocron.CronJob(job.Cron, false),
 			gocron.NewTask(
 				func(ctx context.Context) error {
-					return job.Run(ctx, b.Session)
+					monitor := newStatusJobMonitor(job.Name)
+					monitor.Update(fmt.Sprintf("Running job %s", job.Name))
+					defer monitor.Done()
+
+					return job.Run(ctx, b.Session, monitor)
 				},
 			),
 			gocron.WithName(job.Name),
@@ -517,6 +544,8 @@ func (b *Bot) startJobs() {
 			b.logger.Error("failed to create job", "job", job.Name, "error", err)
 			return
 		}
+
+		b.logger.Info("scheduled job", "job", job.Name, "cron", job.Cron)
 	}
 
 	s.Start()

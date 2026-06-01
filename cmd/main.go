@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/go-co-op/gocron/v2"
-	"github.com/google/uuid"
 	"github.com/sol-armada/sol-bot/activity"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot"
@@ -466,36 +465,36 @@ func (app *Application) createMonitorLogger() *slog.Logger {
 
 // scheduleMemberMonitor sets up the member monitoring job
 func (app *Application) scheduleMemberMonitor() error {
-	monitorLogger := app.createMonitorLogger()
+	// monitorLogger := app.createMonitorLogger()
 
-	logger.Info("scheduling member monitor")
-	j, err := app.scheduler.NewJob(
-		gocron.CronJob("*/30 * * * *", false),
-		gocron.NewTask(func(ctx context.Context) error {
-			return bot.MemberMonitor(ctx, monitorLogger)
-		}),
-		gocron.WithSingletonMode(gocron.LimitModeReschedule),
-		gocron.WithEventListeners(
-			gocron.BeforeJobRuns(func(jobID uuid.UUID, jobName string) {
-				monitorLogger.Info("starting member monitor", "job_id", jobID, "job_name", jobName)
-			}),
-			gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, jobErr error) {
-				if jobErr == nil {
-					return
-				}
-				monitorLogger.Error("member monitor failed", "job_id", jobID, "job_name", jobName, "error", jobErr)
-			}),
-			gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
-				monitorLogger.Info("completed member monitor", "job_id", jobID, "job_name", jobName)
-			}),
-		),
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create member monitor job: %w", err)
-	}
+	// logger.Info("scheduling member monitor")
+	// j, err := app.scheduler.NewJob(
+	// 	gocron.CronJob("*/30 * * * *", false),
+	// 	gocron.NewTask(func(ctx context.Context) error {
+	// 		return bot.MemberMonitor(ctx, monitorLogger)
+	// 	}),
+	// 	gocron.WithSingletonMode(gocron.LimitModeReschedule),
+	// 	gocron.WithEventListeners(
+	// 		gocron.BeforeJobRuns(func(jobID uuid.UUID, jobName string) {
+	// 			monitorLogger.Info("starting member monitor", "job_id", jobID, "job_name", jobName)
+	// 		}),
+	// 		gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, jobErr error) {
+	// 			if jobErr == nil {
+	// 				return
+	// 			}
+	// 			monitorLogger.Error("member monitor failed", "job_id", jobID, "job_name", jobName, "error", jobErr)
+	// 		}),
+	// 		gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
+	// 			monitorLogger.Info("completed member monitor", "job_id", jobID, "job_name", jobName)
+	// 		}),
+	// 	),
+	// )
+	// if err != nil {
+	// 	return fmt.Errorf("failed to create member monitor job: %w", err)
+	// }
 
-	// Start monitoring job status in background
-	go app.monitorJobStatus(j)
+	// // Start monitoring job status in background
+	// go app.monitorJobStatus(j)
 	return nil
 }
 
