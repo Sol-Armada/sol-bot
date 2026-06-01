@@ -26,6 +26,8 @@ var (
 	InvalidInput            = e.New("invalid input")
 	InvalidGiveaway         = e.New("invalid giveaway")
 	InvalidSelectMenu       = e.New("invalid select menu")
+
+	NoPromotions = e.New("no promotions")
 )
 
 func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string, errorCode *string) {

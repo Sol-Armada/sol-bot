@@ -2,12 +2,11 @@ package rankupshandler
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
+	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -34,115 +33,22 @@ func (r *RankupsCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 	logger := utils.GetLoggerFromContext(ctx)
 	logger.Debug("rank ups command handler")
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
-
-	// // get members
-	// membersList, err := members.List(0)
-	// if err != nil {
-	// 	return err
-	// }
-
-	// // check if any members need to rank up
-	// type t struct {
-	// 	Member   members.Member
-	// 	NextRank ranks.Rank
-	// 	Count    int
-	// }
-	// needsRankUp := []t{}
-	// for _, member := range membersList {
-	// 	if !member.IsRanked() || member.IsGuest || member.IsAlly || member.IsAffiliate {
-	// 		continue
-	// 	}
-
-	// 	logger.Debug("checking if member needs rank up", "member", member.Id)
-
-	// 	count, err := attendance.GetMemberAttendanceCount(member.Id)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	tt := t{Member: member, Count: count}
-
-	// 	if member.Rank == ranks.Recruit && count >= 3 {
-	// 		tt.NextRank = ranks.Member
-	// 	}
-	// 	if member.Rank == ranks.Member && count >= 10 {
-	// 		tt.NextRank = ranks.Technician
-	// 	}
-	// 	if member.Rank == ranks.Technician && count >= 20 {
-	// 		tt.NextRank = ranks.Specialist
-	// 	}
-
-	// 	if tt.NextRank != 0 {
-	// 		needsRankUp = append(needsRankUp, tt)
-	// 	}
-	// }
-
-	// get promotions
-	promotions, err := members.ListPromotions()
+	embed, err := members.GetPromotionsEmbed()
 	if err != nil {
-		return err
-	}
-
-	if len(promotions) == 0 {
-		_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Content: "There are no members that need a rank up",
-		})
-		return nil
-	}
-
-	fields := []*discordgo.MessageEmbedField{
-		{
-			Name:   "Members to Rank Up",
-			Value:  "",
-			Inline: true,
-		},
-	}
-	embed := &discordgo.MessageEmbed{
-		Title:  "",
-		Fields: fields,
-	}
-
-	ind := 0
-	for _, promotion := range promotions {
-		if promotion.NextRank == 0 {
-			continue
-		}
-
-		if ind%10 == 0 && ind != 0 {
-			fields = append(fields, &discordgo.MessageEmbedField{
-				Name:   "Members to Rank Up (continued)",
-				Value:  "",
-				Inline: true,
+		if customerrors.Is(err, customerrors.NoPromotions) {
+			_, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "No promotions found",
 			})
 		}
-
-		field := fields[len(fields)-1]
-		field.Value += fmt.Sprintf("<@%s> to %s (%d Events)", promotion.ID, ranks.Rank(promotion.NextRank).String(), promotion.AttendanceCount)
-
-		// if not the 10th member, add a newline
-		if ind%10 != 9 {
-			field.Value += "\n"
-		}
-
-		ind++
-	}
-
-	// create followup
-	_, err = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: "These members need a rank up",
-		Embeds:  []*discordgo.MessageEmbed{embed},
-	})
-	if err != nil {
 		return err
 	}
 
-	return nil
+	_, err = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+		Flags:  discordgo.MessageFlagsEphemeral,
+		Embeds: []*discordgo.MessageEmbed{embed},
+	})
+	return err
 }
 
 // ModalHandler implements [command.ApplicationCommand].

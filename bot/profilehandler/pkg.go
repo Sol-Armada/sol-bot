@@ -63,8 +63,6 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 
 	if len(data.Options) > 0 && member.IsOfficer() {
 		logger.Debug("getting profile of other member")
-
-		force := getOptionValue(data.Options, "force_update").BoolValue()
 		otherMemberId := func() string {
 			v := getOptionValue(data.Options, "member")
 			if v != nil {
@@ -89,7 +87,8 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 			}
 		}
 
-		if force { // update the member before getting their profile
+		forceOption := data.GetOption("force_update")
+		if forceOption != nil && forceOption.BoolValue() { // update the member before getting their profile
 			logger.Debug("force updating member")
 
 			guildMember, err := s.GuildMember(i.GuildID, member.Id)

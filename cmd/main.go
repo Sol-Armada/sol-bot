@@ -1,6 +1,7 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -521,7 +522,7 @@ func (app *Application) monitorJobStatus(j gocron.Job) {
 
 		logger.Info("next member monitor run scheduled", "time", nextRun.Format(time.RFC1123))
 		// Sleep until the next run has started
-		time.Sleep(time.Until(nextRun))
+		time.Sleep(cmp.Or(max(time.Until(nextRun), 0), 1*time.Minute))
 	}
 }
 

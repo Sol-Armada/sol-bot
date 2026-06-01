@@ -131,13 +131,11 @@ FROM members m
 LEFT JOIN attendance_counts ac ON ac.member_id = m.id
 LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE m.rank <= 7
-  AND m.is_ally = FALSE
-  AND m.is_affiliate = FALSE
+  AND m.rank > 0
+  AND ri.primary_org_sid = 'SOLARMADA'
   AND (
     (m.rank = 7 AND COALESCE(ac.attendance_count, 0) >= 3) OR
     (m.rank = 6 AND COALESCE(ac.attendance_count, 0) >= 10) OR
     (m.rank = 5 AND COALESCE(ac.attendance_count, 0) >= 20)
   )
-  AND ri.primary_org = 'SOLARMADA'
 ORDER BY attendance_count DESC, m.id;
-

@@ -2,6 +2,7 @@ package members
 
 import (
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"regexp"
 	"slices"
@@ -11,6 +12,7 @@ import (
 	"github.com/apex/log"
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
@@ -371,14 +373,14 @@ func (m *Member) IsOfficer() bool {
 }
 
 func (m *Member) UpdateRank(discordRoles []string) {
+	m.Rank = ranks.Guest
 	rankIds := ranks.GetRoleIDs()
 	for rankName, roleID := range rankIds {
-		if slices.Contains(discordRoles, roleID) {
-			m.Rank = ranks.GetRankByName(rankName)
-			return
+		rank := ranks.GetRankByName(rankName)
+		if rank != ranks.None && slices.Contains(discordRoles, roleID) && rank < m.Rank {
+			m.Rank = rank
 		}
 	}
-	m.Rank = ranks.Guest
 }
 
 func (m *Member) UpdateRsiInfo() error {
@@ -460,4 +462,56 @@ func extractNames(members []*Member) []string {
 		}
 	}
 	return names
+}
+
+func GetPromotionsEmbed() (*discordgo.MessageEmbed, error) {
+	// get promotions
+	promotions, err := ListPromotions()
+	if err != nil {
+		return nil, err
+	}
+
+	if len(promotions) == 0 {
+		return nil, customerrors.NoPromotions
+	}
+
+	fields := []*discordgo.MessageEmbedField{
+		{
+			Name:   "Members to Rank Up",
+			Value:  "",
+			Inline: true,
+		},
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Title:  "Promotions Report",
+		Fields: fields,
+	}
+
+	ind := 0
+	for _, promotion := range promotions {
+		if promotion.NextRank == 0 {
+			continue
+		}
+
+		if ind%10 == 0 && ind != 0 {
+			fields = append(fields, &discordgo.MessageEmbedField{
+				Name:   "Members to Rank Up (continued)",
+				Value:  "",
+				Inline: true,
+			})
+		}
+
+		field := fields[len(fields)-1]
+		field.Value += fmt.Sprintf("<@%s> to %s (%d Events)", promotion.ID, ranks.Rank(promotion.NextRank).String(), promotion.AttendanceCount)
+
+		// if not the 10th member, add a newline
+		if ind%10 != 9 {
+			field.Value += "\n"
+		}
+
+		ind++
+	}
+
+	return embed, nil
 }
