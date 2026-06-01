@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/bwmarrin/discordgo"
+	"github.com/sol-armada/sol-bot/settings"
 )
 
 type JobMonitor interface {
@@ -29,12 +30,12 @@ type job struct {
 var Jobs = []job{
 	{
 		Name: "Promotions Report",
-		Cron: "0 0 * * *",
+		Cron: settings.GetStringWithDefault("PROMOTIONS_REPORT_CRON", "0 0 * * *"),
 		Run:  promotionsReport,
 	},
 	{
 		Name: "Member Monitor",
-		Cron: "*/2 * * * *",
+		Cron: settings.GetStringWithDefault("MEMBER_MONITOR_CRON", "*/2 * * * *"),
 		Run:  MemberMonitor,
 	},
 }
