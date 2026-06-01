@@ -15,4 +15,4 @@ DROP TRIGGER IF EXISTS trg_notify_rsi_info_change ON rsi_info;
 DROP TRIGGER IF EXISTS trg_notify_activity_logs_change ON activity_logs;
 DROP TRIGGER IF EXISTS trg_notify_command_logs_change ON command_logs;
 
-DROP FUNCTION IF EXISTS notify_domain_change(TEXT, TEXT[]);
+DROP FUNCTION IF EXISTS notify_domain_change();
