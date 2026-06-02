@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	attdnc "github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
+	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/ranks"
 	"github.com/sol-armada/sol-bot/rsi"
@@ -33,7 +34,40 @@ func (c *ProfileCommand) AutocompleteHandler(ctx context.Context, s *discordgo.S
 
 // ButtonHandler implements [command.ApplicationCommand].
 func (c *ProfileCommand) ButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	return nil
+	logger := utils.GetLoggerFromContext(ctx)
+
+	customId := i.MessageComponentData().CustomID
+	logger.Debug("handling profile command button interaction", "custom_id", customId)
+
+	switch customId {
+	case "profile:opt-out":
+		member := utils.GetMemberFromContext(ctx).(*members.Member)
+		member.DmOptOut = true
+		if err := member.Save(); err != nil {
+			return errors.Wrap(err, "saving member after opting out of DMs")
+		}
+	case "profile:opt-in":
+		member := utils.GetMemberFromContext(ctx).(*members.Member)
+		member.DmOptOut = false
+		if err := member.Save(); err != nil {
+			return errors.Wrap(err, "saving member after opting in to DMs")
+		}
+	}
+
+	attendedEventCount, err := attdnc.GetMemberAttendanceCount(i.Member.User.ID)
+	if err != nil {
+		return errors.Wrap(err, "getting member attendance count")
+	}
+
+	profileMessage := profileMessage(ctx, utils.GetMemberFromContext(ctx).(*members.Member), attendedEventCount, true)
+
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseUpdateMessage,
+		Data: &discordgo.InteractionResponseData{
+			Embeds:     profileMessage.Embeds,
+			Components: profileMessage.Components,
+		},
+	})
 }
 
 // CommandHandler implements [command.ApplicationCommand].
@@ -104,12 +138,19 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 
 			profile, err := rsi.GetRSIInfo(member.Name)
 			if err != nil {
-				if strings.Contains(err.Error(), "Forbidden") || strings.Contains(err.Error(), "Bad Gateway") {
+				if errors.Is(err, rsi.ErrForbidden) {
 					return err
 				}
 
-				if strings.Contains(err.Error(), "context deadline exceeded") {
+				if errors.Is(err, context.DeadlineExceeded) {
 					return context.DeadlineExceeded
+				}
+
+				if errors.Is(err, customerrors.RsiDown) {
+					_, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+						Content: "RSI looks to be down. Unable to force a profile update. Please try again later.",
+					})
+					return err
 				}
 
 				if !errors.Is(err, rsi.ErrUserNotFound) {
@@ -168,117 +209,12 @@ func (c *ProfileCommand) CommandHandler(ctx context.Context, s *discordgo.Sessio
 		return errors.Wrap(err, "getting member attendance count")
 	}
 
-	rank := member.Rank.String()
-	if rank == "" {
-		rank = "None"
-	}
-
-	emFields := []*discordgo.MessageEmbedField{
-		{
-			Name:   "RSI Handle",
-			Value:  member.Name,
-			Inline: false,
-		},
-		{
-			Name:   "Rank",
-			Value:  rank,
-			Inline: true,
-		},
-		{
-			Name:   "Event Attendance Count",
-			Value:  fmt.Sprintf("%d", attendedEventCount),
-			Inline: true,
-		},
-	}
-
-	if member.IsAffiliate {
-		emFields[1].Value = "Affiliate"
-	}
-
-	if member.IsAlly {
-		emFields[1].Value = "Ally/Friend"
-	}
-
-	if member.Rank == ranks.Guest {
-		emFields[1].Value = "Guest"
-	}
-
-	validated := "No"
-	if member.Validated {
-		validated = "Yes"
-	}
-	if member.OnRsi() {
-		po := member.RsiInfo.PrimaryOrg
-		if po == "" {
-			po = "None set"
-		}
-		rsiFields := []*discordgo.MessageEmbedField{
-			{
-				Name:   "RSI Profile URL",
-				Value:  rsi.UserProfileURL(member.Name),
-				Inline: false,
-			},
-			{
-				Name:   "Primary Org",
-				Value:  po,
-				Inline: false,
-			},
-			{
-				Name:   "RSI Validated",
-				Value:  validated,
-				Inline: false,
-			},
-		}
-		emFields = append(emFields, rsiFields...)
-	}
-
-	balance, err := tokens.GetBalanceByMemberId(member.Id)
-	if err != nil {
-		logger.Error("getting balance", "error", err)
-		balance = 0
-	}
-
-	emFields = append(emFields, &discordgo.MessageEmbedField{
-		Name:   "Tokens",
-		Value:  fmt.Sprintf("%d", balance),
-		Inline: false,
-	})
-
-	memberIssues := attdnc.Issues(member)
-	if len(memberIssues) > 0 {
-		emFields = append(emFields, &discordgo.MessageEmbedField{
-			Name:   "Restrictions to Promotion",
-			Value:  strings.Join(memberIssues, ", "),
-			Inline: false,
-		})
-	}
-
-	em := &discordgo.MessageEmbed{
-		Title:       "Profile",
-		Description: fmt.Sprintf("Information about <@%s> in Sol Armada", member.Id),
-		Color:       0x00FFFF,
-		Fields:      emFields,
-		Footer: &discordgo.MessageEmbedFooter{
-			Text: fmt.Sprintf("Last updated %s", member.Updated.UTC().Format("2006-01-02 15:04:05 MST")),
-		},
-	}
+	profileMessage := profileMessage(ctx, member, attendedEventCount, member.Id == i.Member.User.ID)
 
 	params := &discordgo.WebhookEdit{
-		Content: new(""),
-		Embeds:  new([]*discordgo.MessageEmbed{em}),
-	}
-
-	if !member.Validated && member.Id == i.Member.User.ID {
-		params.Components = new([]discordgo.MessageComponent{
-			discordgo.ActionsRow{
-				Components: []discordgo.MessageComponent{
-					discordgo.Button{
-						Label:    "Validate",
-						CustomID: fmt.Sprintf("validate:start:%s", i.Member.User.ID),
-					},
-				},
-			},
-		})
+		Content:    new(""),
+		Embeds:     &profileMessage.Embeds,
+		Components: &profileMessage.Components,
 	}
 
 	if _, err := s.FollowupMessageEdit(i.Interaction, msg.ID, params); err != nil {
@@ -353,4 +289,150 @@ func getOptionValue(options []*discordgo.ApplicationCommandInteractionDataOption
 		}
 	}
 	return nil
+}
+
+func profileMessage(ctx context.Context, member *members.Member, attendedEventCount int, isMember bool) *discordgo.Message {
+	logger := utils.GetLoggerFromContext(ctx)
+
+	rank := member.Rank.String()
+	if rank == "" {
+		rank = "None"
+	}
+
+	emFields := []*discordgo.MessageEmbedField{
+		{
+			Name:   "RSI Handle",
+			Value:  member.Name,
+			Inline: false,
+		},
+		{
+			Name:   "Rank",
+			Value:  rank,
+			Inline: true,
+		},
+		{
+			Name:   "Event Attendance Count",
+			Value:  fmt.Sprintf("%d", attendedEventCount),
+			Inline: true,
+		},
+	}
+
+	if member.IsAffiliate {
+		emFields[1].Value = "Affiliate"
+	}
+
+	if member.IsAlly {
+		emFields[1].Value = "Ally/Friend"
+	}
+
+	if member.Rank == ranks.Guest {
+		emFields[1].Value = "Guest"
+	}
+
+	validated := "No"
+	if member.Validated {
+		validated = "Yes"
+	}
+	if member.OnRsi() {
+		po := member.RsiInfo.PrimaryOrg
+		if po == "" {
+			po = "None set"
+		}
+		rsiFields := []*discordgo.MessageEmbedField{
+			{
+				Name:   "RSI Profile URL",
+				Value:  rsi.UserProfileURL(member.Name),
+				Inline: false,
+			},
+			{
+				Name:   "Primary Org",
+				Value:  po,
+				Inline: false,
+			},
+			{
+				Name:   "RSI Validated",
+				Value:  validated,
+				Inline: false,
+			},
+		}
+		emFields = append(emFields, rsiFields...)
+	}
+
+	balance, err := tokens.GetBalanceByMemberId(member.Id)
+	if err != nil {
+		logger.Error("getting balance", "error", err)
+		balance = 0
+	}
+
+	emFields = append(emFields, &discordgo.MessageEmbedField{
+		Name: "Tokens",
+		Value: func() string {
+			if balance == 0 && err != nil {
+				return "There was an issue"
+			}
+			return fmt.Sprintf("%d", balance)
+		}(),
+		Inline: false,
+	})
+
+	memberIssues := attdnc.Issues(member)
+	if len(memberIssues) > 0 {
+		emFields = append(emFields, &discordgo.MessageEmbedField{
+			Name:   "Restrictions to Promotion",
+			Value:  strings.Join(memberIssues, ", "),
+			Inline: false,
+		})
+	}
+
+	em := &discordgo.MessageEmbed{
+		Title:       "Profile",
+		Description: fmt.Sprintf("Information about <@%s> in Sol Armada", member.Id),
+		Color:       0x00FFFF,
+		Fields:      emFields,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprintf("Last updated %s", member.Updated.UTC().Format("2006-01-02 15:04:05 MST")),
+		},
+	}
+
+	components := []discordgo.MessageComponent{
+		func() discordgo.Button {
+			if member.DmOptOut {
+				return discordgo.Button{
+					Label:    "Opt-In to Bot DMs",
+					CustomID: "profile:opt-in",
+					Emoji: &discordgo.ComponentEmoji{
+						Name: "✅",
+					},
+				}
+			}
+			return discordgo.Button{
+				Label:    "Opt-Out of Bot DMs",
+				CustomID: "profile:opt-out",
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "🚫",
+				},
+			}
+		}(),
+	}
+
+	if !member.Validated && isMember {
+		components = append(components,
+			discordgo.Button{
+				Label:    "Validate RSI Profile",
+				CustomID: fmt.Sprintf("validate:start:%s", member.Id),
+				Emoji: &discordgo.ComponentEmoji{
+					Name: "✅",
+				},
+			},
+		)
+	}
+
+	return &discordgo.Message{
+		Embeds: []*discordgo.MessageEmbed{em},
+		Components: []discordgo.MessageComponent{
+			discordgo.ActionsRow{
+				Components: components,
+			},
+		},
+	}
 }

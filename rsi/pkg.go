@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	rsimodule "github.com/koo04/GoScrapeRSI"
+	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/settings"
 )
 
@@ -53,16 +54,36 @@ func NewDefaultClient() *RSIClient {
 	return NewClient(config)
 }
 
+func (client *RSIClient) CheckStatus() (bool, error) {
+	_, err := client.GetRSIInfo(context.Background(), "KooTheGreat")
+	if err != nil {
+		if errors.Is(err, ErrUserNotFound) {
+			return true, nil // RSI is up but user not found
+		}
+		if errors.Is(err, ErrForbidden) {
+			return true, customerrors.RsiForbidden // RSI is up but access is forbidden
+		}
+		if errors.Is(err, customerrors.RsiDown) {
+			return false, customerrors.RsiDown // RSI is down
+		}
+		return false, nil // other error
+	}
+	return true, nil // RSI is up and user found
+}
+
 // GetRSIInfo fetches RSI profile information for a handle
 func (client *RSIClient) GetRSIInfo(ctx context.Context, handle string) (*rsimodule.UserProfile, error) {
 	// Fetch user profile from the module
 	profile, err := client.client.GetUser(ctx, handle)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, rsimodule.ErrForbidden) {
+			return nil, ErrForbidden
+		}
+		if errors.Is(err, rsimodule.ErrNotFound) {
 			return nil, ErrUserNotFound
 		}
-		if strings.Contains(err.Error(), "403") {
-			return nil, ErrForbidden
+		if errors.Is(err, rsimodule.ErrMaintenance) {
+			return nil, customerrors.RsiDown
 		}
 		return nil, fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
@@ -88,11 +109,14 @@ func (client *RSIClient) ValidHandle(ctx context.Context, handle string) bool {
 func (client *RSIClient) IsMemberOfOrg(ctx context.Context, handle string, org string) (bool, error) {
 	profile, err := client.client.GetUser(ctx, handle)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, rsimodule.ErrNotFound) {
 			return false, ErrUserNotFound
 		}
-		if strings.Contains(err.Error(), "403") {
+		if errors.Is(err, rsimodule.ErrForbidden) {
 			return false, ErrForbidden
+		}
+		if errors.Is(err, rsimodule.ErrMaintenance) {
+			return false, customerrors.RsiDown
 		}
 		return false, fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}
@@ -120,11 +144,14 @@ func (client *RSIClient) IsMemberOfOrg(ctx context.Context, handle string, org s
 func (client *RSIClient) GetBio(ctx context.Context, handle string) (string, error) {
 	profile, err := client.client.GetUser(ctx, handle)
 	if err != nil {
-		if strings.Contains(err.Error(), "404") || strings.Contains(err.Error(), "not found") {
+		if errors.Is(err, rsimodule.ErrNotFound) {
 			return "", ErrUserNotFound
 		}
-		if strings.Contains(err.Error(), "403") {
+		if errors.Is(err, rsimodule.ErrForbidden) {
 			return "", ErrForbidden
+		}
+		if errors.Is(err, rsimodule.ErrMaintenance) {
+			return "", customerrors.RsiDown
 		}
 		return "", fmt.Errorf("%w: %v", ErrRequestFailed, err)
 	}

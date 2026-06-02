@@ -28,6 +28,8 @@ var (
 	InvalidSelectMenu       = e.New("invalid select menu")
 
 	NoPromotions = e.New("no promotions")
+	RsiDown      = e.New("RSI appears to be down")
+	RsiForbidden = e.New("access to RSI is forbidden")
 )
 
 func ErrorResponse(s *discordgo.Session, i *discordgo.Interaction, message string, errorCode *string) {
