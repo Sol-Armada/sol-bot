@@ -13,6 +13,11 @@ import (
 )
 
 func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
+	if m.User == nil || m.Member == nil || m.BeforeUpdate == nil {
+		slog.Error("member update event missing user or member")
+		return
+	}
+
 	slog.Debug("member name changed", "user_id", m.User.ID, "old_name", m.Member.Nick, "new_name", m.BeforeUpdate.Nick)
 
 	if m.User.Bot {
