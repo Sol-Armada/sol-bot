@@ -175,6 +175,11 @@ func getDefaultClient() *RSIClient {
 	return defaultClient
 }
 
+// CheckStatus checks if RSI is up using the default client
+func CheckStatus() (bool, error) {
+	return getDefaultClient().CheckStatus()
+}
+
 // GetRSIInfo fetches RSI profile information using the default client.
 func GetRSIInfo(handle string) (*rsimodule.UserProfile, error) {
 	return getDefaultClient().GetRSIInfo(context.Background(), handle)

@@ -139,18 +139,28 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 
 	logger.Debug("onboarding button handler")
 
+	up, _ := rsi.CheckStatus()
+	if !up {
+		logger.Warn("RSI appears to be down")
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Content: "Looks like there is an issue accessing the RSI website for onboarding. Please try again later.",
+				Flags:   discordgo.MessageFlagsEphemeral,
+			},
+		})
+	}
+
 	member := utils.GetMemberFromContext(ctx).(*members.Member)
 
 	if member.OnboardedAt != nil {
-		_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
 				Content: "You have already been onboarded!",
 				Flags:   discordgo.MessageFlagsEphemeral,
 			},
 		})
-
-		return nil
 	}
 
 	data := i.MessageComponentData()

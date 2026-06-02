@@ -8,8 +8,10 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
+	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
@@ -38,6 +40,22 @@ func MemberMonitor(ctx context.Context, s *discordgo.Session, monitor JobMonitor
 	if !health.IsHealthy() {
 		time.Sleep(healthCheckDelay)
 		return errors.New("not healthy")
+	}
+
+	up, err := rsi.CheckStatus()
+	if err != nil {
+		switch err {
+		case customerrors.RsiDown:
+			logger.Warn("RSI appears to be down (status check)")
+		case customerrors.RsiForbidden:
+			logger.Warn("access to RSI is forbidden (status check)")
+		default:
+			logger.Error("error checking RSI status", "error", err)
+		}
+	}
+	if !up {
+		logger.Warn("Issue detected with RSI. Skipping member monitor run.")
+		return nil
 	}
 
 	start := time.Now().UTC()
