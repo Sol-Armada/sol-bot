@@ -97,7 +97,7 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 			Autocomplete: true,
 		},
 	}
-	for i := range 10 {
+	for i := range 15 {
 		o := &discordgo.ApplicationCommandOption{
 			Name:         fmt.Sprintf("member-%d", i+1),
 			Description:  "The member to take attendance for",
@@ -125,7 +125,7 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 			Autocomplete: true,
 		},
 	}
-	for i := range 10 {
+	for i := range 15 {
 		o := &discordgo.ApplicationCommandOption{
 			Name:         fmt.Sprintf("member-%d", i+1),
 			Description:  "The member to take attendance for",
@@ -152,7 +152,7 @@ func (c *AttendanceCommand) Setup() (*discordgo.ApplicationCommand, error) {
 			Autocomplete: true,
 		},
 	}
-	for i := range 10 {
+	for i := range 15 {
 		o := &discordgo.ApplicationCommandOption{
 			Name:         fmt.Sprintf("member-%d", i+1),
 			Description:  "The member to remove from attendance",
