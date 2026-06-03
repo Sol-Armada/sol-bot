@@ -102,7 +102,7 @@ func (b *postgresMembersBackend) Upsert(member *Member) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer tx.Rollback(ctx) //nolint:errcheck
 
 	qtx := b.queries.WithTx(tx)
 	if err := qtx.UpsertMember(ctx, dbgen.UpsertMemberParams{

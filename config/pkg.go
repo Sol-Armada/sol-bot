@@ -79,7 +79,7 @@ func withTx(fn func(qtx *dbgen.Queries) error) error {
 	if err != nil {
 		return err
 	}
-	defer tx.Rollback(ctx)
+	defer tx.Rollback(ctx) //nolint:errcheck
 
 	if err := fn(pg.Queries.WithTx(tx)); err != nil {
 		return err

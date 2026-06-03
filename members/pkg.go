@@ -423,17 +423,6 @@ func (r *RsiInfo) Save() error {
 	return membersBackend.UpsertRsiInfo(r)
 }
 
-func createRoleMap(roles []string) map[string]struct{} {
-	roleMap := make(map[string]struct{}, len(roles))
-	for _, roleID := range roles {
-		if roleID == "" {
-			continue
-		}
-		roleMap[roleID] = struct{}{}
-	}
-	return roleMap
-}
-
 func (m *Member) OptOutOfDMs() error {
 	m.DmOptOut = true
 	return m.Save()

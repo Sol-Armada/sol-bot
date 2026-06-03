@@ -1,7 +1,6 @@
 package main
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"log/slog"
@@ -423,14 +422,6 @@ func (app *Application) initializeScheduler() error {
 	logger.Info("starting job scheduler")
 	app.scheduler.Start()
 
-	// Schedule member monitoring if enabled
-	logger.Info("scheduling member monitor job")
-	if err := app.scheduleMemberMonitor(); err != nil {
-		logger.Error("failed to schedule member monitor", "error", err)
-		return fmt.Errorf("failed to schedule member monitor: %w", err)
-	}
-	logger.Info("member monitor job scheduled successfully")
-
 	// Schedule status message updates
 	logger.Info("scheduling status update job")
 	if err := app.scheduleStatusUpdates(); err != nil {
@@ -448,81 +439,6 @@ func (app *Application) initializeScheduler() error {
 
 	logger.Info("job scheduler initialization completed")
 	return nil
-}
-
-// createMonitorLogger creates a dedicated logger for monitoring tasks
-func (app *Application) createMonitorLogger() *slog.Logger {
-	opts := &slog.HandlerOptions{
-		AddSource: true,
-	}
-
-	if app.cfg.Debug {
-		opts.Level = slog.LevelDebug
-	}
-
-	return slog.New(slog.NewJSONHandler(os.Stdout, opts))
-}
-
-// scheduleMemberMonitor sets up the member monitoring job
-func (app *Application) scheduleMemberMonitor() error {
-	// monitorLogger := app.createMonitorLogger()
-
-	// logger.Info("scheduling member monitor")
-	// j, err := app.scheduler.NewJob(
-	// 	gocron.CronJob("*/30 * * * *", false),
-	// 	gocron.NewTask(func(ctx context.Context) error {
-	// 		return bot.MemberMonitor(ctx, monitorLogger)
-	// 	}),
-	// 	gocron.WithSingletonMode(gocron.LimitModeReschedule),
-	// 	gocron.WithEventListeners(
-	// 		gocron.BeforeJobRuns(func(jobID uuid.UUID, jobName string) {
-	// 			monitorLogger.Info("starting member monitor", "job_id", jobID, "job_name", jobName)
-	// 		}),
-	// 		gocron.AfterJobRunsWithError(func(jobID uuid.UUID, jobName string, jobErr error) {
-	// 			if jobErr == nil {
-	// 				return
-	// 			}
-	// 			monitorLogger.Error("member monitor failed", "job_id", jobID, "job_name", jobName, "error", jobErr)
-	// 		}),
-	// 		gocron.AfterJobRuns(func(jobID uuid.UUID, jobName string) {
-	// 			monitorLogger.Info("completed member monitor", "job_id", jobID, "job_name", jobName)
-	// 		}),
-	// 	),
-	// )
-	// if err != nil {
-	// 	return fmt.Errorf("failed to create member monitor job: %w", err)
-	// }
-
-	// // Start monitoring job status in background
-	// go app.monitorJobStatus(j)
-	return nil
-}
-
-// monitorJobStatus monitors and logs job execution status
-func (app *Application) monitorJobStatus(j gocron.Job) {
-	for {
-		lastRun, err := j.LastRunStartedAt()
-		if err != nil {
-			logger.Error("failed to get last member monitor run", "error", err)
-			time.Sleep(1 * time.Minute)
-			continue
-		}
-
-		if !lastRun.IsZero() {
-			logger.Info("last member monitor run started", "time", lastRun.Format(time.RFC1123))
-		}
-
-		nextRun, err := j.NextRun()
-		if err != nil {
-			logger.Error("failed to get next member monitor run", "error", err)
-			time.Sleep(1 * time.Minute)
-			continue
-		}
-
-		logger.Info("next member monitor run scheduled", "time", nextRun.Format(time.RFC1123))
-		// Sleep until the next run has started
-		time.Sleep(cmp.Or(max(time.Until(nextRun), 0), 1*time.Minute))
-	}
 }
 
 // scheduleStatusUpdates sets up regular status message updates

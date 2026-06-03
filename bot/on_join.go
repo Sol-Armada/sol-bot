@@ -9,7 +9,7 @@ import (
 )
 
 func onJoinHandler(s *discordgo.Session, i *discordgo.GuildMemberAdd) {
-	logger = logger.With(
+	logger := slog.Default().With(
 		slog.String("guild", i.GuildID),
 		slog.String("user", i.User.ID),
 		slog.String("handler", "OnJoinHandler"),
