@@ -40,3 +40,13 @@ CREATE TABLE IF NOT EXISTS roll_entries (
 
 CREATE INDEX IF NOT EXISTS idx_roll_entries_roll_event_id ON roll_entries (roll_event_id);
 CREATE INDEX IF NOT EXISTS idx_roll_entries_member_id ON roll_entries (member_id);
+
+CREATE TRIGGER trg_notify_roll_events_change
+AFTER INSERT OR UPDATE OR DELETE ON roll_events
+FOR EACH ROW
+EXECUTE FUNCTION notify_domain_change('solbot_events', 'id');
+
+CREATE TRIGGER trg_notify_roll_entries_change
+AFTER INSERT OR UPDATE OR DELETE ON roll_entries
+FOR EACH ROW
+EXECUTE FUNCTION notify_domain_change('solbot_events', 'roll_event_id', 'roll_item_id', 'member_id');

@@ -21,9 +21,14 @@ type Querier interface {
 	DeleteAttendanceParticipant(ctx context.Context, arg DeleteAttendanceParticipantParams) error
 	DeleteAttendanceTag(ctx context.Context, tag string) error
 	DeleteMember(ctx context.Context, arg DeleteMemberParams) error
+	DeleteRollEntriesByEvent(ctx context.Context, rollEventID string) error
+	DeleteRollEntry(ctx context.Context, arg DeleteRollEntryParams) error
+	DeleteRollEvent(ctx context.Context, id string) error
+	DeleteRollItemsByEvent(ctx context.Context, rollEventID string) error
 	GetAttendanceByID(ctx context.Context, id string) (Attendance, error)
 	GetMember(ctx context.Context, id string) (GetMemberRow, error)
 	GetMemberIDs(ctx context.Context) ([]string, error)
+	GetRollEventByID(ctx context.Context, id string) (RollEvent, error)
 	GetRsiInfoByHandle(ctx context.Context, handle string) (RsiInfo, error)
 	GetTokenBalances(ctx context.Context) ([]GetTokenBalancesRow, error)
 	GetTokenByID(ctx context.Context, id string) (Token, error)
@@ -33,6 +38,7 @@ type Querier interface {
 	InsertCommandLog(ctx context.Context, arg InsertCommandLogParams) error
 	InsertToken(ctx context.Context, arg InsertTokenParams) error
 	ListActiveAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
+	ListActiveRollEvents(ctx context.Context, limitRows int32) ([]RollEvent, error)
 	ListAllAttendance(ctx context.Context) ([]Attendance, error)
 	ListAllTokens(ctx context.Context) ([]Token, error)
 	ListAttendanceNames(ctx context.Context) ([]string, error)
@@ -45,16 +51,23 @@ type Querier interface {
 	ListPromotions(ctx context.Context) ([]ListPromotionsRow, error)
 	ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]ListRandomMembersByRankRow, error)
 	ListRecordedAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
+	ListRollEntriesByEvent(ctx context.Context, rollEventID string) ([]RollEntry, error)
+	ListRollEntriesByItem(ctx context.Context, rollItemID string) ([]RollEntry, error)
+	ListRollItemsByEvent(ctx context.Context, rollEventID string) ([]RollItem, error)
 	ListRsiInfoByHandles(ctx context.Context, handles []string) ([]RsiInfo, error)
 	ListTokensByAttendanceID(ctx context.Context, attendanceID pgtype.Text) ([]Token, error)
 	ListTokensByMemberAndAttendance(ctx context.Context, arg ListTokensByMemberAndAttendanceParams) ([]Token, error)
 	ListTokensSince(ctx context.Context, createdAfter pgtype.Timestamptz) ([]Token, error)
+	MarkRollEventEnded(ctx context.Context, arg MarkRollEventEndedParams) error
 	ReplaceMemberBlueprints(ctx context.Context, memberID string) error
 	UpsertAttendance(ctx context.Context, arg UpsertAttendanceParams) error
 	UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error
 	UpsertBlueprintDoc(ctx context.Context, arg UpsertBlueprintDocParams) error
 	UpsertKanbanCard(ctx context.Context, arg UpsertKanbanCardParams) error
 	UpsertMember(ctx context.Context, arg UpsertMemberParams) error
+	UpsertRollEntry(ctx context.Context, arg UpsertRollEntryParams) error
+	UpsertRollEvent(ctx context.Context, arg UpsertRollEventParams) error
+	UpsertRollItem(ctx context.Context, arg UpsertRollItemParams) error
 	UpsertRsiInfo(ctx context.Context, arg UpsertRsiInfoParams) error
 	UpsertSOSTicket(ctx context.Context, arg UpsertSOSTicketParams) error
 }

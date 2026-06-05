@@ -135,6 +135,39 @@ type Raffle struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type RollEntry struct {
+	RollEventID string             `json:"roll_event_id"`
+	RollItemID  string             `json:"roll_item_id"`
+	MemberID    string             `json:"member_id"`
+	Choice      string             `json:"choice"`
+	RollValue   pgtype.Int4        `json:"roll_value"`
+	Winner      bool               `json:"winner"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RollEvent struct {
+	ID             string             `json:"id"`
+	Name           string             `json:"name"`
+	AttendanceID   pgtype.Text        `json:"attendance_id"`
+	EndTime        pgtype.Timestamptz `json:"end_time"`
+	Ended          bool               `json:"ended"`
+	ChannelID      string             `json:"channel_id"`
+	EmbedMessageID string             `json:"embed_message_id"`
+	InputMessageID string             `json:"input_message_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type RollItem struct {
+	ID          string             `json:"id"`
+	RollEventID string             `json:"roll_event_id"`
+	Name        string             `json:"name"`
+	Amount      int32              `json:"amount"`
+	SortOrder   int32              `json:"sort_order"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
 type RsiInfo struct {
 	Handle        string      `json:"handle"`
 	PrimaryOrg    pgtype.Text `json:"primary_org"`
