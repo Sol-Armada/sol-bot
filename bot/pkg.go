@@ -19,6 +19,7 @@ import (
 	"github.com/sol-armada/sol-bot/bot/giveawayhandler"
 	"github.com/sol-armada/sol-bot/bot/internal/command"
 	"github.com/sol-armada/sol-bot/bot/jobs"
+	"github.com/sol-armada/sol-bot/bot/loothandler"
 	"github.com/sol-armada/sol-bot/bot/profilehandler"
 	"github.com/sol-armada/sol-bot/bot/rafflehandler"
 	"github.com/sol-armada/sol-bot/bot/rankupshandler"
@@ -60,6 +61,7 @@ var commands = map[string]command.ApplicationCommand{
 	"rankups":    rankupshandler.New(),
 	"blueprint":  blueprinthandler.New(),
 	"settings":   settingshandler.New(),
+	"loot":       loothandler.New(),
 	// "merit":      merithandler.New(),
 	// "demerit":    demerithandler.New(),
 	// "wikelo":     wikelohandler.New(),

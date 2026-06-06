@@ -193,7 +193,7 @@ func (q *Queries) ListRollEntriesByItem(ctx context.Context, rollItemID string) 
 }
 
 const listRollItemsByEvent = `-- name: ListRollItemsByEvent :many
-SELECT id, roll_event_id, name, amount, sort_order, created_at
+SELECT id, roll_event_id, name, amount, sort_order, channel_id, message_id, created_at
 FROM roll_items
 WHERE roll_event_id = $1
 ORDER BY sort_order ASC, created_at ASC
@@ -214,6 +214,8 @@ func (q *Queries) ListRollItemsByEvent(ctx context.Context, rollEventID string) 
 			&i.Name,
 			&i.Amount,
 			&i.SortOrder,
+			&i.ChannelID,
+			&i.MessageID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -368,6 +370,8 @@ INSERT INTO roll_items (
     name,
     amount,
     sort_order,
+    channel_id,
+    message_id,
     created_at
 )
 VALUES (
@@ -376,7 +380,9 @@ VALUES (
     $3,
     $4,
     $5,
-    $6
+    $6,
+    $7,
+    $8
 )
 ON CONFLICT (id) DO UPDATE
 SET roll_event_id = EXCLUDED.roll_event_id,
@@ -391,6 +397,8 @@ type UpsertRollItemParams struct {
 	Name        string             `json:"name"`
 	Amount      int32              `json:"amount"`
 	SortOrder   int32              `json:"sort_order"`
+	ChannelID   pgtype.Text        `json:"channel_id"`
+	MessageID   pgtype.Text        `json:"message_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 
@@ -401,6 +409,8 @@ func (q *Queries) UpsertRollItem(ctx context.Context, arg UpsertRollItemParams) 
 		arg.Name,
 		arg.Amount,
 		arg.SortOrder,
+		arg.ChannelID,
+		arg.MessageID,
 		arg.CreatedAt,
 	)
 	return err

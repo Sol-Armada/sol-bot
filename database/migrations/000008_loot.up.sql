@@ -21,6 +21,8 @@ CREATE TABLE IF NOT EXISTS roll_items (
     name TEXT NOT NULL,
     amount INTEGER NOT NULL DEFAULT 1,
     sort_order INTEGER NOT NULL DEFAULT 0,
+    channel_id TEXT,
+    message_id TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

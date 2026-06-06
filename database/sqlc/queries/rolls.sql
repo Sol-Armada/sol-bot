@@ -62,6 +62,8 @@ INSERT INTO roll_items (
     name,
     amount,
     sort_order,
+    channel_id,
+    message_id,
     created_at
 )
 VALUES (
@@ -70,6 +72,8 @@ VALUES (
     sqlc.arg(name),
     sqlc.arg(amount),
     sqlc.arg(sort_order),
+    sqlc.arg(channel_id),
+    sqlc.arg(message_id),
     sqlc.arg(created_at)
 )
 ON CONFLICT (id) DO UPDATE

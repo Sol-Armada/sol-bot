@@ -165,6 +165,8 @@ type RollItem struct {
 	Name        string             `json:"name"`
 	Amount      int32              `json:"amount"`
 	SortOrder   int32              `json:"sort_order"`
+	ChannelID   pgtype.Text        `json:"channel_id"`
+	MessageID   pgtype.Text        `json:"message_id"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 }
 

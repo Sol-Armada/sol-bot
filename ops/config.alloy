@@ -1,0 +1,104 @@
+loki.process "solbot" {
+	forward_to = [loki.write.default.receiver]
+
+	stage.json {
+		expressions = {
+			output_message = "message",
+		}
+	}
+
+	stage.json {
+		expressions = {
+			extract_level = "level",
+		}
+		source = "output_message"
+	}
+
+	stage.template {
+		source   = "extract_level"
+		template = "{{ ToLower .Value }}"
+	}
+
+	stage.labels {
+		values = {
+			level = "extract_level",
+		}
+	}
+}
+
+discovery.relabel "solbot" {
+	targets = []
+
+	rule {
+		source_labels = ["__journal_syslog_hostname"]
+		target_label  = "instance"
+	}
+
+	rule {
+		source_labels = ["__journal_syslog_identifier"]
+		target_label  = "syslog_identifier"
+	}
+
+	rule {
+		source_labels = ["__journal_systemd_unit"]
+		target_label  = "unit"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = "prod"
+	}
+}
+
+loki.source.journal "solbot" {
+	path          = "/var/log/journal"
+	relabel_rules = discovery.relabel.solbot.rules
+	forward_to    = [loki.process.solbot.receiver]
+	matches       = "_SYSTEMD_UNIT=solbot.service"
+	labels        = {
+		job     = "solbot",
+		service = "solbot",
+	}
+}
+
+discovery.relabel "solbot_updater" {
+	targets = []
+
+	rule {
+		source_labels = ["__journal_syslog_hostname"]
+		target_label  = "instance"
+	}
+
+	rule {
+		source_labels = ["__journal_syslog_identifier"]
+		target_label  = "syslog_identifier"
+	}
+
+	rule {
+		source_labels = ["__journal_systemd_unit"]
+		target_label  = "unit"
+	}
+
+	rule {
+		target_label = "environment"
+		replacement  = "prod"
+	}
+}
+
+loki.source.journal "solbot_updater" {
+	path          = "/var/log/journal"
+	relabel_rules = discovery.relabel.solbot_updater.rules
+	forward_to    = [loki.write.default.receiver]
+	matches       = "_SYSTEMD_UNIT=solbot-updater.service"
+	labels        = {
+		job     = "solbot-updater",
+		service = "solbot-updater",
+	}
+}
+
+loki.write "default" {
+	endpoint {
+		url = "http://loki.server.local:3100/loki/api/v1/push"
+	}
+	external_labels = {}
+}

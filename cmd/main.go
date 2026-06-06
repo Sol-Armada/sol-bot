@@ -22,6 +22,7 @@ import (
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/raffles"
+	"github.com/sol-armada/sol-bot/rolls"
 	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/systemd"
 	"github.com/sol-armada/sol-bot/tokens"
@@ -184,12 +185,11 @@ func setupLogger(cfg *Config) *slog.Logger {
 	}
 
 	var handler slog.Handler
+	handler = slog.NewJSONHandler(os.Stdout, opts)
+
 	if settings.GetBool("LOG_HUMAN") {
 		handler = slog.NewTextHandler(os.Stdout, opts)
 		fmt.Printf("Using human-readable log format\n")
-	} else {
-		handler = slog.NewJSONHandler(os.Stdout, opts)
-		fmt.Printf("Using JSON log format\n")
 	}
 
 	log := slog.New(handler)
@@ -235,6 +235,7 @@ func initializeServices(cfg *Config) error {
 		"activity":   activity.Setup,
 		"giveaway":   giveaway.Setup,
 		"raffles":    raffles.Setup,
+		"rolls":      rolls.Setup,
 		"config":     config.Setup,
 	}
 
