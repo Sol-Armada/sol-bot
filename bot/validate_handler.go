@@ -131,5 +131,5 @@ func checkValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 		return err
 	}
 
-	return nil
+	return member.Save()
 }
