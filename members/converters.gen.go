@@ -17,6 +17,7 @@ func (c *ConverterImpl) FromGetMemberRow(source dbgen.GetMemberRow) Member {
 	membersMember.Name = source.Name
 	membersMember.Rank = ConvertRank(source.Rank)
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
+	membersMember.ValidatedAt = c.pgtypeTimestamptzToPTimeTime(source.ValidatedAt)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
 	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
@@ -41,6 +42,7 @@ func (c *ConverterImpl) FromListMembersByBlueprintRow(source dbgen.ListMembersBy
 	membersMember.Name = source.Name
 	membersMember.Rank = ConvertRank(source.Rank)
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
+	membersMember.ValidatedAt = c.pgtypeTimestamptzToPTimeTime(source.ValidatedAt)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
 	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
@@ -65,6 +67,7 @@ func (c *ConverterImpl) FromListMembersByIDsRow(source dbgen.ListMembersByIDsRow
 	membersMember.Name = source.Name
 	membersMember.Rank = ConvertRank(source.Rank)
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
+	membersMember.ValidatedAt = c.pgtypeTimestamptzToPTimeTime(source.ValidatedAt)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
 	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
@@ -89,6 +92,7 @@ func (c *ConverterImpl) FromListMembersPageRow(source dbgen.ListMembersPageRow) 
 	membersMember.Name = source.Name
 	membersMember.Rank = ConvertRank(source.Rank)
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
+	membersMember.ValidatedAt = c.pgtypeTimestamptzToPTimeTime(source.ValidatedAt)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
 	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
@@ -113,6 +117,7 @@ func (c *ConverterImpl) FromListRandomMembersByRankRow(source dbgen.ListRandomMe
 	membersMember.Name = source.Name
 	membersMember.Rank = ConvertRank(source.Rank)
 	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
+	membersMember.ValidatedAt = c.pgtypeTimestamptzToPTimeTime(source.ValidatedAt)
 	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
 	membersMember.DmOptOut = source.DmOptOut
 	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)

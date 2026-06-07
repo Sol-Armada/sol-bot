@@ -17,7 +17,7 @@ import (
 // goverter:extend ConvertRank
 type Converter interface {
 	// goverter:map ID Id
-	// goverter:ignore Notes RsiInfo Avatar ValidatedAt Suffix
+	// goverter:ignore Notes RsiInfo Avatar Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
 	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
@@ -25,28 +25,28 @@ type Converter interface {
 	FromGetMemberRow(row dbgen.GetMemberRow) Member
 
 	// goverter:map ID Id
-	// goverter:ignore Notes RsiInfo Avatar ValidatedAt Suffix
+	// goverter:ignore Notes RsiInfo Avatar Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
 	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListMembersByIDsRow(row dbgen.ListMembersByIDsRow) Member
 
 	// goverter:map ID Id
-	// goverter:ignore Notes RsiInfo Avatar ValidatedAt Suffix
+	// goverter:ignore Notes RsiInfo Avatar Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
 	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListMembersPageRow(row dbgen.ListMembersPageRow) Member
 
 	// goverter:map ID Id
-	// goverter:ignore Notes RsiInfo Avatar ValidatedAt Suffix
+	// goverter:ignore Notes RsiInfo Avatar Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
 	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListMembersByBlueprintRow(row dbgen.ListMembersByBlueprintRow) Member
 
 	// goverter:map ID Id
-	// goverter:ignore Notes RsiInfo Avatar ValidatedAt Suffix
+	// goverter:ignore Notes RsiInfo Avatar Suffix
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
 	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
