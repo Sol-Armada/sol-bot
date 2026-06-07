@@ -7,6 +7,15 @@ FROM members m
 LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE id = $1;
 
+-- name: ListMembers :many
+SELECT 
+  m.*,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
+ORDER BY id;
+
 -- name: ListMembersByIDs :many
 SELECT 
   m.*,

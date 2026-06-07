@@ -88,6 +88,14 @@ func (b *postgresMembersBackend) List(page int) ([]Member, error) {
 	return b.converter.FromListMembersPageRows(rows), nil
 }
 
+func (b *postgresMembersBackend) ListAll() ([]Member, error) {
+	rows, err := b.queries.ListMembers(context.Background())
+	if err != nil {
+		return nil, err
+	}
+	return b.converter.FromListMembersRows(rows), nil
+}
+
 func (b *postgresMembersBackend) ListByBlueprint(blueprintID string) ([]Member, error) {
 	rows, err := b.queries.ListMembersByBlueprint(context.Background(), blueprintID)
 	if err != nil {

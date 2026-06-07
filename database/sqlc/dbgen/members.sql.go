@@ -124,6 +124,72 @@ func (q *Queries) GetMemberIDs(ctx context.Context) ([]string, error) {
 	return items, nil
 }
 
+const listMembers = `-- name: ListMembers :many
+SELECT 
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left, m.validated_at,
+  ri.primary_org,
+  ri.affiliations
+FROM members m
+LEFT JOIN rsi_info ri ON ri.handle = m.name
+ORDER BY id
+`
+
+type ListMembersRow struct {
+	ID           string             `json:"id"`
+	Name         string             `json:"name"`
+	Rank         int32              `json:"rank"`
+	Joined       pgtype.Timestamptz `json:"joined"`
+	Updated      pgtype.Timestamptz `json:"updated"`
+	IsBot        bool               `json:"is_bot"`
+	IsAlly       bool               `json:"is_ally"`
+	IsAffiliate  bool               `json:"is_affiliate"`
+	IsGuest      bool               `json:"is_guest"`
+	OnRsi        bool               `json:"on_rsi"`
+	DmOptOut     bool               `json:"dm_opt_out"`
+	DateLeft     pgtype.Timestamptz `json:"date_left"`
+	ReasonLeft   pgtype.Text        `json:"reason_left"`
+	ValidatedAt  pgtype.Timestamptz `json:"validated_at"`
+	PrimaryOrg   pgtype.Text        `json:"primary_org"`
+	Affiliations []string           `json:"affiliations"`
+}
+
+func (q *Queries) ListMembers(ctx context.Context) ([]ListMembersRow, error) {
+	rows, err := q.db.Query(ctx, listMembers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMembersRow
+	for rows.Next() {
+		var i ListMembersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Rank,
+			&i.Joined,
+			&i.Updated,
+			&i.IsBot,
+			&i.IsAlly,
+			&i.IsAffiliate,
+			&i.IsGuest,
+			&i.OnRsi,
+			&i.DmOptOut,
+			&i.DateLeft,
+			&i.ReasonLeft,
+			&i.ValidatedAt,
+			&i.PrimaryOrg,
+			&i.Affiliations,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMembersByBlueprint = `-- name: ListMembersByBlueprint :many
 SELECT 
   m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left, m.validated_at,

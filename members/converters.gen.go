@@ -111,6 +111,31 @@ func (c *ConverterImpl) FromListMembersPageRows(source []dbgen.ListMembersPageRo
 	}
 	return membersMemberList
 }
+func (c *ConverterImpl) FromListMembersRow(source dbgen.ListMembersRow) Member {
+	var membersMember Member
+	membersMember.Id = source.ID
+	membersMember.Name = source.Name
+	membersMember.Rank = ConvertRank(source.Rank)
+	membersMember.Updated = PgTypeTimestamptzToTime(source.Updated)
+	membersMember.ValidatedAt = c.pgtypeTimestamptzToPTimeTime(source.ValidatedAt)
+	membersMember.Joined = PgTypeTimestamptzToTime(source.Joined)
+	membersMember.DmOptOut = source.DmOptOut
+	membersMember.DateLeft = c.pgtypeTimestamptzToPTimeTime(source.DateLeft)
+	membersMember.IsBot = source.IsBot
+	membersMember.IsAlly = source.IsAlly
+	membersMember.IsAffiliate = source.IsAffiliate
+	return membersMember
+}
+func (c *ConverterImpl) FromListMembersRows(source []dbgen.ListMembersRow) []Member {
+	var membersMemberList []Member
+	if source != nil {
+		membersMemberList = make([]Member, len(source))
+		for i := 0; i < len(source); i++ {
+			membersMemberList[i] = c.FromListMembersRow(source[i])
+		}
+	}
+	return membersMemberList
+}
 func (c *ConverterImpl) FromListRandomMembersByRankRow(source dbgen.ListRandomMembersByRankRow) Member {
 	var membersMember Member
 	membersMember.Id = source.ID

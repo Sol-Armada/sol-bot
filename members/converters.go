@@ -29,6 +29,15 @@ type Converter interface {
 	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
 	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
 	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
+	// goverter:ignore RsiInfo
+	FromListMembersRow(row dbgen.ListMembersRow) Member
+	FromListMembersRows(rows []dbgen.ListMembersRow) []Member
+
+	// goverter:map ID Id
+	// goverter:ignore Notes RsiInfo Avatar Suffix
+	// goverter:ignore MemberSince DKP DKPSpent Merits Demerits BlueprintIds OnboardedAt Age
+	// goverter:ignore Pronouns Playtime Gameplay Recruiter ChannelId MessageId FoundBy
+	// goverter:ignore TimeZone Other LegacyAge LegacyPlaytime LegacyGameplay LegacyRecruiter LegacyOther
 	FromListMembersByIDsRow(row dbgen.ListMembersByIDsRow) Member
 
 	// goverter:map ID Id
