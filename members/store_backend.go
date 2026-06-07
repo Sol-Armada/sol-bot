@@ -105,7 +105,8 @@ func (b *postgresMembersBackend) Upsert(member *Member) error {
 	defer tx.Rollback(ctx) //nolint:errcheck
 
 	qtx := b.queries.WithTx(tx)
-	if err := qtx.UpsertMember(ctx, dbgen.UpsertMemberParams{
+
+	upsertParams := dbgen.UpsertMemberParams{
 		ID:          member.Id,
 		Name:        member.Name,
 		Rank:        int32(member.Rank),
@@ -115,7 +116,13 @@ func (b *postgresMembersBackend) Upsert(member *Member) error {
 		IsAlly:      member.IsAlly,
 		IsAffiliate: member.IsAffiliate,
 		DmOptOut:    member.DmOptOut,
-	}); err != nil {
+	}
+
+	if member.ValidatedAt != nil && !member.ValidatedAt.IsZero() {
+		upsertParams.ValidatedAt = toPgTimestamptz(*member.ValidatedAt)
+	}
+
+	if err := qtx.UpsertMember(ctx, upsertParams); err != nil {
 		return err
 	}
 	if err := qtx.ReplaceMemberBlueprints(ctx, member.Id); err != nil {

@@ -21,7 +21,7 @@ func startValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 		return err
 	}
 
-	if member.ValidatedAt != nil {
+	if member.ValidatedAt != nil && !member.ValidatedAt.IsZero() {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
