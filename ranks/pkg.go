@@ -91,10 +91,9 @@ func (r Rank) String() string {
 		return "Member"
 	case Recruit:
 		return "Recruit"
-	case Guest:
+	default:
 		return "Guest"
 	}
-	return ""
 }
 
 func (r Rank) ShortString() string {
@@ -109,8 +108,9 @@ func (r Rank) ShortString() string {
 		return "SPC"
 	case Technician:
 		return "TEC"
+	default:
+		return ""
 	}
-	return ""
 }
 
 func GetRoleIDs() map[string]string {

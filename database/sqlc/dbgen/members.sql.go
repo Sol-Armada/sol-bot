@@ -131,7 +131,7 @@ SELECT
   ri.affiliations
 FROM members m
 LEFT JOIN rsi_info ri ON ri.handle = m.name
-ORDER BY id
+ORDER BY rank, name, id
 `
 
 type ListMembersRow struct {
@@ -332,7 +332,7 @@ SELECT
 FROM members m
 LEFT JOIN rsi_info ri ON ri.handle = m.name
 WHERE (NOT $1::boolean OR is_bot = FALSE)
-ORDER BY id
+ORDER BY (rank = 0), rank, name, id
 OFFSET $2::int
 LIMIT $3::int
 `

@@ -1,6 +1,7 @@
 package members
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log/slog"
@@ -157,12 +158,12 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 	return membersBackend.GetRandom(max, maxRank)
 }
 
-func List(page, limit int) ([]Member, error) {
-	return membersBackend.List(page, limit)
+func List(ctx context.Context, page, limit int) ([]Member, error) {
+	return membersBackend.List(ctx, page, limit)
 }
 
-func ListAll() ([]Member, error) {
-	return membersBackend.ListAll()
+func ListAll(ctx context.Context) ([]Member, error) {
+	return membersBackend.ListAll(ctx)
 }
 
 func ListByBlueprint(blueprintId string) ([]Member, error) {
