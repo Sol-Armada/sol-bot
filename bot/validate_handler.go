@@ -3,6 +3,7 @@ package bot
 import (
 	"context"
 	"fmt"
+	"maps"
 	"strings"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 	"github.com/sol-armada/sol-bot/rsi"
 	"github.com/sol-armada/sol-bot/utils"
 )
+
+var validationCodes = make(map[string]string) // userID -> validationCode
 
 func startValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	member, err := members.Get(i.Member.User.ID)
@@ -33,10 +36,7 @@ func startValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 	}
 
 	code := utils.GenerateRandomAlphaNumeric(8)
-	member.ValidationCode = code
-	if err := member.Save(); err != nil {
-		return err
-	}
+	validationCodes[i.Member.User.ID] = code
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseChannelMessageWithSource,
@@ -66,7 +66,7 @@ func checkValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 		return err
 	}
 
-	if member.ValidationCode == "" {
+	if validationCodes[memberId] == "" {
 		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 			Type: discordgo.InteractionResponseChannelMessageWithSource,
 			Data: &discordgo.InteractionResponseData{
@@ -97,7 +97,7 @@ func checkValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 			return err
 		}
 
-		if !strings.Contains(bio, member.ValidationCode) {
+		if !strings.Contains(bio, validationCodes[memberId]) {
 			if attempt == 3 {
 				_, _ = s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 					Flags:   discordgo.MessageFlagsEphemeral,
@@ -120,12 +120,10 @@ func checkValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 	}
 
 	member.Validated = true
-	now := time.Now().UTC()
-	member.ValidatedAt = &now
-	member.ValidationCode = ""
-	if err := member.Save(); err != nil {
-		return err
-	}
+	member.ValidatedAt = new(time.Now().UTC())
+	maps.DeleteFunc(validationCodes, func(k, _ string) bool {
+		return k == memberId
+	})
 
 	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
 		Flags:   discordgo.MessageFlagsEphemeral,

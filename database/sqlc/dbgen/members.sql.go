@@ -30,7 +30,7 @@ func (q *Queries) AddMemberBlueprint(ctx context.Context, arg AddMemberBlueprint
 const deleteMember = `-- name: DeleteMember :exec
 UPDATE members
 SET date_left = COALESCE($1, NOW()),
-    reason_left = $2
+  reason_left = $2
 WHERE id = $3
 `
 
@@ -47,7 +47,7 @@ func (q *Queries) DeleteMember(ctx context.Context, arg DeleteMemberParams) erro
 
 const getMember = `-- name: GetMember :one
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left, m.validated_at,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -69,6 +69,7 @@ type GetMemberRow struct {
 	DmOptOut     bool               `json:"dm_opt_out"`
 	DateLeft     pgtype.Timestamptz `json:"date_left"`
 	ReasonLeft   pgtype.Text        `json:"reason_left"`
+	ValidatedAt  pgtype.Timestamptz `json:"validated_at"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -90,6 +91,7 @@ func (q *Queries) GetMember(ctx context.Context, id string) (GetMemberRow, error
 		&i.DmOptOut,
 		&i.DateLeft,
 		&i.ReasonLeft,
+		&i.ValidatedAt,
 		&i.PrimaryOrg,
 		&i.Affiliations,
 	)
@@ -124,7 +126,7 @@ func (q *Queries) GetMemberIDs(ctx context.Context) ([]string, error) {
 
 const listMembersByBlueprint = `-- name: ListMembersByBlueprint :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left, m.validated_at,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -148,6 +150,7 @@ type ListMembersByBlueprintRow struct {
 	DmOptOut     bool               `json:"dm_opt_out"`
 	DateLeft     pgtype.Timestamptz `json:"date_left"`
 	ReasonLeft   pgtype.Text        `json:"reason_left"`
+	ValidatedAt  pgtype.Timestamptz `json:"validated_at"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -175,6 +178,7 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 			&i.DmOptOut,
 			&i.DateLeft,
 			&i.ReasonLeft,
+			&i.ValidatedAt,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {
@@ -190,7 +194,7 @@ func (q *Queries) ListMembersByBlueprint(ctx context.Context, blueprintID string
 
 const listMembersByIDs = `-- name: ListMembersByIDs :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left, m.validated_at,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -212,6 +216,7 @@ type ListMembersByIDsRow struct {
 	DmOptOut     bool               `json:"dm_opt_out"`
 	DateLeft     pgtype.Timestamptz `json:"date_left"`
 	ReasonLeft   pgtype.Text        `json:"reason_left"`
+	ValidatedAt  pgtype.Timestamptz `json:"validated_at"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -239,6 +244,7 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]ListMem
 			&i.DmOptOut,
 			&i.DateLeft,
 			&i.ReasonLeft,
+			&i.ValidatedAt,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {
@@ -254,7 +260,7 @@ func (q *Queries) ListMembersByIDs(ctx context.Context, ids []string) ([]ListMem
 
 const listMembersPage = `-- name: ListMembersPage :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left, m.validated_at,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -285,6 +291,7 @@ type ListMembersPageRow struct {
 	DmOptOut     bool               `json:"dm_opt_out"`
 	DateLeft     pgtype.Timestamptz `json:"date_left"`
 	ReasonLeft   pgtype.Text        `json:"reason_left"`
+	ValidatedAt  pgtype.Timestamptz `json:"validated_at"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -312,6 +319,7 @@ func (q *Queries) ListMembersPage(ctx context.Context, arg ListMembersPageParams
 			&i.DmOptOut,
 			&i.DateLeft,
 			&i.ReasonLeft,
+			&i.ValidatedAt,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {
@@ -398,7 +406,7 @@ func (q *Queries) ListPromotions(ctx context.Context) ([]ListPromotionsRow, erro
 
 const listRandomMembersByRank = `-- name: ListRandomMembersByRank :many
 SELECT 
-  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left,
+  m.id, m.name, m.rank, m.joined, m.updated, m.is_bot, m.is_ally, m.is_affiliate, m.is_guest, m.on_rsi, m.dm_opt_out, m.date_left, m.reason_left, m.validated_at,
   ri.primary_org,
   ri.affiliations
 FROM members m
@@ -428,6 +436,7 @@ type ListRandomMembersByRankRow struct {
 	DmOptOut     bool               `json:"dm_opt_out"`
 	DateLeft     pgtype.Timestamptz `json:"date_left"`
 	ReasonLeft   pgtype.Text        `json:"reason_left"`
+	ValidatedAt  pgtype.Timestamptz `json:"validated_at"`
 	PrimaryOrg   pgtype.Text        `json:"primary_org"`
 	Affiliations []string           `json:"affiliations"`
 }
@@ -455,6 +464,7 @@ func (q *Queries) ListRandomMembersByRank(ctx context.Context, arg ListRandomMem
 			&i.DmOptOut,
 			&i.DateLeft,
 			&i.ReasonLeft,
+			&i.ValidatedAt,
 			&i.PrimaryOrg,
 			&i.Affiliations,
 		); err != nil {
@@ -480,35 +490,37 @@ func (q *Queries) ReplaceMemberBlueprints(ctx context.Context, memberID string) 
 
 const upsertMember = `-- name: UpsertMember :exec
 INSERT INTO members (
-    id,
-    name,
-    rank,
-    joined,
-    updated,
-    is_bot,
-    is_ally,
+  id,
+  name,
+  rank,
+  joined,
+  updated,
+  is_bot,
+  is_ally,
   is_affiliate,
-  dm_opt_out
+  dm_opt_out,
+  validated_at
 )
 VALUES (
-    $1,
-    $2,
-    $3,
-    $4,
-    COALESCE($5, NOW()),
-    $6,
-    $7,
-    $8,
-  $9
+  $1,
+  $2,
+  $3,
+  $4,
+  COALESCE($5, NOW()),
+  $6,
+  $7,
+  $8,
+  $9,
+  $10
 )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
-    rank = EXCLUDED.rank,
-    joined = EXCLUDED.joined,
-    updated = EXCLUDED.updated,
-    is_bot = EXCLUDED.is_bot,
-    is_ally = EXCLUDED.is_ally,
-    is_affiliate = EXCLUDED.is_affiliate,
+  rank = EXCLUDED.rank,
+  joined = EXCLUDED.joined,
+  updated = EXCLUDED.updated,
+  is_bot = EXCLUDED.is_bot,
+  is_ally = EXCLUDED.is_ally,
+  is_affiliate = EXCLUDED.is_affiliate,
   dm_opt_out = EXCLUDED.dm_opt_out
 `
 
@@ -522,6 +534,7 @@ type UpsertMemberParams struct {
 	IsAlly      bool               `json:"is_ally"`
 	IsAffiliate bool               `json:"is_affiliate"`
 	DmOptOut    bool               `json:"dm_opt_out"`
+	ValidatedAt pgtype.Timestamptz `json:"validated_at"`
 }
 
 func (q *Queries) UpsertMember(ctx context.Context, arg UpsertMemberParams) error {
@@ -535,6 +548,7 @@ func (q *Queries) UpsertMember(ctx context.Context, arg UpsertMemberParams) erro
 		arg.IsAlly,
 		arg.IsAffiliate,
 		arg.DmOptOut,
+		arg.ValidatedAt,
 	)
 	return err
 }

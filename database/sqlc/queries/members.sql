@@ -53,35 +53,37 @@ LIMIT sqlc.arg(limit_rows)::int;
 
 -- name: UpsertMember :exec
 INSERT INTO members (
-    id,
-    name,
-    rank,
-    joined,
-    updated,
-    is_bot,
-    is_ally,
+  id,
+  name,
+  rank,
+  joined,
+  updated,
+  is_bot,
+  is_ally,
   is_affiliate,
-  dm_opt_out
+  dm_opt_out,
+  validated_at
 )
 VALUES (
-    sqlc.arg(id),
-    sqlc.arg(name),
-    sqlc.arg(rank),
-    sqlc.arg(joined),
-    COALESCE(sqlc.arg(updated), NOW()),
-    sqlc.arg(is_bot),
-    sqlc.arg(is_ally),
-    sqlc.arg(is_affiliate),
-  sqlc.arg(dm_opt_out)
+  sqlc.arg(id),
+  sqlc.arg(name),
+  sqlc.arg(rank),
+  sqlc.arg(joined),
+  COALESCE(sqlc.arg(updated), NOW()),
+  sqlc.arg(is_bot),
+  sqlc.arg(is_ally),
+  sqlc.arg(is_affiliate),
+  sqlc.arg(dm_opt_out),
+  sqlc.arg(validated_at)
 )
 ON CONFLICT (id) DO UPDATE
 SET name = EXCLUDED.name,
-    rank = EXCLUDED.rank,
-    joined = EXCLUDED.joined,
-    updated = EXCLUDED.updated,
-    is_bot = EXCLUDED.is_bot,
-    is_ally = EXCLUDED.is_ally,
-    is_affiliate = EXCLUDED.is_affiliate,
+  rank = EXCLUDED.rank,
+  joined = EXCLUDED.joined,
+  updated = EXCLUDED.updated,
+  is_bot = EXCLUDED.is_bot,
+  is_ally = EXCLUDED.is_ally,
+  is_affiliate = EXCLUDED.is_affiliate,
   dm_opt_out = EXCLUDED.dm_opt_out;
 
 -- name: ReplaceMemberBlueprints :exec
@@ -96,7 +98,7 @@ ON CONFLICT (member_id, blueprint_id) DO NOTHING;
 -- name: DeleteMember :exec
 UPDATE members
 SET date_left = COALESCE(sqlc.arg(date_left), NOW()),
-    reason_left = sqlc.arg(reason_left)
+  reason_left = sqlc.arg(reason_left)
 WHERE id = sqlc.arg(id);
 
 -- name: GetMemberIDs :many

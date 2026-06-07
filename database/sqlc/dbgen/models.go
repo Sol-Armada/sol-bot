@@ -112,6 +112,7 @@ type Member struct {
 	DmOptOut    bool               `json:"dm_opt_out"`
 	DateLeft    pgtype.Timestamptz `json:"date_left"`
 	ReasonLeft  pgtype.Text        `json:"reason_left"`
+	ValidatedAt pgtype.Timestamptz `json:"validated_at"`
 }
 
 type MemberBlueprint struct {
