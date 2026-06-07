@@ -521,7 +521,8 @@ SET name = EXCLUDED.name,
   is_bot = EXCLUDED.is_bot,
   is_ally = EXCLUDED.is_ally,
   is_affiliate = EXCLUDED.is_affiliate,
-  dm_opt_out = EXCLUDED.dm_opt_out
+  dm_opt_out = EXCLUDED.dm_opt_out,
+  validated_at = EXCLUDED.validated_at
 `
 
 type UpsertMemberParams struct {
