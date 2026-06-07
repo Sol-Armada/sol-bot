@@ -330,7 +330,7 @@ func profileMessage(ctx context.Context, member *members.Member, attendedEventCo
 	}
 
 	validated := "No"
-	if member.Validated {
+	if member.ValidatedAt != nil {
 		validated = "Yes"
 	}
 	if member.OnRsi() {
@@ -415,7 +415,7 @@ func profileMessage(ctx context.Context, member *members.Member, attendedEventCo
 		}(),
 	}
 
-	if !member.Validated && isMember {
+	if member.ValidatedAt == nil && isMember {
 		components = append(components,
 			discordgo.Button{
 				Label:    "Validate RSI Profile",

@@ -20,19 +20,17 @@ import (
 )
 
 type Member struct {
-	Id             string     `json:"id"`
-	Name           string     `json:"name"`
-	Rank           ranks.Rank `json:"rank"`
-	Notes          string     `json:"notes"`
-	Avatar         string     `json:"avatar"`
-	Updated        time.Time  `json:"updated"`
-	Validated      bool       `json:"validated"`
-	ValidatedAt    *time.Time `json:"validated_at"`
-	ValidationCode string     `json:"validation_code"`
-	Joined         time.Time  `json:"joined"`
-	Suffix         string     `json:"suffix"`
-	DmOptOut       bool       `json:"dm_opt_out"`
-	DateLeft       *time.Time `json:"date_left"`
+	Id          string     `json:"id"`
+	Name        string     `json:"name"`
+	Rank        ranks.Rank `json:"rank"`
+	Notes       string     `json:"notes"`
+	Avatar      string     `json:"avatar"`
+	Updated     time.Time  `json:"updated"`
+	ValidatedAt *time.Time `json:"validated_at"`
+	Joined      time.Time  `json:"joined"`
+	Suffix      string     `json:"suffix"`
+	DmOptOut    bool       `json:"dm_opt_out"`
+	DateLeft    *time.Time `json:"date_left"`
 
 	RsiInfo *RsiInfo `json:"rsi_info"`
 

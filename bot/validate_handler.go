@@ -119,7 +119,6 @@ func checkValidateButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 		<-ticker.C
 	}
 
-	member.Validated = true
 	member.ValidatedAt = new(time.Now().UTC())
 	maps.DeleteFunc(validationCodes, func(k, _ string) bool {
 		return k == memberId
