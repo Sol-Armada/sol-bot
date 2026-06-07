@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"regexp"
 	"slices"
 	"strings"
@@ -397,13 +398,31 @@ func (m *Member) UpdateRsiInfo() error {
 		affiliations[i] = aff.Name
 	}
 
-	m.RsiInfo = &RsiInfo{
+	updatedRsiInfo := &RsiInfo{
 		Handle:        m.Name,
 		PrimaryOrg:    info.Organization.Name,
 		PrimaryOrgSid: info.Organization.SID,
 		Affiliations:  affiliations,
 	}
+
+	if rsiInfoEqual(m.RsiInfo, updatedRsiInfo) {
+		m.RsiInfo = updatedRsiInfo
+		return nil
+	}
+
+	m.RsiInfo = updatedRsiInfo
 	return m.RsiInfo.Save()
+}
+
+func rsiInfoEqual(a, b *RsiInfo) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+
+	return a.Handle == b.Handle &&
+		a.PrimaryOrg == b.PrimaryOrg &&
+		a.PrimaryOrgSid == b.PrimaryOrgSid &&
+		slices.Equal(a.Affiliations, b.Affiliations)
 }
 
 func (m *Member) OnRsi() bool {
@@ -432,6 +451,18 @@ func (m *Member) OptOutOfDMs() error {
 }
 
 func (m *Member) UpdateFromDiscordMember(discordMember *discordgo.Member) error {
+	changed := m.ApplyDiscordMember(discordMember)
+	if changed {
+		return m.Save()
+	}
+	return nil
+}
+
+// ApplyDiscordMember updates member fields from Discord data and returns whether
+// any member fields changed.
+func (m *Member) ApplyDiscordMember(discordMember *discordgo.Member) bool {
+	original := *m
+
 	truenick := m.GetTrueNick(discordMember)
 	m.Name = strings.ReplaceAll(truenick, ".", "")
 
@@ -443,7 +474,7 @@ func (m *Member) UpdateFromDiscordMember(discordMember *discordgo.Member) error 
 
 	m.UpdateRank(discordMember.Roles)
 
-	return m.Save()
+	return !reflect.DeepEqual(original, *m)
 }
 
 func extractNames(members []*Member) []string {

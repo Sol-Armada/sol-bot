@@ -282,17 +282,16 @@ func processChunkMembers(
 			continue
 		}
 
-		if err := member.UpdateFromDiscordMember(discordMember); err != nil {
-			*processingErrors = append(*processingErrors, errors.Wrap(err, "updating member from discord member"))
-			continue
-		}
+		memberChanged := member.ApplyDiscordMember(discordMember)
 
 		if err := member.UpdateRsiInfo(); err != nil {
 			*processingErrors = append(*processingErrors, errors.Wrap(err, "updating RSI info"))
 			continue
 		}
 
-		chunkMembers = append(chunkMembers, *member)
+		if memberChanged {
+			chunkMembers = append(chunkMembers, *member)
+		}
 	}
 
 	return chunkMembers
