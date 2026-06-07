@@ -161,6 +161,10 @@ func List(page int) ([]Member, error) {
 	return membersBackend.List(page)
 }
 
+func ListAll() ([]Member, error) {
+	return membersBackend.ListAll()
+}
+
 func ListByBlueprint(blueprintId string) ([]Member, error) {
 	return membersBackend.ListByBlueprint(blueprintId)
 }

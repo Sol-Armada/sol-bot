@@ -19,6 +19,7 @@ type memberBackend interface {
 	GetList(ids []string) ([]*Member, error)
 	GetRandom(max int, maxRank ranks.Rank) ([]Member, error)
 	List(page int) ([]Member, error)
+	ListAll() ([]Member, error)
 	ListByBlueprint(blueprintID string) ([]Member, error)
 	Upsert(member *Member) error
 	BulkUpsert(members []Member) error
