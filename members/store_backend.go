@@ -18,8 +18,8 @@ type memberBackend interface {
 	Get(id string) (*Member, error)
 	GetList(ids []string) ([]*Member, error)
 	GetRandom(max int, maxRank ranks.Rank) ([]Member, error)
-	List(page int) ([]Member, error)
-	ListAll() ([]Member, error)
+	List(ctx context.Context, page, limit int) ([]Member, error)
+	ListAll(ctx context.Context) ([]Member, error)
 	ListByBlueprint(blueprintID string) ([]Member, error)
 	Upsert(member *Member) error
 	BulkUpsert(members []Member) error
@@ -73,15 +73,15 @@ func (b *postgresMembersBackend) GetRandom(max int, maxRank ranks.Rank) ([]Membe
 	return b.converter.FromListRandomMembersByRankRows(rows), nil
 }
 
-func (b *postgresMembersBackend) List(page int) ([]Member, error) {
+func (b *postgresMembersBackend) List(ctx context.Context, page, limit int) ([]Member, error) {
 	offset := 0
 	if page > 0 {
-		offset = (page - 1) * 100
+		offset = (page - 1) * limit
 	}
-	rows, err := b.queries.ListMembersPage(context.Background(), dbgen.ListMembersPageParams{
+	rows, err := b.queries.ListMembersPage(ctx, dbgen.ListMembersPageParams{
 		ExcludeBots: true,
 		OffsetRows:  int32(offset),
-		LimitRows:   100,
+		LimitRows:   int32(limit),
 	})
 	if err != nil {
 		return nil, err
@@ -89,8 +89,8 @@ func (b *postgresMembersBackend) List(page int) ([]Member, error) {
 	return b.converter.FromListMembersPageRows(rows), nil
 }
 
-func (b *postgresMembersBackend) ListAll() ([]Member, error) {
-	rows, err := b.queries.ListMembers(context.Background())
+func (b *postgresMembersBackend) ListAll(ctx context.Context) ([]Member, error) {
+	rows, err := b.queries.ListMembers(ctx)
 	if err != nil {
 		return nil, err
 	}

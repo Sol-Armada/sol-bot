@@ -157,8 +157,8 @@ func GetRandom(max int, maxRank ranks.Rank) ([]Member, error) {
 	return membersBackend.GetRandom(max, maxRank)
 }
 
-func List(page int) ([]Member, error) {
-	return membersBackend.List(page)
+func List(page, limit int) ([]Member, error) {
+	return membersBackend.List(page, limit)
 }
 
 func ListAll() ([]Member, error) {
