@@ -285,7 +285,16 @@ func processChunkMembers(
 		memberChanged := member.ApplyDiscordMember(discordMember)
 
 		if err := member.UpdateRsiInfo(); err != nil {
-			*processingErrors = append(*processingErrors, errors.Wrap(err, "updating RSI info"))
+			switch {
+			case errors.Is(err, rsi.ErrUserNotFound):
+				mlogger.Warn("RSI user not found")
+			case errors.Is(err, rsi.ErrForbidden):
+				mlogger.Warn("access to RSI is forbidden")
+			case errors.Is(err, customerrors.RsiDown):
+				mlogger.Warn("RSI appears to be down")
+			default:
+				*processingErrors = append(*processingErrors, errors.Wrap(err, "updating RSI info"))
+			}
 			continue
 		}
 
