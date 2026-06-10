@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"fmt"
+	"slices"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/customerrors"
@@ -20,6 +21,29 @@ func promotionsReport(ctx context.Context, s *discordgo.Session, monitor JobMoni
 	channelId := settings.GetString("PROMOTIONS_CHANNEL_ID")
 	if channelId == "" {
 		return fmt.Errorf("promotions channel id not set")
+	}
+
+	logger.Debug("Removing old promotions reports")
+
+	messages, err := s.ChannelMessages(channelId, 100, "", "", "")
+	if err != nil {
+		return err
+	}
+
+	messagesToDelete := []string{}
+	for _, message := range messages {
+		if message.Author.ID != s.State.User.ID {
+			continue
+		}
+
+		if len(message.Embeds) > 0 && (slices.Contains([]string{"Promotions Report", "Members to Rank Up"}, message.Embeds[0].Title)) {
+			messagesToDelete = append(messagesToDelete, message.ID)
+		}
+	}
+
+	if err := s.ChannelMessagesBulkDelete(channelId, messagesToDelete); err != nil {
+		logger.Error("Failed to delete old promotions reports", "error", err)
+		return err
 	}
 
 	monitor.Update("Building promotions report")
