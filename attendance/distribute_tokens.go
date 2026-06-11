@@ -14,6 +14,10 @@ func (a *Attendance) DistributeTokens() (string, error) {
 		return "", err
 	}
 	for _, participant := range participants {
+		if participant.Member == nil || participant.Member.IsOfficer() {
+			continue
+		}
+
 		member := participant.Member
 
 		t, err := tokens.GetByMemberIdAndAttendanceId(member.Id, a.Id)
