@@ -14,7 +14,7 @@ func (a *Attendance) DistributeTokens() (string, error) {
 		return "", err
 	}
 	for _, participant := range participants {
-		if participant.Member == nil || participant.Member.IsOfficer() {
+		if participant.Member == nil {
 			continue
 		}
 
@@ -47,7 +47,7 @@ func (a *Attendance) DistributeTokens() (string, error) {
 			amount += 10
 		}
 
-		if participant.IsManager && !hasTokensFor(t, member.Id, tokens.ReasonManagerBonus) {
+		if participant.IsManager && !hasTokensFor(t, member.Id, tokens.ReasonManagerBonus) && !participant.Member.IsOfficer() {
 			if err := tokens.New(member.Id, 10, tokens.ReasonManagerBonus, nil, &a.Id, nil).Save(); err != nil {
 				return "", err
 			}
