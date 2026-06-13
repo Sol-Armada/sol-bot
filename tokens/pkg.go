@@ -94,3 +94,10 @@ func GetBalanceByMemberId(memberId string) (int, error) {
 	}
 	return balances[memberId], nil
 }
+
+func ListByMemberId(memberId string) ([]TokenRecord, error) {
+	if tokenStore == nil {
+		return nil, errors.New("token store not found")
+	}
+	return tokenStore.ListByMemberId(memberId)
+}

@@ -55,3 +55,9 @@ SELECT member_id,
 FROM tokens
 GROUP BY member_id
 ORDER BY member_id;
+
+-- name: ListByMemberId :many
+SELECT *
+FROM tokens
+WHERE member_id = $1
+ORDER BY created_at DESC;

@@ -16,6 +16,7 @@ type tokenBackend interface {
 	ListSince(since time.Time) ([]TokenRecord, error)
 	ListByAttendanceID(attendanceID string) ([]TokenRecord, error)
 	ListByMemberAndAttendance(memberID, attendanceID string) ([]TokenRecord, error)
+	ListByMemberId(memberID string) ([]TokenRecord, error)
 	GetBalances() (map[string]int, error)
 }
 
@@ -97,6 +98,14 @@ func (b *postgresTokenBackend) GetBalances() (map[string]int, error) {
 		result[row.MemberID] = int(row.Balance)
 	}
 	return result, nil
+}
+
+func (b *postgresTokenBackend) ListByMemberId(memberID string) ([]TokenRecord, error) {
+	rows, err := b.queries.ListByMemberId(context.Background(), memberID)
+	if err != nil {
+		return nil, err
+	}
+	return fromPgTokens(rows), nil
 }
 
 func fromPgTokens(rows []dbgen.Token) []TokenRecord {

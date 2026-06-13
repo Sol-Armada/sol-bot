@@ -149,6 +149,42 @@ func (q *Queries) ListAllTokens(ctx context.Context) ([]Token, error) {
 	return items, nil
 }
 
+const listByMemberId = `-- name: ListByMemberId :many
+SELECT id, member_id, amount, reason, attendance_id, comment, giver_id, created_at
+FROM tokens
+WHERE member_id = $1
+ORDER BY created_at DESC
+`
+
+func (q *Queries) ListByMemberId(ctx context.Context, memberID string) ([]Token, error) {
+	rows, err := q.db.Query(ctx, listByMemberId, memberID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Token
+	for rows.Next() {
+		var i Token
+		if err := rows.Scan(
+			&i.ID,
+			&i.MemberID,
+			&i.Amount,
+			&i.Reason,
+			&i.AttendanceID,
+			&i.Comment,
+			&i.GiverID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTokensByAttendanceID = `-- name: ListTokensByAttendanceID :many
 SELECT id, member_id, amount, reason, attendance_id, comment, giver_id, created_at
 FROM tokens

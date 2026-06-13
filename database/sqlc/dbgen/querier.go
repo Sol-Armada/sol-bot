@@ -46,6 +46,7 @@ type Querier interface {
 	ListAttendancePage(ctx context.Context, arg ListAttendancePageParams) ([]Attendance, error)
 	ListAttendanceParticipants(ctx context.Context, attendanceID string) ([]AttendanceParticipant, error)
 	ListAttendanceTags(ctx context.Context) ([]string, error)
+	ListByMemberId(ctx context.Context, memberID string) ([]Token, error)
 	ListMembers(ctx context.Context) ([]ListMembersRow, error)
 	ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]ListMembersByBlueprintRow, error)
 	ListMembersByIDs(ctx context.Context, ids []string) ([]ListMembersByIDsRow, error)
