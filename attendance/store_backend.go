@@ -16,6 +16,7 @@ import (
 type attendanceBackend interface {
 	Get(id string) (*Attendance, error)
 	List(limit int, page int) ([]*Attendance, error)
+	ListByIds(ids []string) ([]*Attendance, error)
 	ListActive(limit int) ([]*Attendance, error)
 	GetCount(memberID string) (int, error)
 	GetUniqueMemberCount(days int) (int, error)
@@ -187,6 +188,14 @@ func (b *postgresAttendanceBackend) UpsertParticipant(attendanceID string, parti
 		StayedUntilEnd: participant.StayedUntilEnd,
 		IsManager:      participant.IsManager,
 	})
+}
+
+func (b *postgresAttendanceBackend) ListByIds(ids []string) ([]*Attendance, error) {
+	rows, err := b.queries.ListAttendanceByIds(context.Background(), ids)
+	if err != nil {
+		return nil, err
+	}
+	return b.converter.FromDbAttendanceRows(rows), nil
 }
 
 func toPgText(v string) pgtype.Text {

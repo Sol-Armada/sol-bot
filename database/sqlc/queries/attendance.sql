@@ -24,6 +24,12 @@ WHERE recorded = FALSE
 ORDER BY date_created DESC
 LIMIT sqlc.arg(limit_rows)::int;
 
+-- name: ListAttendanceByIds :many
+SELECT *
+FROM attendance
+WHERE id = ANY(sqlc.arg(ids)::TEXT[])
+ORDER BY date_created DESC;
+
 -- name: ListRecordedAttendance :many
 SELECT *
 FROM attendance

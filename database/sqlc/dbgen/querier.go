@@ -41,6 +41,7 @@ type Querier interface {
 	ListActiveRollEvents(ctx context.Context, limitRows int32) ([]RollEvent, error)
 	ListAllAttendance(ctx context.Context) ([]Attendance, error)
 	ListAllTokens(ctx context.Context) ([]Token, error)
+	ListAttendanceByIds(ctx context.Context, ids []string) ([]Attendance, error)
 	ListAttendanceNames(ctx context.Context) ([]string, error)
 	ListAttendancePage(ctx context.Context, arg ListAttendancePageParams) ([]Attendance, error)
 	ListAttendanceParticipants(ctx context.Context, attendanceID string) ([]AttendanceParticipant, error)

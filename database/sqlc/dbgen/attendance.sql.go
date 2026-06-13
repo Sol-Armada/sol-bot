@@ -176,6 +176,46 @@ func (q *Queries) ListAllAttendance(ctx context.Context) ([]Attendance, error) {
 	return items, nil
 }
 
+const listAttendanceByIds = `-- name: ListAttendanceByIds :many
+SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, channel_id, message_id, date_created, date_updated
+FROM attendance
+WHERE id = ANY($1::TEXT[])
+ORDER BY date_created DESC
+`
+
+func (q *Queries) ListAttendanceByIds(ctx context.Context, ids []string) ([]Attendance, error) {
+	rows, err := q.db.Query(ctx, listAttendanceByIds, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Attendance
+	for rows.Next() {
+		var i Attendance
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.SubmittedBy,
+			&i.Recorded,
+			&i.Successful,
+			&i.Active,
+			&i.Tokenable,
+			&i.Status,
+			&i.ChannelID,
+			&i.MessageID,
+			&i.DateCreated,
+			&i.DateUpdated,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAttendancePage = `-- name: ListAttendancePage :many
 SELECT id, name, submitted_by, recorded, successful, active, tokenable, status, channel_id, message_id, date_created, date_updated
 FROM attendance
