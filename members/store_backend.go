@@ -9,7 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/ranks"
 )
@@ -213,9 +213,9 @@ func toPgTimestamptz(t time.Time) pgtype.Timestamptz {
 }
 
 func setupMembersBackend() error {
-	pgClient := postgresql.Get()
+	pgClient := database.Get()
 	if pgClient == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 	membersBackend = &postgresMembersBackend{
 		pool:      pgClient.Pool,

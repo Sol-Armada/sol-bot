@@ -12,7 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 )
 
 type Giveaway struct {
@@ -40,9 +40,9 @@ var (
 )
 
 func Setup() error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 	giveawayPool = pg.Pool
 	return nil

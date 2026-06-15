@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/members"
 )
@@ -36,9 +36,9 @@ type postgresAttendanceBackend struct {
 }
 
 func setupAttendanceBackend() error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 	attendanceStore = &postgresAttendanceBackend{
 		pool:      pg.Pool,

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 )
 
@@ -25,9 +25,9 @@ type postgresTokenBackend struct {
 }
 
 func setupTokenBackend() error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 	tokenStore = &postgresTokenBackend{queries: pg.Queries}
 	return nil

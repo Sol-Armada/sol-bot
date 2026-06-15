@@ -5,16 +5,16 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 )
 
 var configQueries *dbgen.Queries
 
 func Setup() error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil || pg.Pool == nil || pg.Queries == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 	configQueries = pg.Queries
 	return nil
@@ -69,9 +69,9 @@ func queries() (*dbgen.Queries, error) {
 }
 
 func withTx(fn func(qtx *dbgen.Queries) error) error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil || pg.Pool == nil || pg.Queries == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 
 	ctx := context.Background()

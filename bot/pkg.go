@@ -26,7 +26,8 @@ import (
 	"github.com/sol-armada/sol-bot/bot/settingshandler"
 	"github.com/sol-armada/sol-bot/bot/tokenshandler"
 	"github.com/sol-armada/sol-bot/customerrors"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
+	"github.com/sol-armada/sol-bot/database/dbnotify"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/members"
@@ -43,7 +44,8 @@ type Bot struct {
 	logger     *slog.Logger
 	ctx        context.Context
 
-	schedular *gocron.Scheduler
+	schedular  *gocron.Scheduler
+	dbListener *dbnotify.Listener
 
 	*discordgo.Session
 }
@@ -87,7 +89,7 @@ var validateButtonHandlers = map[string]Handler{
 	"check": checkValidateButtonHandler,
 }
 
-func New(version string) (*Bot, error) {
+func New(version string, dbConfig database.Config) (*Bot, error) {
 	slog.Info("creating discord bot")
 	b, err := discordgo.New(fmt.Sprintf("Bot %s", settings.GetString("DISCORD.BOT_TOKEN")))
 	if err != nil {
@@ -101,10 +103,16 @@ func New(version string) (*Bot, error) {
 	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions + discordgo.PermissionAdministrator
 	b.Client.Timeout = 5 * time.Second
 
+	dbListener, err := dbnotify.NewListenerFromPostgresConfig(dbConfig, []dbnotify.Channel{dbnotify.ChannelAttendance})
+	if err != nil {
+		return nil, err
+	}
+
 	bot = &Bot{
 		GuildId:    settings.GetString("DISCORD.GUILD_ID"),
 		ClientId:   settings.GetString("DISCORD.CLIENT_ID"),
 		botVersion: version,
+		dbListener: dbListener,
 		logger:     slog.Default(),
 		ctx:        context.Background(),
 		Session:    b,
@@ -113,22 +121,10 @@ func New(version string) (*Bot, error) {
 	return bot, nil
 }
 
-func GetBot() (*Bot, error) {
-	if bot == nil {
-		b, err := New("unknown")
-		if err != nil {
-			return nil, err
-		}
-		bot = b
-	}
-
-	return bot, nil
-}
-
 func (b *Bot) Setup() error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil || pg.Queries == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 
 	b.logger.Debug("setting up handlers and commands")

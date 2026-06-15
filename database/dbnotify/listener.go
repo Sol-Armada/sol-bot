@@ -14,14 +14,14 @@ import (
 
 var channelNamePattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 
-// Handler consumes decoded events from subscribed LISTEN channels.
+// Handler consumes decoded events from subscribed LISTEN channels
 type Handler func(ctx context.Context, event Event) error
 
-// ListenerConfig controls connection and reconnect behavior.
+// ListenerConfig controls connection and reconnect behavior
 type ListenerConfig struct {
 	DSN string
 
-	Channels []string
+	Channels []Channel
 
 	ConnectTimeout    time.Duration
 	MinReconnectDelay time.Duration
@@ -30,12 +30,12 @@ type ListenerConfig struct {
 	OnError func(error)
 }
 
-// Listener keeps a dedicated connection open for LISTEN/NOTIFY.
+// Listener keeps a dedicated connection open for LISTEN/NOTIFY
 type Listener struct {
 	cfg ListenerConfig
 }
 
-// NewListener constructs a reconnecting LISTEN/NOTIFY consumer.
+// NewListener constructs a reconnecting LISTEN/NOTIFY consumer
 func NewListener(cfg ListenerConfig) (*Listener, error) {
 	if cfg.DSN == "" {
 		return nil, errors.New("listener dsn is required")
@@ -45,7 +45,7 @@ func NewListener(cfg ListenerConfig) (*Listener, error) {
 	}
 
 	for _, channel := range cfg.Channels {
-		if !channelNamePattern.MatchString(channel) {
+		if !channelNamePattern.MatchString(string(channel)) {
 			return nil, fmt.Errorf("invalid channel name %q", channel)
 		}
 	}
@@ -66,15 +66,15 @@ func NewListener(cfg ListenerConfig) (*Listener, error) {
 	return &Listener{cfg: cfg}, nil
 }
 
-// NewListenerFromPostgresConfig builds a listener from database.PostgresConfig.
-func NewListenerFromPostgresConfig(cfg database.PostgresConfig, channels []string) (*Listener, error) {
+// NewListenerFromPostgresConfig builds a listener from database.PostgresConfig
+func NewListenerFromPostgresConfig(cfg database.Config, channels []Channel) (*Listener, error) {
 	return NewListener(ListenerConfig{
-		DSN:      cfg.DSN(),
+		DSN:      cfg.Postgres.DSN(),
 		Channels: channels,
 	})
 }
 
-// Run blocks and processes notifications until context cancellation.
+// Run blocks and processes notifications until context cancellation
 func (l *Listener) Run(ctx context.Context, handler Handler) error {
 	if handler == nil {
 		return errors.New("listener handler is required")
@@ -134,7 +134,7 @@ func (l *Listener) connect(ctx context.Context) (*pgx.Conn, error) {
 
 func (l *Listener) listenChannels(ctx context.Context, conn *pgx.Conn) error {
 	for _, channel := range l.cfg.Channels {
-		query := "LISTEN " + channel
+		query := "LISTEN " + string(channel)
 		if _, err := conn.Exec(ctx, query); err != nil {
 			return fmt.Errorf("listen %s: %w", channel, err)
 		}
@@ -149,7 +149,7 @@ func (l *Listener) consume(ctx context.Context, conn *pgx.Conn, handler Handler)
 			return wrapWaitError(err)
 		}
 
-		event, err := ParseEvent(notification.Channel, notification.Payload)
+		event, err := ParseEvent(Channel(notification.Channel), notification.Payload)
 		if err != nil {
 			l.reportError(fmt.Errorf("parse %s payload: %w", notification.Channel, err))
 			continue

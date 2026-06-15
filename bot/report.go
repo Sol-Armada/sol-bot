@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 )
 
 func (b *Bot) WeeklyReport() (*discordgo.MessageEmbed, error) {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil || pg.Queries == nil {
-		return nil, fmt.Errorf("postgresql client not initialized")
+		return nil, fmt.Errorf("database client not initialized")
 	}
 
 	counts, err := pg.Queries.GetWeeklyCommandCounts(context.Background())
