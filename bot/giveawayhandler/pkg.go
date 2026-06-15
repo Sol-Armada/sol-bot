@@ -114,7 +114,12 @@ func (g *GiveawayCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *
 
 // OnBefore implements [command.ApplicationCommand].
 func (g *GiveawayCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	return nil
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
 }
 
 // OnError implements [command.ApplicationCommand].

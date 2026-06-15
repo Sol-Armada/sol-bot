@@ -491,6 +491,8 @@ func (b *Bot) Setup() error {
 
 	go b.startJobs()
 
+	go b.StartAttendanceWatch()
+
 	return nil
 }
 

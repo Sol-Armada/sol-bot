@@ -89,7 +89,12 @@ func (l *LootCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *disc
 
 // OnBefore implements [command.ApplicationCommand].
 func (l *LootCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	return nil
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
 }
 
 // OnError implements [command.ApplicationCommand].

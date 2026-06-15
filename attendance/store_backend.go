@@ -187,6 +187,7 @@ func (b *postgresAttendanceBackend) UpsertParticipant(attendanceID string, parti
 		JoinedAtStart:  participant.JoinedAtStart,
 		StayedUntilEnd: participant.StayedUntilEnd,
 		IsManager:      participant.IsManager,
+		Messaged:       participant.Messaged,
 	})
 }
 

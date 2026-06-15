@@ -215,6 +215,12 @@ func (c *AttendanceCommand) SetupAliases() ([]*discordgo.ApplicationCommand, err
 }
 
 func (c *AttendanceCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	// return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	// 	Data: &discordgo.InteractionResponseData{
+	// 		Flags: discordgo.MessageFlagsEphemeral,
+	// 	},
+	// })
 	return nil
 }
 

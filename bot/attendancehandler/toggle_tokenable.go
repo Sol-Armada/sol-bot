@@ -17,25 +17,14 @@ func toggleTokenableButtonHandler(ctx context.Context, s *discordgo.Session, i *
 	}
 
 	attendance.Tokenable = !attendance.Tokenable
+	if !attendance.Tokenable {
+		attendance.Successful = false
+	}
 	if err := attendance.Save(); err != nil {
 		return err
 	}
 
-	attendanceMessage, err := attendance.ToDiscordMessage()
-	if err != nil {
-		return err
-	}
-
-	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    attendance.ChannelId,
-		ID:         attendance.MessageId,
-		Components: &attendanceMessage.Components,
-		Embeds:     &attendanceMessage.Embeds,
-	}); err != nil {
-		return err
-	}
-
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 	})
 }

@@ -19,12 +19,14 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 
 	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 	Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	// 	Data: &discordgo.InteractionResponseData{
+	// 		Flags: discordgo.MessageFlagsEphemeral,
+	// 	},
+	// }); err != nil {
+	// 	return errors.Wrap(err, "responding to interaction")
+	// }
 
 	data := i.Interaction.ApplicationCommandData().GetOption("create")
 	eventName := data.GetOption("name").StringValue()
@@ -103,7 +105,17 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 	// 	Flags:   discordgo.MessageFlagsEphemeral,
 	// })
 
-	return errors.Wrap(a.Save(), "saving attendance record")
+	if err := a.Save(); err != nil {
+		return errors.Wrap(err, "saving attendance record")
+	}
+
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Attendance record for %s created!", a.Name),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
+	})
 }
 
 func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {

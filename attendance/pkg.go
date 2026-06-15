@@ -280,12 +280,3 @@ func (a *Attendance) SetParticipantStayedUntilEnd(memberId string) error {
 
 	return participant.SetStayedUntilEnd(a.Id, true)
 }
-
-func (a *Attendance) ParticipantMessaged(memberId string) error {
-	participant, err := a.GetParticipant(memberId)
-	if err != nil {
-		return err
-	}
-
-	return participant.SetMessaged(a.Id, true)
-}

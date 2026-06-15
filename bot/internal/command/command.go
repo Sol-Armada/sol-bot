@@ -34,18 +34,18 @@ type ApplicationCommand interface {
 }
 
 func RunCommand(ctx context.Context, cmd ApplicationCommand, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	switch i.Type {
-	case discordgo.InteractionApplicationCommandAutocomplete, discordgo.InteractionMessageComponent, discordgo.InteractionModalSubmit:
-	default:
-		if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-			Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-			Data: &discordgo.InteractionResponseData{
-				Flags: discordgo.MessageFlagsEphemeral,
-			},
-		}); err != nil {
-			return err
-		}
-	}
+	// switch i.Type {
+	// case discordgo.InteractionApplicationCommandAutocomplete, discordgo.InteractionMessageComponent, discordgo.InteractionModalSubmit:
+	// default:
+	// 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	// 		Data: &discordgo.InteractionResponseData{
+	// 			Flags: discordgo.MessageFlagsEphemeral,
+	// 		},
+	// 	}); err != nil {
+	// 		return err
+	// 	}
+	// }
 
 	if err := cmd.OnBefore(ctx, s, i); err != nil {
 		cmd.OnError(ctx, s, i, err)
