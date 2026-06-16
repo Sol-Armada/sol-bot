@@ -25,8 +25,12 @@ func reasonAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *dis
 					Value: tokens.ReasonAttendanceFull,
 				},
 				{
-					Name:  "Event Succeded",
+					Name:  "Event Successful",
 					Value: tokens.ReasonEventSuccessful,
+				},
+				{
+					Name:  "Manager Bonus",
+					Value: tokens.ReasonManagerBonus,
 				},
 				{
 					Name:  "Other",

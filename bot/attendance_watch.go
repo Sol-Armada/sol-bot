@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/database/dbnotify"
+	"github.com/sol-armada/sol-bot/settings"
 )
 
 func (b *Bot) StartAttendanceWatch() error {
@@ -35,11 +36,21 @@ func (b *Bot) handleAttendanceEvent(event dbnotify.Event) error {
 }
 
 func (b *Bot) handleAttendanceInsert(event dbnotify.Event) error {
-	id := event.PrimaryKey["id"].(string)
+	id, ok := event.PrimaryKey["id"].(string)
+	if !ok {
+		return errors.New("attendance record missing primary key")
+	}
+
 	a, err := attendance.Get(id)
 	if err != nil {
 		return err
 	}
+
+	if a.MessageId != "" {
+		return nil
+	}
+
+	a.ChannelId = settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
 
 	attandanceMessage, err := a.ToDiscordMessage()
 	if err != nil {
@@ -57,10 +68,10 @@ func (b *Bot) handleAttendanceInsert(event dbnotify.Event) error {
 
 func (b *Bot) handleAttendanceUpdate(event dbnotify.Event) error {
 	event.ChangedColumns = slices.DeleteFunc(event.ChangedColumns, func(s string) bool {
-		return s == "message_id" || s == "updated_at"
+		return s == "message_id" || s == "updated_at" || s == "date_updated" || s == "channel_id"
 	})
 
-	if len(event.ChangedColumns) == 0 {
+	if len(event.ChangedColumns) == 0 || event.PrimaryKey["id"] == nil {
 		return nil
 	}
 
@@ -68,6 +79,10 @@ func (b *Bot) handleAttendanceUpdate(event dbnotify.Event) error {
 	a, err := attendance.Get(id)
 	if err != nil {
 		return err
+	}
+
+	if a.MessageId == "" || a.ChannelId == "" {
+		return nil
 	}
 
 	attandanceMessage, err := a.ToDiscordMessage()
