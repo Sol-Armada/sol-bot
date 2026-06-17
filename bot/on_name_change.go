@@ -13,12 +13,16 @@ import (
 )
 
 func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
+	logger := slog.Default().With(
+		slog.String("event", "name_change"),
+	)
+
 	if m.User == nil || m.Member == nil || m.BeforeUpdate == nil {
-		slog.Error("member update event missing user or member")
+		logger.Error("member update event missing user or member")
 		return
 	}
 
-	slog.Debug("member name changed", "user_id", m.User.ID, "old_name", m.Member.Nick, "new_name", m.BeforeUpdate.Nick)
+	logger.Debug("member name changed", "user_id", m.User.ID, "old_name", m.Member.Nick, "new_name", m.BeforeUpdate.Nick)
 
 	if m.User.Bot {
 		return
@@ -26,23 +30,21 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 	member, err := members.Get(m.User.ID)
 	if err != nil {
-		slog.Error("getting member", "error", err)
+		logger.Error("getting member", "error", err)
 		return
 	}
 
 	member.Name = m.User.Username
 	if err := member.Save(); err != nil {
-		slog.Error("saving member", "error", err)
+		logger.Error("saving member", "error", err)
 		return
 	}
 
 	member.UpdateRank(m.Member.Roles)
 
-	if err := (&utils.ExponentialBackoff{
-		MaxRetries: 3,
-		Multiplier: 1.1,
-		MaxDelay:   time.Second,
-	}).Execute(func() error {
+	ebo := utils.NewExponentialBackoff(1, time.Second, 1.1, 3, logger)
+
+	if err := ebo.Execute(func() error {
 		profile, err := rsi.GetRSIInfo(member.Name)
 		if err != nil {
 			return err
@@ -55,7 +57,7 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 
 		return member.UpdateRsiInfo()
 	}); err != nil && !errors.Is(err, rsi.ErrUserNotFound) {
-		slog.Error("updating RSI info", "error", err)
+		logger.Error("updating RSI info", "error", err)
 		return
 	}
 
@@ -81,6 +83,6 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 		},
 	}
 	if err := nameUpdateActivity.Save(); err != nil {
-		slog.Error("saving name change activity", "error", err)
+		logger.Error("saving name change activity", "error", err)
 	}
 }
