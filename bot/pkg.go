@@ -8,6 +8,7 @@ import (
 	"maps"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -46,6 +47,9 @@ type Bot struct {
 
 	schedular  *gocron.Scheduler
 	dbListener *dbnotify.Listener
+
+	sessionReconnectMu  sync.Mutex
+	lastManualReconnect time.Time
 
 	*discordgo.Session
 }
@@ -499,11 +503,73 @@ func (b *Bot) Setup() error {
 
 	b.logger.Debug("Discord connection opened successfully")
 
+	go b.monitorDiscordSession()
+
 	go b.startJobs()
 
 	go b.StartAttendanceWatch()
 
 	return nil
+}
+
+func (b *Bot) monitorDiscordSession() {
+	const (
+		tickInterval      = 30 * time.Second
+		startupGrace      = 2 * time.Minute
+		maxHeartbeatStale = 2 * time.Minute
+		reconnectCooldown = 1 * time.Minute
+	)
+
+	startedAt := time.Now()
+	ticker := time.NewTicker(tickInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		now := time.Now()
+		lastAck := b.LastHeartbeatAck
+
+		staleHeartbeat := !lastAck.IsZero() && now.Sub(lastAck) > maxHeartbeatStale
+		notReadyTooLong := !b.DataReady && now.Sub(startedAt) > startupGrace
+
+		if !staleHeartbeat && !notReadyTooLong {
+			continue
+		}
+
+		fields := []any{"data_ready", b.DataReady, "last_heartbeat_ack", lastAck}
+		if staleHeartbeat {
+			fields = append(fields, "stale_for", now.Sub(lastAck))
+		}
+		if notReadyTooLong {
+			fields = append(fields, "uptime", now.Sub(startedAt))
+		}
+
+		b.logger.Error("discord session appears unhealthy, forcing reconnect", fields...)
+		b.forceSessionReconnect(reconnectCooldown)
+	}
+}
+
+func (b *Bot) forceSessionReconnect(cooldown time.Duration) {
+	b.sessionReconnectMu.Lock()
+	defer b.sessionReconnectMu.Unlock()
+
+	now := time.Now()
+	if !b.lastManualReconnect.IsZero() && now.Sub(b.lastManualReconnect) < cooldown {
+		b.logger.Warn("manual reconnect skipped due to cooldown", "remaining", cooldown-now.Sub(b.lastManualReconnect))
+		return
+	}
+
+	b.lastManualReconnect = now
+
+	if err := b.Session.Close(); err != nil {
+		b.logger.Warn("failed to close discord session before reconnect", "error", err)
+	}
+
+	if err := b.Session.Open(); err != nil {
+		b.logger.Error("failed to reopen discord session", "error", err)
+		return
+	}
+
+	b.logger.Info("discord session re-established")
 }
 
 type statusJobMonitor struct {
