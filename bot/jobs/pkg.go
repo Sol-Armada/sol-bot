@@ -36,7 +36,7 @@ func GetJobs() []job {
 		},
 		{
 			Name: "Member Monitor",
-			Cron: settings.GetStringWithDefault("MEMBER_MONITOR_CRON", "*/2 * * * *"),
+			Cron: settings.GetStringWithDefault("MEMBER_MONITOR_CRON", "0 * * * *"),
 			Run:  MemberMonitor,
 		},
 	}
