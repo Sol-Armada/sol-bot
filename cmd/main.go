@@ -17,7 +17,6 @@ import (
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/migrations"
-	"github.com/sol-armada/sol-bot/database/postgresql"
 	"github.com/sol-armada/sol-bot/giveaway"
 	"github.com/sol-armada/sol-bot/health"
 	"github.com/sol-armada/sol-bot/members"
@@ -210,9 +209,9 @@ func initializeServices(cfg *Config) error {
 	// Initialize database connection
 	logger.Info("initializing database connection")
 
-	pgClient, err := postgresql.New(ctx, cfg.Database.Postgres)
+	pgClient, err := database.New(ctx, cfg.Database.Postgres)
 	if err != nil {
-		return fmt.Errorf("failed to initialize postgres client: %w", err)
+		return fmt.Errorf("failed to initialize database client: %w", err)
 	}
 	logger.Info("database connection established successfully")
 
@@ -347,7 +346,7 @@ func (app *Application) start() error {
 func (app *Application) initializeBot() error {
 	logger.Info("creating new bot instance")
 	var err error
-	app.bot, err = bot.New(version)
+	app.bot, err = bot.New(version, app.cfg.Database)
 	if err != nil {
 		return fmt.Errorf("failed to create bot: %w", err)
 	}

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/members"
 )
 
@@ -39,9 +39,9 @@ type Activity struct {
 var activityPool *pgxpool.Pool
 
 func Setup() error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 	activityPool = pg.Pool
 	return nil

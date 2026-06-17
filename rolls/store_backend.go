@@ -7,7 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
-	"github.com/sol-armada/sol-bot/database/postgresql"
+	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 )
 
@@ -32,9 +32,9 @@ type postgresRollBackend struct {
 }
 
 func setupRollBackend() error {
-	pg := postgresql.Get()
+	pg := database.Get()
 	if pg == nil {
-		return errors.New("postgresql client not initialized")
+		return errors.New("database client not initialized")
 	}
 
 	rollStore = &postgresRollBackend{queries: pg.Queries}

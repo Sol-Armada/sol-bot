@@ -1,59 +1,50 @@
 package postgresql
 
-import (
-	"context"
-	"fmt"
+// type Client struct {
+// 	Pool    *pgxpool.Pool
+// 	Queries *dbgen.Queries
+// }
 
-	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/sol-armada/sol-bot/database"
-	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
-)
+// var client *Client
 
-type Client struct {
-	Pool    *pgxpool.Pool
-	Queries *dbgen.Queries
-}
+// func New(ctx context.Context, cfg database.PostgresConfig) (*Client, error) {
+// 	poolCfg, err := pgxpool.ParseConfig(cfg.DSN())
+// 	if err != nil {
+// 		return nil, fmt.Errorf("parse postgres config: %w", err)
+// 	}
 
-var client *Client
+// 	if cfg.MaxConns > 0 {
+// 		poolCfg.MaxConns = cfg.MaxConns
+// 	}
+// 	if cfg.MinConns > 0 {
+// 		poolCfg.MinConns = cfg.MinConns
+// 	}
 
-func New(ctx context.Context, cfg database.PostgresConfig) (*Client, error) {
-	poolCfg, err := pgxpool.ParseConfig(cfg.DSN())
-	if err != nil {
-		return nil, fmt.Errorf("parse postgres config: %w", err)
-	}
+// 	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+// 	if err != nil {
+// 		return nil, fmt.Errorf("create postgres pool: %w", err)
+// 	}
 
-	if cfg.MaxConns > 0 {
-		poolCfg.MaxConns = cfg.MaxConns
-	}
-	if cfg.MinConns > 0 {
-		poolCfg.MinConns = cfg.MinConns
-	}
+// 	if err := pool.Ping(ctx); err != nil {
+// 		pool.Close()
+// 		return nil, fmt.Errorf("ping postgres: %w", err)
+// 	}
 
-	pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
-	if err != nil {
-		return nil, fmt.Errorf("create postgres pool: %w", err)
-	}
+// 	newClient := &Client{
+// 		Pool:    pool,
+// 		Queries: dbgen.New(pool),
+// 	}
+// 	client = newClient
+// 	return newClient, nil
+// }
 
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
-		return nil, fmt.Errorf("ping postgres: %w", err)
-	}
+// func Get() *Client {
+// 	return client
+// }
 
-	newClient := &Client{
-		Pool:    pool,
-		Queries: dbgen.New(pool),
-	}
-	client = newClient
-	return newClient, nil
-}
-
-func Get() *Client {
-	return client
-}
-
-func (c *Client) Close() {
-	if c == nil || c.Pool == nil {
-		return
-	}
-	c.Pool.Close()
-}
+// func (c *Client) Close() {
+// 	if c == nil || c.Pool == nil {
+// 		return
+// 	}
+// 	c.Pool.Close()
+// }

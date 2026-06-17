@@ -89,6 +89,12 @@ func (t *TokensCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *di
 
 // OnBefore implements [command.ApplicationCommand].
 func (t *TokensCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	// return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 	Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+	// 	Data: &discordgo.InteractionResponseData{
+	// 		Flags: discordgo.MessageFlagsEphemeral,
+	// 	},
+	// })
 	return nil
 }
 

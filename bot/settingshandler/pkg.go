@@ -62,7 +62,12 @@ func (*SettingsCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *di
 
 // OnBefore implements [command.ApplicationCommand].
 func (*SettingsCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
-	return nil
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Flags: discordgo.MessageFlagsEphemeral,
+		},
+	})
 }
 
 // OnError implements [command.ApplicationCommand].

@@ -37,11 +37,13 @@ func takeCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 	}
 
 	if amount <= 0 {
-		_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-			Flags:   discordgo.MessageFlagsEphemeral,
-			Content: "Amount must be greater than 0",
+		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+			Type: discordgo.InteractionResponseChannelMessageWithSource,
+			Data: &discordgo.InteractionResponseData{
+				Flags:   discordgo.MessageFlagsEphemeral,
+				Content: "Amount must be greater than 0",
+			},
 		})
-		return err
 	}
 
 	giver := utils.GetMemberFromContext(ctx).(*members.Member)
@@ -49,9 +51,11 @@ func takeCommandHandler(ctx context.Context, s *discordgo.Session, i *discordgo.
 		return err
 	}
 
-	_, err := s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Flags:   discordgo.MessageFlagsEphemeral,
-		Content: fmt.Sprintf("Took %d Tokens from <@%s>", amount, member.Id),
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Took %d Tokens from <@%s>", amount, member.Id),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
-	return err
 }

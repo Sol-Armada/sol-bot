@@ -1,18 +1,20 @@
 package dbnotify
 
+type Channel string
+
 const (
-	ChannelMembers    = "solbot_members"
-	ChannelAttendance = "solbot_attendance"
-	ChannelTokens     = "solbot_tokens"
-	ChannelEvents     = "solbot_events"
-	ChannelDocs       = "solbot_docs"
-	ChannelRSI        = "solbot_rsi"
-	ChannelLogs       = "solbot_logs"
+	ChannelMembers    Channel = "solbot_members"
+	ChannelAttendance Channel = "solbot_attendance"
+	ChannelTokens     Channel = "solbot_tokens"
+	ChannelEvents     Channel = "solbot_events"
+	ChannelDocs       Channel = "solbot_docs"
+	ChannelRSI        Channel = "solbot_rsi"
+	ChannelLogs       Channel = "solbot_logs"
 )
 
-// AllChannels returns every built-in domain channel emitted by database triggers.
-func AllChannels() []string {
-	return []string{
+// AllChannels returns every built-in domain channel emitted by database triggers
+func AllChannels() []Channel {
+	return []Channel{
 		ChannelMembers,
 		ChannelAttendance,
 		ChannelTokens,

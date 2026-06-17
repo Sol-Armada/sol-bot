@@ -17,6 +17,11 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 		return err
 	}
 
+	participants, err := a.Participants()
+	if err != nil {
+		return err
+	}
+
 	fromStartParticipants, err := a.PraticipantsFromStart()
 	if err != nil {
 		return err
@@ -28,8 +33,8 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 			Component: discordgo.SelectMenu{
 				CustomID: "managers",
 				Options: func() []discordgo.SelectMenuOption {
-					opts := make([]discordgo.SelectMenuOption, len(fromStartParticipants))
-					for i, participant := range fromStartParticipants {
+					opts := make([]discordgo.SelectMenuOption, len(participants))
+					for i, participant := range participants {
 						opts[i] = discordgo.SelectMenuOption{
 							Label: participant.Member.Name,
 							Value: participant.Member.Id,
@@ -37,7 +42,7 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 					}
 					return opts
 				}(),
-				MaxValues: len(fromStartParticipants),
+				MaxValues: len(participants),
 			},
 		},
 	}
@@ -108,8 +113,10 @@ func distributeModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 		}
 	}
 
-	selectedMembers := make([]string, 0, len(fromStartSelect.Values))
-	selectedMembers = append(selectedMembers, fromStartSelect.Values...)
+	selectedMembers := make([]string, 0)
+	if fromStartSelect != nil {
+		selectedMembers = append(selectedMembers, fromStartSelect.Values...)
+	}
 
 	for _, memberId := range selectedMembers {
 		if err := a.SetParticipantStayedUntilEnd(memberId); err != nil {

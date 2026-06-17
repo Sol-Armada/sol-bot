@@ -7,11 +7,9 @@ import (
 	"github.com/bwmarrin/discordgo"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/pkg/errors"
-	"github.com/rs/xid"
 	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/config"
 	"github.com/sol-armada/sol-bot/members"
-	"github.com/sol-armada/sol-bot/settings"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -21,12 +19,14 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 
 	commandMember := utils.GetMemberFromContext(ctx).(*members.Member)
 
-	_ = s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
-		Data: &discordgo.InteractionResponseData{
-			Flags: discordgo.MessageFlagsEphemeral,
-		},
-	})
+	// if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+	// 	Type: discordgo.InteractionResponseDeferredMessageUpdate,
+	// 	Data: &discordgo.InteractionResponseData{
+	// 		Flags: discordgo.MessageFlagsEphemeral,
+	// 	},
+	// }); err != nil {
+	// 	return errors.Wrap(err, "responding to interaction")
+	// }
 
 	data := i.Interaction.ApplicationCommandData().GetOption("create")
 	eventName := data.GetOption("name").StringValue()
@@ -43,10 +43,10 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		return err
 	}
 
-	exists := false
-	if _, err := xid.FromString(eventName); err == nil {
-		exists = true
-	}
+	// exists := false
+	// if _, err := xid.FromString(eventName); err == nil {
+	// 	exists = true
+	// }
 
 	a, err := attendance.New(eventName, commandMember)
 	if err != nil {
@@ -77,35 +77,45 @@ func createCommandHandler(ctx context.Context, s *discordgo.Session, i *discordg
 	}
 
 	// save now incase there is an error with creating the message
+	// if err := a.Save(); err != nil {
+	// 	return errors.Wrap(err, "saving attendance record")
+	// }
+
+	// attandanceMessage, err := a.ToDiscordMessage()
+	// if err != nil {
+	// 	return errors.Wrap(err, "creating attendance message")
+	// }
+
+	// message, err := s.ChannelMessageSendComplex(a.ChannelId, attandanceMessage)
+	// if err != nil {
+	// 	return errors.Wrap(err, "sending attendance message")
+	// }
+	// a.MessageId = message.ID
+
+	// if err := a.Save(); err != nil {
+	// 	return errors.Wrap(err, "saving attendance record")
+	// }
+
+	// content := fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s created", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), a.MessageId)
+	// if exists {
+	// 	content = fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), a.MessageId)
+	// }
+	// _, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
+	// 	Content: content,
+	// 	Flags:   discordgo.MessageFlagsEphemeral,
+	// })
+
 	if err := a.Save(); err != nil {
 		return errors.Wrap(err, "saving attendance record")
 	}
 
-	attandanceMessage, err := a.ToDiscordMessage()
-	if err != nil {
-		return errors.Wrap(err, "creating attendance message")
-	}
-
-	message, err := s.ChannelMessageSendComplex(a.ChannelId, attandanceMessage)
-	if err != nil {
-		return errors.Wrap(err, "sending attendance message")
-	}
-	a.MessageId = message.ID
-
-	if err := a.Save(); err != nil {
-		return errors.Wrap(err, "saving attendance record")
-	}
-
-	content := fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s created", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), a.MessageId)
-	if exists {
-		content = fmt.Sprintf("Attendance record https://discord.com/channels/%s/%s/%s updated", i.GuildID, settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"), a.MessageId)
-	}
-	_, _ = s.FollowupMessageCreate(i.Interaction, true, &discordgo.WebhookParams{
-		Content: content,
-		Flags:   discordgo.MessageFlagsEphemeral,
+	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+		Type: discordgo.InteractionResponseChannelMessageWithSource,
+		Data: &discordgo.InteractionResponseData{
+			Content: fmt.Sprintf("Attendance record for %s created!", a.Name),
+			Flags:   discordgo.MessageFlagsEphemeral,
+		},
 	})
-
-	return nil
 }
 
 func createAutocompleteHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {

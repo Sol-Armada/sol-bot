@@ -38,6 +38,6 @@ func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discord
 	go directMessageAttendees(s, utils.GetLoggerFromContext(ctx), attendance)
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
-		Type: discordgo.InteractionResponseUpdateMessage,
+		Type: discordgo.InteractionResponseDeferredMessageUpdate,
 	})
 }
