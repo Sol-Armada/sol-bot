@@ -102,6 +102,7 @@ func New(version string, dbConfig database.Config) (*Bot, error) {
 
 	b.Identify.Intents = discordgo.IntentGuildMembers + discordgo.IntentGuildVoiceStates + discordgo.IntentsGuildMessageReactions + discordgo.PermissionAdministrator
 	b.Client.Timeout = 5 * time.Second
+	b.ShouldReconnectOnError = true
 
 	dbListener, err := dbnotify.NewListenerFromPostgresConfig(dbConfig, []dbnotify.Channel{dbnotify.ChannelAttendance})
 	if err != nil {
@@ -137,8 +138,17 @@ func (b *Bot) Setup() error {
 	}()
 
 	b.logger.Debug("adding ready handler")
-	b.AddHandlerOnce(func(s *discordgo.Session, r *discordgo.Ready) {
-		b.logger.Info("bot is ready", "user", r.User.Username)
+	b.AddHandler(func(s *discordgo.Session, _ *discordgo.Connect) {
+		b.logger.Info("discord gateway connected")
+	})
+	b.AddHandler(func(s *discordgo.Session, _ *discordgo.Disconnect) {
+		b.logger.Error("discord gateway disconnected")
+	})
+	b.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
+		b.logger.Info("bot is ready", "user", r.User.Username, "session_id", r.SessionID)
+	})
+	b.AddHandler(func(s *discordgo.Session, r *discordgo.Resumed) {
+		b.logger.Warn("discord session resumed", "trace", r.Trace)
 	})
 
 	for _, cmd := range commands {
