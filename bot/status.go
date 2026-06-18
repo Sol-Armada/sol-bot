@@ -1,6 +1,8 @@
 package bot
 
 import (
+	"maps"
+	"slices"
 	"sync"
 )
 
@@ -34,12 +36,14 @@ func NextStatusMessage() string {
 	messages.mu.Lock()
 	defer messages.mu.Unlock()
 
-	keys := make([]string, 0, len(messages.messages))
-	for k := range messages.messages {
-		keys = append(keys, k)
-	}
+	keys := slices.Collect(maps.Keys(messages.messages))
 
 	defer func() { currentMessageIndex = (currentMessageIndex + 1) % len(keys) }()
+
+	if len(keys) == 0 || currentMessageIndex < 0 {
+		return ""
+	}
+
 	return messages.messages[keys[currentMessageIndex]]
 }
 
