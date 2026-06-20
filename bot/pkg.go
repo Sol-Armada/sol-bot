@@ -560,9 +560,13 @@ func (b *Bot) forceSessionReconnect(cooldown time.Duration) {
 
 	b.lastManualReconnect = now
 
+	b.logger.Info("closing existing discord session for reconnect")
+
 	if err := b.Session.Close(); err != nil {
 		b.logger.Warn("failed to close discord session before reconnect", "error", err)
 	}
+
+	b.logger.Info("reopening discord session")
 
 	if err := b.Session.Open(); err != nil {
 		b.logger.Error("failed to reopen discord session", "error", err)
