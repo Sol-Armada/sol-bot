@@ -555,11 +555,6 @@ func (b *Bot) monitorDiscordSession() {
 func (b *Bot) forceSessionReconnect(cooldown time.Duration) {
 	b.logger.Info("attempting to force a discord session reconnect")
 
-	b.sessionReconnectMu.Lock()
-	defer b.sessionReconnectMu.Unlock()
-
-	b.logger.Debug("session locked")
-
 	now := time.Now()
 	if !b.lastManualReconnect.IsZero() && now.Sub(b.lastManualReconnect) < cooldown {
 		b.logger.Warn("manual reconnect skipped due to cooldown", "remaining", cooldown-now.Sub(b.lastManualReconnect))
