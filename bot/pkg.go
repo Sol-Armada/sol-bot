@@ -532,6 +532,7 @@ func (b *Bot) monitorDiscordSession() {
 		notReadyTooLong := !b.DataReady && now.Sub(startedAt) > startupGrace
 
 		if !staleHeartbeat && !notReadyTooLong {
+			b.logger.Debug("discord session healthy", "data_ready", b.DataReady, "last_heartbeat_ack", lastAck)
 			continue
 		}
 
