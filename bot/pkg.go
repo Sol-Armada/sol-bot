@@ -513,6 +513,9 @@ func (b *Bot) Setup() error {
 }
 
 func (b *Bot) monitorDiscordSession() {
+	// delay 2 minutes on startup to allow the session to establish and stabilize before monitoring for issues
+	time.Sleep(2 * time.Minute)
+
 	const (
 		tickInterval      = 30 * time.Second
 		startupGrace      = 2 * time.Minute
