@@ -535,7 +535,6 @@ func (b *Bot) monitorDiscordSession() {
 		notReadyTooLong := !b.DataReady && now.Sub(startedAt) > startupGrace
 
 		if !staleHeartbeat && !notReadyTooLong {
-			b.logger.Debug("discord session healthy", "data_ready", b.DataReady, "last_heartbeat_ack", lastAck)
 			continue
 		}
 
@@ -554,11 +553,6 @@ func (b *Bot) monitorDiscordSession() {
 
 func (b *Bot) forceSessionReconnect(cooldown time.Duration) {
 	b.logger.Info("attempting to force a discord session reconnect")
-
-	b.sessionReconnectMu.Lock()
-	defer b.sessionReconnectMu.Unlock()
-
-	b.logger.Debug("session locked")
 
 	now := time.Now()
 	if !b.lastManualReconnect.IsZero() && now.Sub(b.lastManualReconnect) < cooldown {
