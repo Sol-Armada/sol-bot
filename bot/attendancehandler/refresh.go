@@ -25,6 +25,10 @@ func refreshButtonHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		return errors.Wrap(err, "rechecking issues for attendance record")
 	}
 
+	if a.MessageId == "" {
+		a.MessageId = i.Message.ID
+	}
+
 	message, err := a.ToDiscordMessage()
 	if err != nil {
 		return errors.Wrap(err, "creating attendance message")
