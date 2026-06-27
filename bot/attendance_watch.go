@@ -46,10 +46,6 @@ func (b *Bot) handleAttendanceInsert(event dbnotify.Event) error {
 		return err
 	}
 
-	if a.MessageId != "" {
-		return nil
-	}
-
 	a.ChannelId = settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID")
 
 	attandanceMessage, err := a.ToDiscordMessage()
