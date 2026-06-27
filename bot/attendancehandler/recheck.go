@@ -33,6 +33,13 @@ func recheckIssuesButtonHandler(ctx context.Context, s *discordgo.Session, i *di
 		return errors.Wrap(err, "rechecking issues for attendance record")
 	}
 
+	if attendance.MessageId == "" {
+		attendance.MessageId = i.Message.ID
+	}
+	if err := attendance.Save(); err != nil {
+		return errors.Wrap(err, "saving attendance record after rechecking issues")
+	}
+
 	message, err := attendance.ToDiscordMessage()
 	if err != nil {
 		return errors.Wrap(err, "creating attendance message")
