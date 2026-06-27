@@ -29,7 +29,7 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 
 	components := []discordgo.MessageComponent{
 		discordgo.Label{
-			Label: "Select members who where event managers",
+			Label: "Select members who were event managers",
 			Component: discordgo.SelectMenu{
 				CustomID: "managers",
 				Options: func() []discordgo.SelectMenuOption {
@@ -50,7 +50,7 @@ func distributeButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 	if len(fromStartParticipants) > 0 {
 		components = append(components,
 			discordgo.Label{
-				Label: "Select members who where at the start",
+				Label: "Select members who were at the start",
 				Component: discordgo.SelectMenu{
 					CustomID: "from_start",
 					Options: func() []discordgo.SelectMenuOption {
