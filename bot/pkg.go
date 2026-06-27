@@ -8,7 +8,6 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/bwmarrin/discordgo"
@@ -48,7 +47,6 @@ type Bot struct {
 	schedular  *gocron.Scheduler
 	dbListener *dbnotify.Listener
 
-	sessionReconnectMu  sync.Mutex
 	lastManualReconnect time.Time
 
 	*discordgo.Session
@@ -507,7 +505,7 @@ func (b *Bot) Setup() error {
 
 	go b.startJobs()
 
-	go b.StartAttendanceWatch()
+	go b.StartAttendanceWatch() //nolint:errcheck
 
 	return nil
 }
