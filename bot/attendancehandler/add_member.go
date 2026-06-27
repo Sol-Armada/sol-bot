@@ -7,7 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	attdnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/customerrors"
 	"github.com/sol-armada/sol-bot/members"
 	"github.com/sol-armada/sol-bot/settings"
@@ -28,9 +28,9 @@ func addMembersCommandHandler(ctx context.Context, s *discordgo.Session, i *disc
 	data := i.Interaction.ApplicationCommandData().Options[0]
 
 	eventId := data.Options[0].StringValue()
-	a, err := attdnc.Get(eventId)
+	a, err := attendance.Get(eventId)
 	if err != nil {
-		if errors.Is(err, attdnc.ErrAttendanceNotFound) {
+		if errors.Is(err, attendance.ErrAttendanceNotFound) {
 			return customerrors.InvalidAttendanceRecord
 		}
 
@@ -93,7 +93,7 @@ func addRemoveMembersAutocompleteHandler(ctx context.Context, s *discordgo.Sessi
 	choices := []*discordgo.ApplicationCommandOptionChoice{}
 
 	if data.Options[0].Options[0].Focused {
-		attendanceRecords, err := attdnc.ListActive(5)
+		attendanceRecords, err := attendance.ListActive(5)
 		if err != nil {
 			return errors.Wrap(err, "getting active attendance records")
 		}
@@ -163,9 +163,9 @@ func addParticipantsSelectMenuHandler(ctx context.Context, s *discordgo.Session,
 
 	data := i.Interaction.MessageComponentData()
 	attendanceId := strings.Split(data.CustomID, ":")[2]
-	a, err := attdnc.Get(attendanceId)
+	a, err := attendance.Get(attendanceId)
 	if err != nil {
-		if errors.Is(err, attdnc.ErrAttendanceNotFound) {
+		if errors.Is(err, attendance.ErrAttendanceNotFound) {
 			return customerrors.InvalidAttendanceRecord
 		}
 
@@ -207,9 +207,9 @@ func removeParticipantsSelectMenuHandler(ctx context.Context, s *discordgo.Sessi
 
 	data := i.Interaction.MessageComponentData()
 	attendanceId := strings.Split(data.CustomID, ":")[2]
-	a, err := attdnc.Get(attendanceId)
+	a, err := attendance.Get(attendanceId)
 	if err != nil {
-		if errors.Is(err, attdnc.ErrAttendanceNotFound) {
+		if errors.Is(err, attendance.ErrAttendanceNotFound) {
 			return customerrors.InvalidAttendanceRecord
 		}
 

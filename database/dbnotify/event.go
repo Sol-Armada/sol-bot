@@ -24,6 +24,8 @@ type Event struct {
 	PrimaryKey     map[string]any `json:"primary_key"`
 	OccurredAt     time.Time      `json:"occurred_at"`
 	ChangedColumns []string       `json:"changed_columns"`
+	OldValues      map[string]any `json:"old_values"`
+	NewValues      map[string]any `json:"new_values"`
 	RawPayload     string         `json:"-"`
 }
 
@@ -45,6 +47,12 @@ func ParseEvent(channel Channel, payload string) (Event, error) {
 	}
 	if event.ChangedColumns == nil {
 		event.ChangedColumns = []string{}
+	}
+	if event.OldValues == nil {
+		event.OldValues = map[string]any{}
+	}
+	if event.NewValues == nil {
+		event.NewValues = map[string]any{}
 	}
 
 	return event, nil

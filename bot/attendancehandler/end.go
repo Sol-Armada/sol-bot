@@ -12,30 +12,35 @@ import (
 func endEventButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	attendance, err := attendance.Get(attendanceId)
+	a, err := attendance.Get(attendanceId)
 	if err != nil {
 		return err
 	}
 
-	if err := attendance.Record(); err != nil {
+	if a.ChannelId == "" || a.MessageId == "" {
+		a.ChannelId = i.ChannelID
+		a.MessageId = i.Message.ID
+	}
+
+	if err := a.Record(); err != nil {
 		return err
 	}
 
-	attendanceMessage, err := attendance.ToDiscordMessage()
+	attendanceMessage, err := a.ToDiscordMessage()
 	if err != nil {
 		return err
 	}
 
 	if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
-		Channel:    attendance.ChannelId,
-		ID:         attendance.MessageId,
+		Channel:    a.ChannelId,
+		ID:         a.MessageId,
 		Components: &attendanceMessage.Components,
 		Embeds:     &attendanceMessage.Embeds,
 	}); err != nil {
 		return err
 	}
 
-	go directMessageAttendees(s, utils.GetLoggerFromContext(ctx), attendance)
+	go directMessageAttendees(s, utils.GetLoggerFromContext(ctx), a)
 
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredMessageUpdate,

@@ -25,7 +25,8 @@ func refreshButtonHandler(ctx context.Context, s *discordgo.Session, i *discordg
 		return errors.Wrap(err, "rechecking issues for attendance record")
 	}
 
-	if a.MessageId == "" {
+	if a.ChannelId == "" || a.MessageId == "" {
+		a.ChannelId = i.ChannelID
 		a.MessageId = i.Message.ID
 	}
 

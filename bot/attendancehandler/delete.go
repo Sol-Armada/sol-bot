@@ -7,7 +7,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/pkg/errors"
-	attdnc "github.com/sol-armada/sol-bot/attendance"
+	"github.com/sol-armada/sol-bot/attendance"
 	"github.com/sol-armada/sol-bot/utils"
 )
 
@@ -17,11 +17,12 @@ func deleteButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo
 
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	attendance, err := attdnc.Get(id)
-	if err != nil && !errors.Is(err, attdnc.ErrAttendanceNotFound) {
+	a, err := attendance.Get(id)
+	if err != nil && !errors.Is(err, attendance.ErrAttendanceNotFound) {
 		return errors.Wrap(err, "getting attendance record")
 	}
-	if attendance == nil {
+
+	if a == nil {
 		_ = s.ChannelMessageDelete(i.ChannelID, i.Message.ID)
 
 		return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
@@ -64,17 +65,17 @@ func verifyDeleteButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 
 	id := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	attendance, err := attdnc.Get(id)
-	if err != nil && !errors.Is(err, attdnc.ErrAttendanceNotFound) {
+	a, err := attendance.Get(id)
+	if err != nil && !errors.Is(err, attendance.ErrAttendanceNotFound) {
 		return errors.Wrap(err, "getting attendance record")
 	}
-	if attendance != nil {
-		if err := attendance.Delete(); err != nil {
+	if a != nil {
+		if err := a.Delete(); err != nil {
 			return errors.Wrap(err, "deleting attendance record")
 		}
 
-		msg, err := s.ChannelMessage(attendance.ChannelId, attendance.MessageId)
-		if err != nil && !errors.Is(err, attdnc.ErrAttendanceNotFound) {
+		msg, err := s.ChannelMessage(i.ChannelID, i.Message.ID)
+		if err != nil && !errors.Is(err, attendance.ErrAttendanceNotFound) {
 			return errors.Wrap(err, "getting attendance message")
 		}
 
@@ -87,7 +88,7 @@ func verifyDeleteButtonHandler(ctx context.Context, s *discordgo.Session, i *dis
 			}
 		}
 
-		if err := s.ChannelMessageDelete(attendance.ChannelId, attendance.MessageId); err != nil {
+		if err := s.ChannelMessageDelete(i.ChannelID, i.Message.ID); err != nil {
 			derr := err.(*discordgo.RESTError)
 			if derr.Response.StatusCode != 404 {
 				return errors.Wrap(err, "deleting attendance message")

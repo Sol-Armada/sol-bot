@@ -11,16 +11,21 @@ import (
 func toggleTokenableButtonHandler(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
 	attendanceId := strings.Split(i.MessageComponentData().CustomID, ":")[2]
 
-	attendance, err := attendance.Get(attendanceId)
+	a, err := attendance.Get(attendanceId)
 	if err != nil {
 		return err
 	}
 
-	attendance.Tokenable = !attendance.Tokenable
-	if !attendance.Tokenable {
-		attendance.Successful = false
+	if a.ChannelId == "" || a.MessageId == "" {
+		a.ChannelId = i.ChannelID
+		a.MessageId = i.Message.ID
 	}
-	if err := attendance.Save(); err != nil {
+
+	a.Tokenable = !a.Tokenable
+	if !a.Tokenable {
+		a.Successful = false
+	}
+	if err := a.Save(); err != nil {
 		return err
 	}
 

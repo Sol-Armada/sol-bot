@@ -64,10 +64,15 @@ func (b *Bot) handleAttendanceInsert(event dbnotify.Event) error {
 
 func (b *Bot) handleAttendanceUpdate(event dbnotify.Event) error {
 	event.ChangedColumns = slices.DeleteFunc(event.ChangedColumns, func(s string) bool {
-		return s == "message_id" || s == "updated_at" || s == "date_updated" || s == "channel_id"
+		return s == "updated_at" || s == "date_updated"
 	})
 
 	if len(event.ChangedColumns) == 0 || event.PrimaryKey["id"] == nil {
+		return nil
+	}
+
+	// check if only the message and channel ids were updated, if so, we don't need to update the message
+	if len(event.ChangedColumns) == 2 && event.ChangedColumns[0] == "channel_id" && event.ChangedColumns[1] == "message_id" {
 		return nil
 	}
 

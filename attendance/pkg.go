@@ -60,7 +60,7 @@ func New(name string, submittedBy *members.Member) (*Attendance, error) {
 		ChannelId: settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"),
 	}
 
-	return attendance, attendance.Save()
+	return attendance, nil
 }
 
 func Get(id string) (*Attendance, error) {
