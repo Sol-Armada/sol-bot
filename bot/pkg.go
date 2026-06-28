@@ -665,7 +665,9 @@ func (b *Bot) startJobs() {
 					monitor.Update(fmt.Sprintf("Running job %s", job.Name))
 					defer monitor.Done()
 
-					return job.Run(ctx, b.Session, monitor)
+					return job.Run(utils.SetLoggerToContext(ctx, slog.Default().With(
+						slog.String("job_name", job.Name),
+					)), b.Session, monitor)
 				},
 			),
 			gocron.WithName(job.Name),

@@ -28,7 +28,7 @@ const (
 // It fetches Discord members, validates them, updates their information in the database,
 // and cleans up members who are no longer in the Discord server.
 func MemberMonitor(ctx context.Context, s *discordgo.Session, monitor JobMonitor) error {
-	logger := slog.Default()
+	logger := utils.GetLoggerFromContext(ctx)
 	defer func() {
 		if err := recover(); err != nil {
 			logger.Error("panic in member monitor", "error", err)
