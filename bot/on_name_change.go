@@ -17,14 +17,29 @@ func OnNameChangeHandler(s *discordgo.Session, m *discordgo.GuildMemberUpdate) {
 		slog.String("event", "name_change"),
 	)
 
-	if m.User == nil || m.Member == nil || m.BeforeUpdate == nil {
-		logger.Error("member update event missing user or member")
+	logger.Debug("member name changed", "user_id", func() string {
+		if m.User != nil {
+			return m.User.ID
+		}
+		return "user is nil"
+	}, "old_name", func() string {
+		if m.Member != nil {
+			return m.Member.Nick
+		}
+		return "member is nil"
+	}(), "new_name", func() string {
+		if m.BeforeUpdate != nil {
+			return m.BeforeUpdate.Nick
+		}
+		return "before update is nil"
+	}())
+
+	if m.User != nil && m.User.Bot {
 		return
 	}
 
-	logger.Debug("member name changed", "user_id", m.User.ID, "old_name", m.Member.Nick, "new_name", m.BeforeUpdate.Nick)
-
-	if m.User.Bot {
+	if m.User == nil {
+		logger.Error("member update event missing user")
 		return
 	}
 
