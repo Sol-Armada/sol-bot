@@ -48,6 +48,7 @@ type Bot struct {
 	dbListener *dbnotify.Listener
 
 	lastManualReconnect time.Time
+	reconnectAttempts   int
 
 	*discordgo.Session
 }
@@ -141,16 +142,18 @@ func (b *Bot) Setup() error {
 
 	b.logger.Debug("adding ready handler")
 	b.AddHandler(func(s *discordgo.Session, _ *discordgo.Connect) {
-		b.logger.Info("discord gateway connected")
+		b.logger.Info("discord gateway connected", b.sessionHealthFields(time.Now())...)
 	})
 	b.AddHandler(func(s *discordgo.Session, _ *discordgo.Disconnect) {
-		b.logger.Error("discord gateway disconnected")
+		b.logger.Error("discord gateway disconnected", b.sessionHealthFields(time.Now())...)
 	})
 	b.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		b.logger.Info("bot is ready", "user", r.User.Username, "session_id", r.SessionID)
+		fields := append([]any{"user", r.User.Username, "session_id", r.SessionID}, b.sessionHealthFields(time.Now())...)
+		b.logger.Info("bot is ready", fields...)
 	})
 	b.AddHandler(func(s *discordgo.Session, r *discordgo.Resumed) {
-		b.logger.Warn("discord session resumed", "trace", r.Trace)
+		fields := append([]any{"trace", r.Trace}, b.sessionHealthFields(time.Now())...)
+		b.logger.Warn("discord session resumed", fields...)
 	})
 
 	for _, cmd := range commands {
@@ -500,6 +503,7 @@ func (b *Bot) Setup() error {
 	}
 
 	b.logger.Debug("Discord connection opened successfully")
+	b.logger.Info("discord session established", b.sessionHealthFields(time.Now())...)
 
 	go b.monitorDiscordSession()
 
@@ -525,18 +529,33 @@ func (b *Bot) monitorDiscordSession() {
 	ticker := time.NewTicker(tickInterval)
 	defer ticker.Stop()
 
+	b.logger.Info("starting discord session health monitor",
+		"tick_interval", tickInterval,
+		"startup_grace", startupGrace,
+		"max_heartbeat_stale", maxHeartbeatStale,
+		"reconnect_cooldown", reconnectCooldown,
+	)
+
+	tickCount := 0
+
 	for range ticker.C {
+		tickCount++
 		now := time.Now()
 		lastAck := b.LastHeartbeatAck
 
 		staleHeartbeat := !lastAck.IsZero() && now.Sub(lastAck) > maxHeartbeatStale
 		notReadyTooLong := !b.DataReady && now.Sub(startedAt) > startupGrace
 
+		if tickCount%10 == 0 {
+			fields := append([]any{"monitor_uptime", now.Sub(startedAt)}, b.sessionHealthFields(now)...)
+			b.logger.Debug("discord session health snapshot", fields...)
+		}
+
 		if !staleHeartbeat && !notReadyTooLong {
 			continue
 		}
 
-		fields := []any{"data_ready", b.DataReady, "last_heartbeat_ack", lastAck}
+		fields := append([]any{"monitor_uptime", now.Sub(startedAt)}, b.sessionHealthFields(now)...)
 		if staleHeartbeat {
 			fields = append(fields, "stale_for", now.Sub(lastAck))
 		}
@@ -550,30 +569,60 @@ func (b *Bot) monitorDiscordSession() {
 }
 
 func (b *Bot) forceSessionReconnect(cooldown time.Duration) {
-	b.logger.Info("attempting to force a discord session reconnect")
-
 	now := time.Now()
+	b.reconnectAttempts++
+	attempt := b.reconnectAttempts
+
+	fields := append([]any{"attempt", attempt, "cooldown", cooldown}, b.sessionHealthFields(now)...)
+	b.logger.Warn("attempting to force a discord session reconnect", fields...)
+
 	if !b.lastManualReconnect.IsZero() && now.Sub(b.lastManualReconnect) < cooldown {
-		b.logger.Warn("manual reconnect skipped due to cooldown", "remaining", cooldown-now.Sub(b.lastManualReconnect))
+		b.logger.Warn("manual reconnect skipped due to cooldown",
+			"attempt", attempt,
+			"remaining", cooldown-now.Sub(b.lastManualReconnect),
+			"last_manual_reconnect", b.lastManualReconnect,
+		)
 		return
 	}
 
 	b.lastManualReconnect = now
 
-	b.logger.Info("closing existing discord session for reconnect")
+	b.logger.Info("closing existing discord session for reconnect", "attempt", attempt)
+	closeStarted := time.Now()
 
 	if err := b.Session.Close(); err != nil {
-		b.logger.Warn("failed to close discord session before reconnect", "error", err)
+		b.logger.Warn("failed to close discord session before reconnect", "attempt", attempt, "error", err)
 	}
 
-	b.logger.Info("reopening discord session")
+	b.logger.Info("discord session close finished", "attempt", attempt, "duration", time.Since(closeStarted))
+	b.logger.Info("reopening discord session", "attempt", attempt)
+	openStarted := time.Now()
 
 	if err := b.Session.Open(); err != nil {
-		b.logger.Error("failed to reopen discord session", "error", err)
+		b.logger.Error("failed to reopen discord session", "attempt", attempt, "duration", time.Since(openStarted), "error", err)
 		return
 	}
 
-	b.logger.Info("discord session re-established")
+	fields = append([]any{"attempt", attempt, "duration", time.Since(openStarted)}, b.sessionHealthFields(time.Now())...)
+	b.logger.Info("discord session re-established", fields...)
+}
+
+func (b *Bot) sessionHealthFields(now time.Time) []any {
+	fields := []any{
+		"data_ready", b.DataReady,
+		"last_heartbeat_ack", b.LastHeartbeatAck,
+		"last_heartbeat_sent", b.LastHeartbeatSent,
+	}
+
+	if !b.LastHeartbeatAck.IsZero() {
+		fields = append(fields, "since_last_heartbeat_ack", now.Sub(b.LastHeartbeatAck))
+	}
+
+	if !b.LastHeartbeatSent.IsZero() {
+		fields = append(fields, "since_last_heartbeat_sent", now.Sub(b.LastHeartbeatSent))
+	}
+
+	return fields
 }
 
 type statusJobMonitor struct {
