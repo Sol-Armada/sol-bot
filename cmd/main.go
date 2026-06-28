@@ -191,7 +191,9 @@ func setupLogger(cfg *Config) *slog.Logger {
 		fmt.Printf("Using human-readable log format\n")
 	}
 
-	log := slog.New(handler)
+	log := slog.New(handler).With(
+		slog.String("version", version),
+	)
 	slog.SetDefault(log)
 
 	if cfg.Debug {
