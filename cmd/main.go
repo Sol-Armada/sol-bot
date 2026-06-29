@@ -335,7 +335,7 @@ func (app *Application) start() error {
 	if err := systemd.Ready(); err != nil {
 		logger.Warn("failed to notify systemd ready", "error", err)
 	}
-	if err := systemd.Status("Bot ready and serving"); err != nil {
+	if err := systemd.Status("Bot ready and serving (" + version + ")"); err != nil {
 		logger.Warn("failed to set systemd status", "error", err)
 	}
 	logger.Info("systemd notifications sent successfully")
