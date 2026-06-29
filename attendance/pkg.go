@@ -48,7 +48,7 @@ func Setup() error {
 }
 
 func New(name string, submittedBy *members.Member) (*Attendance, error) {
-	attendance := &Attendance{
+	a := &Attendance{
 		Id:          xid.New().String(),
 		Name:        name,
 		DateCreated: time.Now().UTC(),
@@ -60,7 +60,7 @@ func New(name string, submittedBy *members.Member) (*Attendance, error) {
 		ChannelId: settings.GetString("FEATURES.ATTENDANCE.CHANNEL_ID"),
 	}
 
-	return attendance, nil
+	return a, a.Save()
 }
 
 func Get(id string) (*Attendance, error) {
