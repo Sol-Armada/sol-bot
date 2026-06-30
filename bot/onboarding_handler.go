@@ -50,44 +50,61 @@ func setupOnboarding() error {
 
 CONTINUE:
 
+	// 	content := `# Welcome to Sol Armada!
+
+	// Let us know how you found us by clicking one of the buttons below. This will help us improve our recruitment efforts and better understand our community.
+	// If you run into any issues, please reach out in <#223290459726807040> for assistance.
+
+	// ## If you are here to join Sol Armada
+	// After applying to the Org on RSI and paticipating in a brief verbal onboarding, with an <@&398414253171671041> or <@&1109958022362562672>, we will mark you as a Recruit, granting access to more channels here on Discord. We don't accept applications until you attend 3 official Org events.
+
+	// ## If you are an ambassador or content creator
+	// Let's chat! Message <@91622043040124928>, Sol Armada's Diplomat and Admiral.
+
+	// — Sol Armada Org Administration
+
+	// ### [Sol Armada Handbook - Please read!](https://www.solarmada.space/fullhandbook)
+
+	// ### [Join the Org!](https://www.solarmada.space/new-recruits)
+	// `
+
 	content := `# Welcome to Sol Armada!
+	
+Please click the onboarding button below to verify that your RSI handle exists and get your Discord nickname set to your RSI handle.`
 
-Let us know how you found us by clicking one of the buttons below. This will help us improve our recruitment efforts and better understand our community.
-If you run into any issues, please reach out in <#223290459726807040> for assistance.
-
-## If you are here to join Sol Armada
-After applying to the Org on RSI and paticipating in a brief verbal onboarding, with an <@&398414253171671041> or <@&1109958022362562672>, we will mark you as a Recruit, granting access to more channels here on Discord. We don't accept applications until you attend 3 official Org events.
-
-## If you are an ambassador or content creator
-Let's chat! Message <@91622043040124928>, Sol Armada's Diplomat and Admiral.
-
-— Sol Armada Org Administration
-
-### [Sol Armada Handbook - Please read!](https://www.solarmada.space/fullhandbook)
-
-### [Join the Org!](https://www.solarmada.space/new-recruits)
-`
+	// components := []discordgo.MessageComponent{
+	// 	discordgo.ActionsRow{
+	// 		Components: []discordgo.MessageComponent{
+	// 			discordgo.Button{
+	// 				Label:    "A member recruited me",
+	// 				CustomID: "onboarding:choice:recruited",
+	// 				Style:    discordgo.PrimaryButton,
+	// 				Emoji:    &discordgo.ComponentEmoji{Name: "🤝"},
+	// 			},
+	// 			discordgo.Button{
+	// 				Label:    "Found Sol Armada on RSI",
+	// 				CustomID: "onboarding:choice:rsi",
+	// 				Style:    discordgo.PrimaryButton,
+	// 				Emoji:    &discordgo.ComponentEmoji{Name: "🔍"},
+	// 			},
+	// 			discordgo.Button{
+	// 				Label:    "Some other way",
+	// 				CustomID: "onboarding:choice:other",
+	// 				Style:    discordgo.PrimaryButton,
+	// 				Emoji:    &discordgo.ComponentEmoji{Name: "❔"},
+	// 			},
+	// 		},
+	// 	},
+	// }
 
 	components := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
 			Components: []discordgo.MessageComponent{
 				discordgo.Button{
-					Label:    "A member recruited me",
-					CustomID: "onboarding:choice:recruited",
+					Label:    "Onboard Me",
+					CustomID: "onboarding:choice",
 					Style:    discordgo.PrimaryButton,
-					Emoji:    &discordgo.ComponentEmoji{Name: "🤝"},
-				},
-				discordgo.Button{
-					Label:    "Found Sol Armada on RSI",
-					CustomID: "onboarding:choice:rsi",
-					Style:    discordgo.PrimaryButton,
-					Emoji:    &discordgo.ComponentEmoji{Name: "🔍"},
-				},
-				discordgo.Button{
-					Label:    "Some other way",
-					CustomID: "onboarding:choice:other",
-					Style:    discordgo.PrimaryButton,
-					Emoji:    &discordgo.ComponentEmoji{Name: "❔"},
+					Emoji:    &discordgo.ComponentEmoji{Name: "📝"},
 				},
 			},
 		},
@@ -163,8 +180,8 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 		})
 	}
 
-	data := i.MessageComponentData()
-	choice := strings.Split(data.CustomID, ":")[2]
+	// data := i.MessageComponentData()
+	// choice := strings.Split(data.CustomID, ":")[2]
 
 	questions := []discordgo.MessageComponent{
 		discordgo.ActionsRow{
@@ -177,65 +194,65 @@ func onboardingButtonHandler(ctx context.Context, s *discordgo.Session, i *disco
 				},
 			},
 		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.TextInput{
-					CustomID:    "play_time",
-					Label:       "How long have you been playing Star Citizen?",
-					Style:       discordgo.TextInputShort,
-					Placeholder: "Example: 2 years",
-					Required:    new(true),
-				},
-			},
-		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.TextInput{
-					CustomID:    "gameplay",
-					Label:       "What gameplay are you most interested in?",
-					Style:       discordgo.TextInputShort,
-					Placeholder: "Combat, Rescue, Mining, etc",
-					Required:    new(true),
-				},
-			},
-		},
-		discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.TextInput{
-					CustomID: "age",
-					Label:    "How old are you?",
-					Style:    discordgo.TextInputShort,
-					Required: new(true),
-				},
-			},
-		},
+		// discordgo.ActionsRow{
+		// 	Components: []discordgo.MessageComponent{
+		// 		discordgo.TextInput{
+		// 			CustomID:    "play_time",
+		// 			Label:       "How long have you been playing Star Citizen?",
+		// 			Style:       discordgo.TextInputShort,
+		// 			Placeholder: "Example: 2 years",
+		// 			Required:    new(true),
+		// 		},
+		// 	},
+		// },
+		// discordgo.ActionsRow{
+		// 	Components: []discordgo.MessageComponent{
+		// 		discordgo.TextInput{
+		// 			CustomID:    "gameplay",
+		// 			Label:       "What gameplay are you most interested in?",
+		// 			Style:       discordgo.TextInputShort,
+		// 			Placeholder: "Combat, Rescue, Mining, etc",
+		// 			Required:    new(true),
+		// 		},
+		// 	},
+		// },
+		// discordgo.ActionsRow{
+		// 	Components: []discordgo.MessageComponent{
+		// 		discordgo.TextInput{
+		// 			CustomID: "age",
+		// 			Label:    "How old are you?",
+		// 			Style:    discordgo.TextInputShort,
+		// 			Required: new(true),
+		// 		},
+		// 	},
+		// },
 	}
 
-	switch choice {
-	case "recruited":
-		questions = append(questions, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.TextInput{
-					CustomID:    "recruiter",
-					Label:       "Who recruited you?",
-					Style:       discordgo.TextInputShort,
-					Placeholder: "The recruiter's RSI handle",
-					Required:    new(true),
-				},
-			},
-		})
-	case "other":
-		questions = append(questions, discordgo.ActionsRow{
-			Components: []discordgo.MessageComponent{
-				discordgo.TextInput{
-					CustomID: "other",
-					Label:    "How did you find us?",
-					Style:    discordgo.TextInputParagraph,
-					Required: new(true),
-				},
-			},
-		})
-	}
+	// switch choice {
+	// case "recruited":
+	// 	questions = append(questions, discordgo.ActionsRow{
+	// 		Components: []discordgo.MessageComponent{
+	// 			discordgo.TextInput{
+	// 				CustomID:    "recruiter",
+	// 				Label:       "Who recruited you?",
+	// 				Style:       discordgo.TextInputShort,
+	// 				Placeholder: "The recruiter's RSI handle",
+	// 				Required:    new(true),
+	// 			},
+	// 		},
+	// 	})
+	// case "other":
+	// 	questions = append(questions, discordgo.ActionsRow{
+	// 		Components: []discordgo.MessageComponent{
+	// 			discordgo.TextInput{
+	// 				CustomID: "other",
+	// 				Label:    "How did you find us?",
+	// 				Style:    discordgo.TextInputParagraph,
+	// 				Required: new(true),
+	// 			},
+	// 		},
+	// 	})
+	// }
 
 	if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseModal,
@@ -267,36 +284,36 @@ func onboardingModalHandler(ctx context.Context, s *discordgo.Session, i *discor
 	}
 
 	rsiHandle := data.Components[0].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	playTime := data.Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	gameplay := data.Components[2].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	age := data.Components[3].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
-	recruiter := ""
-	other := ""
+	// playTime := data.Components[1].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	// gameplay := data.Components[2].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	// age := data.Components[3].(*discordgo.ActionsRow).Components[0].(*discordgo.TextInput).Value
+	// recruiter := ""
+	// other := ""
 
-	if len(data.Components) > 4 {
-		if actionRow, ok := data.Components[4].(*discordgo.ActionsRow); ok {
-			if comp, ok := actionRow.Components[0].(*discordgo.TextInput); ok {
-				switch comp.CustomID {
-				case "recruiter":
-					recruiter = comp.Value
-				case "other":
-					other = comp.Value
-				}
-			}
-		}
-	}
+	// if len(data.Components) > 4 {
+	// 	if actionRow, ok := data.Components[4].(*discordgo.ActionsRow); ok {
+	// 		if comp, ok := actionRow.Components[0].(*discordgo.TextInput); ok {
+	// 			switch comp.CustomID {
+	// 			case "recruiter":
+	// 				recruiter = comp.Value
+	// 			case "other":
+	// 				other = comp.Value
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-	member.LegacyPlaytime = playTime
-	member.LegacyGameplay = gameplay
-	member.LegacyAge = age
+	// member.LegacyPlaytime = playTime
+	// member.LegacyGameplay = gameplay
+	// member.LegacyAge = age
 
-	if recruiter != "" {
-		member.LegacyRecruiter = recruiter
-	}
+	// if recruiter != "" {
+	// 	member.LegacyRecruiter = recruiter
+	// }
 
-	if other != "" {
-		member.LegacyOther = other
-	}
+	// if other != "" {
+	// 	member.LegacyOther = other
+	// }
 
 	if err := member.Save(); err != nil {
 		return errors.Wrap(err, "onboarding modal handler: failed to save member first")
@@ -437,8 +454,15 @@ func finishOnboarding(ctx context.Context, s *discordgo.Session, i *discordgo.In
 	}
 
 SKIP:
+	// if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
+	// 	Content: "Thank you for answering our questions! Your Discord nickname has been set to your RSI handle. You can contact someone in <#223290459726807040> to get verbally onboarded!",
+	// 	Flags:   discordgo.MessageFlagsEphemeral,
+	// }); err != nil {
+	// 	return errors.Wrap(err, "finishing onboarding: responding")
+	// }
+
 	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
-		Content: "Thank you for answering our questions! Your Discord nickname has been set to your RSI handle. You can contact someone in <#223290459726807040> to get verbally onboarded!",
+		Content: "Your Discord nickname has been set to your RSI handle. You can contact someone in <#223290459726807040> to get verbally onboarded!",
 		Flags:   discordgo.MessageFlagsEphemeral,
 	}); err != nil {
 		return errors.Wrap(err, "finishing onboarding: responding")
@@ -448,18 +472,18 @@ SKIP:
 		{Name: "RSI Profile", Value: "https://robertsspaceindustries.com/citizens/" + member.Name},
 		{Name: "Primary Org", Value: "https://robertsspaceindustries.com/orgs/" + member.RsiInfo.PrimaryOrg},
 		{Name: "Affiliate Orgs", Value: strings.Join(member.RsiInfo.Affiliations, ", ")},
-		{Name: "Playtime", Value: member.LegacyPlaytime},
-		{Name: "Gameplay", Value: member.LegacyGameplay},
-		{Name: "Age", Value: member.LegacyAge},
+		// {Name: "Playtime", Value: member.LegacyPlaytime},
+		// {Name: "Gameplay", Value: member.LegacyGameplay},
+		// {Name: "Age", Value: member.LegacyAge},
 	}
 
-	if member.LegacyRecruiter != "" {
-		fields = append(fields, &discordgo.MessageEmbedField{Name: "Recruiter", Value: member.LegacyRecruiter})
-	}
+	// if member.LegacyRecruiter != "" {
+	// 	fields = append(fields, &discordgo.MessageEmbedField{Name: "Recruiter", Value: member.LegacyRecruiter})
+	// }
 
-	if member.LegacyOther != "" {
-		fields = append(fields, &discordgo.MessageEmbedField{Name: "How they found us", Value: member.LegacyOther})
-	}
+	// if member.LegacyOther != "" {
+	// 	fields = append(fields, &discordgo.MessageEmbedField{Name: "How they found us", Value: member.LegacyOther})
+	// }
 
 	if member.MessageId != "" {
 		if _, err := s.ChannelMessageEditComplex(&discordgo.MessageEdit{
@@ -479,7 +503,7 @@ SKIP:
 	}
 
 CREATE:
-	msg, err := s.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.OUTPUT_CHANNEL_ID"), &discordgo.MessageSend{
+	_, err := s.ChannelMessageSendComplex(settings.GetString("FEATURES.ONBOARDING.OUTPUT_CHANNEL_ID"), &discordgo.MessageSend{
 		Content: "Onboarding information for " + i.Member.Mention(),
 		Embeds: []*discordgo.MessageEmbed{
 			{
@@ -492,9 +516,9 @@ CREATE:
 		return errors.Wrap(err, "finishing onboarding: sending onboarded message")
 	}
 
-	member.MessageId = msg.ID
-	member.ChannelId = msg.ChannelID
-	member.OnboardedAt = &msg.Timestamp
+	// member.MessageId = msg.ID
+	// member.ChannelId = msg.ChannelID
+	// member.OnboardedAt = &msg.Timestamp
 
 	return member.Save()
 }
