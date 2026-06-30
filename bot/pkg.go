@@ -505,7 +505,7 @@ func (b *Bot) Setup() error {
 	b.logger.Debug("Discord connection opened successfully")
 	b.logger.Info("discord session established", b.sessionHealthFields(time.Now())...)
 
-	go b.monitorDiscordSession()
+	// go b.monitorDiscordSession()
 
 	go b.startJobs()
 
