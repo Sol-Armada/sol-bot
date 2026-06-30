@@ -120,6 +120,60 @@ type MemberBlueprint struct {
 	BlueprintID string `json:"blueprint_id"`
 }
 
+type Project struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	OwnerID     pgtype.Text        `json:"owner_id"`
+	StatusID    int32              `json:"status_id"`
+	DueAt       pgtype.Timestamptz `json:"due_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ProjectKanbanStatus struct {
+	ProjectID string `json:"project_id"`
+	Name      string `json:"name"`
+	Position  int32  `json:"position"`
+	Color     string `json:"color"`
+}
+
+type ProjectKanbanTask struct {
+	ID           string             `json:"id"`
+	ProjectID    string             `json:"project_id"`
+	StatusName   string             `json:"status_name"`
+	Title        string             `json:"title"`
+	Description  string             `json:"description"`
+	Position     int32              `json:"position"`
+	Priority     int32              `json:"priority"`
+	DueAt        pgtype.Timestamptz `json:"due_at"`
+	AssigneeID   pgtype.Text        `json:"assignee_id"`
+	ParentTaskID pgtype.Text        `json:"parent_task_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type ProjectKanbanTaskHistory struct {
+	ID            int64              `json:"id"`
+	TaskID        string             `json:"task_id"`
+	Action        string             `json:"action"`
+	PerformedByID pgtype.Text        `json:"performed_by_id"`
+	PerformedAt   pgtype.Timestamptz `json:"performed_at"`
+	Details       []byte             `json:"details"`
+}
+
+type ProjectMember struct {
+	ProjectID string `json:"project_id"`
+	MemberID  string `json:"member_id"`
+}
+
+type ProjectStatus struct {
+	ID        int32              `json:"id"`
+	Name      string             `json:"name"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Raffle struct {
 	ID           string             `json:"id"`
 	Name         string             `json:"name"`
