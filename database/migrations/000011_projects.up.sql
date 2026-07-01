@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS project_kanban_statuses (
 CREATE TABLE IF NOT EXISTS project_kanban_tasks (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
-    status_name TEXT NOT NULL REFERENCES project_kanban_statuses (name) ON DELETE RESTRICT,
+    status_name TEXT NOT NULL,
     title TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     position INTEGER NOT NULL,
@@ -39,7 +39,8 @@ CREATE TABLE IF NOT EXISTS project_kanban_tasks (
     assignee_id TEXT REFERENCES members (id) ON DELETE SET NULL,
     parent_task_id TEXT REFERENCES project_kanban_tasks (id) ON DELETE SET NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (project_id, status_name) REFERENCES project_kanban_statuses (project_id, name) ON DELETE RESTRICT
 );
 
 CREATE TABLE IF NOT EXISTS project_kanban_task_history (
