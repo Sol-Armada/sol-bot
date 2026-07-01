@@ -21,6 +21,8 @@ type Querier interface {
 	DeleteAttendanceParticipant(ctx context.Context, arg DeleteAttendanceParticipantParams) error
 	DeleteAttendanceTag(ctx context.Context, tag string) error
 	DeleteMember(ctx context.Context, arg DeleteMemberParams) error
+	DeleteProject(ctx context.Context, id string) error
+	DeleteProjectTask(ctx context.Context, id string) error
 	DeleteRollEntriesByEvent(ctx context.Context, rollEventID string) error
 	DeleteRollEntry(ctx context.Context, arg DeleteRollEntryParams) error
 	DeleteRollEvent(ctx context.Context, id string) error
@@ -28,6 +30,8 @@ type Querier interface {
 	GetAttendanceByID(ctx context.Context, id string) (Attendance, error)
 	GetMember(ctx context.Context, id string) (GetMemberRow, error)
 	GetMemberIDs(ctx context.Context) ([]string, error)
+	GetProjectByID(ctx context.Context, id string) (Project, error)
+	GetProjectTaskByID(ctx context.Context, id string) (ProjectKanbanTask, error)
 	GetRollEventByID(ctx context.Context, id string) (RollEvent, error)
 	GetRsiInfoByHandle(ctx context.Context, handle string) (RsiInfo, error)
 	GetTokenBalances(ctx context.Context) ([]GetTokenBalancesRow, error)
@@ -36,6 +40,7 @@ type Querier interface {
 	InsertAttendanceName(ctx context.Context, name string) error
 	InsertAttendanceTag(ctx context.Context, tag string) error
 	InsertCommandLog(ctx context.Context, arg InsertCommandLogParams) error
+	InsertProjectTaskHistory(ctx context.Context, arg InsertProjectTaskHistoryParams) (ProjectKanbanTaskHistory, error)
 	InsertToken(ctx context.Context, arg InsertTokenParams) error
 	ListActiveAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
 	ListActiveRollEvents(ctx context.Context, limitRows int32) ([]RollEvent, error)
@@ -51,6 +56,11 @@ type Querier interface {
 	ListMembersByBlueprint(ctx context.Context, blueprintID string) ([]ListMembersByBlueprintRow, error)
 	ListMembersByIDs(ctx context.Context, ids []string) ([]ListMembersByIDsRow, error)
 	ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]ListMembersPageRow, error)
+	ListProjectStatuses(ctx context.Context) ([]ProjectStatus, error)
+	ListProjectTaskHistory(ctx context.Context, taskID string) ([]ProjectKanbanTaskHistory, error)
+	ListProjectTasks(ctx context.Context, projectID string) ([]ProjectKanbanTask, error)
+	ListProjectTasksByAssignee(ctx context.Context, assigneeID pgtype.Text) ([]ProjectKanbanTask, error)
+	ListProjects(ctx context.Context) ([]Project, error)
 	ListPromotions(ctx context.Context) ([]ListPromotionsRow, error)
 	ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]ListRandomMembersByRankRow, error)
 	ListRecordedAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
@@ -68,6 +78,9 @@ type Querier interface {
 	UpsertBlueprintDoc(ctx context.Context, arg UpsertBlueprintDocParams) error
 	UpsertKanbanCard(ctx context.Context, arg UpsertKanbanCardParams) error
 	UpsertMember(ctx context.Context, arg UpsertMemberParams) error
+	UpsertProject(ctx context.Context, arg UpsertProjectParams) (Project, error)
+	UpsertProjectStatus(ctx context.Context, arg UpsertProjectStatusParams) (ProjectStatus, error)
+	UpsertProjectTask(ctx context.Context, arg UpsertProjectTaskParams) (ProjectKanbanTask, error)
 	UpsertRollEntry(ctx context.Context, arg UpsertRollEntryParams) error
 	UpsertRollEvent(ctx context.Context, arg UpsertRollEventParams) error
 	UpsertRollItem(ctx context.Context, arg UpsertRollItemParams) error

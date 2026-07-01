@@ -162,11 +162,6 @@ type ProjectKanbanTaskHistory struct {
 	Details       []byte             `json:"details"`
 }
 
-type ProjectMember struct {
-	ProjectID string `json:"project_id"`
-	MemberID  string `json:"member_id"`
-}
-
 type ProjectStatus struct {
 	ID        int32              `json:"id"`
 	Name      string             `json:"name"`
