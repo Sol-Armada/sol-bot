@@ -5,6 +5,14 @@ CREATE TABLE IF NOT EXISTS project_statuses (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+INSERT INTO project_statuses (id, name) VALUES
+    (1, 'Not Started'),
+    (2, 'In Progress'),
+    (3, 'Completed'),
+    (4, 'On Hold'),
+    (5, 'Cancelled')
+ON CONFLICT (id) DO NOTHING;
+
 CREATE TABLE IF NOT EXISTS projects (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
