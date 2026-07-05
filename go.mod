@@ -5,6 +5,7 @@ go 1.26.3
 require (
 	github.com/bwmarrin/discordgo v0.29.1-0.20260214123928-f43dd94faaac
 	github.com/go-co-op/gocron/v2 v2.21.1
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/koo04/GoScrapeRSI v1.3.0
 	github.com/lithammer/fuzzysearch v1.1.8
@@ -21,7 +22,6 @@ require (
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect

@@ -11,6 +11,7 @@ import (
 	"github.com/sol-armada/sol-bot/database"
 	"github.com/sol-armada/sol-bot/database/sqlc/dbgen"
 	"github.com/sol-armada/sol-bot/members"
+	"github.com/sol-armada/sol-bot/utils"
 )
 
 type attendanceBackend interface {
@@ -155,11 +156,11 @@ func (b *postgresAttendanceBackend) Upsert(a *Attendance) error {
 		Status:      string(a.Status),
 		ChannelID:   a.ChannelId,
 		MessageID:   a.MessageId,
-		DateCreated: toPgTs(a.DateCreated),
-		DateUpdated: toPgTs(a.DateUpdated),
+		DateCreated: utils.ToPgTimestamptz(a.DateCreated),
+		DateUpdated: utils.ToPgTimestamptz(a.DateUpdated),
 	}
 	if a.SubmittedBy != nil {
-		params.SubmittedBy = toPgText(a.SubmittedBy.Id)
+		params.SubmittedBy = utils.ToPgText(a.SubmittedBy.Id)
 	}
 	if err := qtx.UpsertAttendance(ctx, params); err != nil {
 		return err
@@ -197,18 +198,4 @@ func (b *postgresAttendanceBackend) ListByIds(ids []string) ([]*Attendance, erro
 		return nil, err
 	}
 	return b.converter.FromDbAttendanceRows(rows), nil
-}
-
-func toPgText(v string) pgtype.Text {
-	if v == "" {
-		return pgtype.Text{}
-	}
-	return pgtype.Text{String: v, Valid: true}
-}
-
-func toPgTs(v time.Time) pgtype.Timestamptz {
-	if v.IsZero() {
-		return pgtype.Timestamptz{}
-	}
-	return pgtype.Timestamptz{Time: v.UTC(), Valid: true}
 }

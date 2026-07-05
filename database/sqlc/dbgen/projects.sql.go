@@ -20,21 +20,35 @@ func (q *Queries) DeleteProject(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteProjectTask = `-- name: DeleteProjectTask :exec
-DELETE FROM project_kanban_tasks WHERE id = $1
+const deleteTask = `-- name: DeleteTask :exec
+DELETE FROM tasks WHERE id = $1
 `
 
-func (q *Queries) DeleteProjectTask(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteProjectTask, id)
+func (q *Queries) DeleteTask(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteTask, id)
 	return err
 }
 
-const getProjectByID = `-- name: GetProjectByID :one
+const deleteTaskStatus = `-- name: DeleteTaskStatus :exec
+DELETE FROM task_statuses WHERE project_id = $1 AND name = $2
+`
+
+type DeleteTaskStatusParams struct {
+	ProjectID string `json:"project_id"`
+	Name      string `json:"name"`
+}
+
+func (q *Queries) DeleteTaskStatus(ctx context.Context, arg DeleteTaskStatusParams) error {
+	_, err := q.db.Exec(ctx, deleteTaskStatus, arg.ProjectID, arg.Name)
+	return err
+}
+
+const getProjectById = `-- name: GetProjectById :one
 SELECT id, name, description, owner_id, status_id, due_at, created_at, updated_at FROM projects WHERE id = $1
 `
 
-func (q *Queries) GetProjectByID(ctx context.Context, id string) (Project, error) {
-	row := q.db.QueryRow(ctx, getProjectByID, id)
+func (q *Queries) GetProjectById(ctx context.Context, id string) (Project, error) {
+	row := q.db.QueryRow(ctx, getProjectById, id)
 	var i Project
 	err := row.Scan(
 		&i.ID,
@@ -49,13 +63,13 @@ func (q *Queries) GetProjectByID(ctx context.Context, id string) (Project, error
 	return i, err
 }
 
-const getProjectTaskByID = `-- name: GetProjectTaskByID :one
-SELECT id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at FROM project_kanban_tasks WHERE id = $1
+const getTaskById = `-- name: GetTaskById :one
+SELECT id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at FROM tasks WHERE id = $1
 `
 
-func (q *Queries) GetProjectTaskByID(ctx context.Context, id string) (ProjectKanbanTask, error) {
-	row := q.db.QueryRow(ctx, getProjectTaskByID, id)
-	var i ProjectKanbanTask
+func (q *Queries) GetTaskById(ctx context.Context, id string) (Task, error) {
+	row := q.db.QueryRow(ctx, getTaskById, id)
+	var i Task
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -73,13 +87,127 @@ func (q *Queries) GetProjectTaskByID(ctx context.Context, id string) (ProjectKan
 	return i, err
 }
 
-const insertProjectTaskHistory = `-- name: InsertProjectTaskHistory :one
-INSERT INTO project_kanban_task_history (task_id, action, performed_by_id, performed_at, details)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, task_id, action, performed_by_id, performed_at, details
+const getTaskStatus = `-- name: GetTaskStatus :one
+SELECT project_id, name, position, color, is_done_state FROM task_statuses WHERE project_id = $1 AND name = $2
 `
 
-type InsertProjectTaskHistoryParams struct {
+type GetTaskStatusParams struct {
+	ProjectID string `json:"project_id"`
+	Name      string `json:"name"`
+}
+
+func (q *Queries) GetTaskStatus(ctx context.Context, arg GetTaskStatusParams) (TaskStatus, error) {
+	row := q.db.QueryRow(ctx, getTaskStatus, arg.ProjectID, arg.Name)
+	var i TaskStatus
+	err := row.Scan(
+		&i.ProjectID,
+		&i.Name,
+		&i.Position,
+		&i.Color,
+		&i.IsDoneState,
+	)
+	return i, err
+}
+
+const insertProject = `-- name: InsertProject :one
+INSERT INTO projects (
+    id, 
+    name, 
+    description, 
+    owner_id, 
+    status_id, 
+    due_at, 
+    created_at, 
+    updated_at
+)
+VALUES (
+    $1, 
+    $2, 
+    $3, 
+    $4, 
+    $5, 
+    $6, 
+    $7, 
+    $8
+)
+RETURNING id
+`
+
+type InsertProjectParams struct {
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Description string             `json:"description"`
+	OwnerID     pgtype.Text        `json:"owner_id"`
+	StatusID    int32              `json:"status_id"`
+	DueAt       pgtype.Timestamptz `json:"due_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) InsertProject(ctx context.Context, arg InsertProjectParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertProject,
+		arg.ID,
+		arg.Name,
+		arg.Description,
+		arg.OwnerID,
+		arg.StatusID,
+		arg.DueAt,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertTask = `-- name: InsertTask :one
+INSERT INTO tasks (id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7,
+    $8, $9, $10, $11, $12)
+RETURNING id
+`
+
+type InsertTaskParams struct {
+	ID           string             `json:"id"`
+	ProjectID    string             `json:"project_id"`
+	StatusName   string             `json:"status_name"`
+	Title        string             `json:"title"`
+	Description  string             `json:"description"`
+	Position     int32              `json:"position"`
+	Priority     int32              `json:"priority"`
+	DueAt        pgtype.Timestamptz `json:"due_at"`
+	AssigneeID   pgtype.Text        `json:"assignee_id"`
+	ParentTaskID pgtype.Text        `json:"parent_task_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) (string, error) {
+	row := q.db.QueryRow(ctx, insertTask,
+		arg.ID,
+		arg.ProjectID,
+		arg.StatusName,
+		arg.Title,
+		arg.Description,
+		arg.Position,
+		arg.Priority,
+		arg.DueAt,
+		arg.AssigneeID,
+		arg.ParentTaskID,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
+const insertTaskHistory = `-- name: InsertTaskHistory :exec
+INSERT INTO task_history (task_id, action, performed_by_id, performed_at, details)
+VALUES ($1, $2, $3, $4, $5::jsonb)
+`
+
+type InsertTaskHistoryParams struct {
 	TaskID        string             `json:"task_id"`
 	Action        string             `json:"action"`
 	PerformedByID pgtype.Text        `json:"performed_by_id"`
@@ -87,22 +215,46 @@ type InsertProjectTaskHistoryParams struct {
 	Details       []byte             `json:"details"`
 }
 
-func (q *Queries) InsertProjectTaskHistory(ctx context.Context, arg InsertProjectTaskHistoryParams) (ProjectKanbanTaskHistory, error) {
-	row := q.db.QueryRow(ctx, insertProjectTaskHistory,
+func (q *Queries) InsertTaskHistory(ctx context.Context, arg InsertTaskHistoryParams) error {
+	_, err := q.db.Exec(ctx, insertTaskHistory,
 		arg.TaskID,
 		arg.Action,
 		arg.PerformedByID,
 		arg.PerformedAt,
 		arg.Details,
 	)
-	var i ProjectKanbanTaskHistory
+	return err
+}
+
+const insertTaskStatus = `-- name: InsertTaskStatus :one
+INSERT INTO task_statuses (project_id, name, position, color, is_done_state)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING project_id, name, position, color, is_done_state
+`
+
+type InsertTaskStatusParams struct {
+	ProjectID   string `json:"project_id"`
+	Name        string `json:"name"`
+	Position    int32  `json:"position"`
+	Color       string `json:"color"`
+	IsDoneState bool   `json:"is_done_state"`
+}
+
+func (q *Queries) InsertTaskStatus(ctx context.Context, arg InsertTaskStatusParams) (TaskStatus, error) {
+	row := q.db.QueryRow(ctx, insertTaskStatus,
+		arg.ProjectID,
+		arg.Name,
+		arg.Position,
+		arg.Color,
+		arg.IsDoneState,
+	)
+	var i TaskStatus
 	err := row.Scan(
-		&i.ID,
-		&i.TaskID,
-		&i.Action,
-		&i.PerformedByID,
-		&i.PerformedAt,
-		&i.Details,
+		&i.ProjectID,
+		&i.Name,
+		&i.Position,
+		&i.Color,
+		&i.IsDoneState,
 	)
 	return i, err
 }
@@ -123,111 +275,6 @@ func (q *Queries) ListProjectStatuses(ctx context.Context) ([]ProjectStatus, err
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listProjectTaskHistory = `-- name: ListProjectTaskHistory :many
-SELECT id, task_id, action, performed_by_id, performed_at, details FROM project_kanban_task_history WHERE task_id = $1 ORDER BY performed_at DESC
-`
-
-func (q *Queries) ListProjectTaskHistory(ctx context.Context, taskID string) ([]ProjectKanbanTaskHistory, error) {
-	rows, err := q.db.Query(ctx, listProjectTaskHistory, taskID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ProjectKanbanTaskHistory
-	for rows.Next() {
-		var i ProjectKanbanTaskHistory
-		if err := rows.Scan(
-			&i.ID,
-			&i.TaskID,
-			&i.Action,
-			&i.PerformedByID,
-			&i.PerformedAt,
-			&i.Details,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listProjectTasks = `-- name: ListProjectTasks :many
-SELECT id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at FROM project_kanban_tasks WHERE project_id = $1 ORDER BY position ASC
-`
-
-func (q *Queries) ListProjectTasks(ctx context.Context, projectID string) ([]ProjectKanbanTask, error) {
-	rows, err := q.db.Query(ctx, listProjectTasks, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ProjectKanbanTask
-	for rows.Next() {
-		var i ProjectKanbanTask
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.StatusName,
-			&i.Title,
-			&i.Description,
-			&i.Position,
-			&i.Priority,
-			&i.DueAt,
-			&i.AssigneeID,
-			&i.ParentTaskID,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listProjectTasksByAssignee = `-- name: ListProjectTasksByAssignee :many
-SELECT id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at FROM project_kanban_tasks WHERE assignee_id = $1 ORDER BY position ASC
-`
-
-func (q *Queries) ListProjectTasksByAssignee(ctx context.Context, assigneeID pgtype.Text) ([]ProjectKanbanTask, error) {
-	rows, err := q.db.Query(ctx, listProjectTasksByAssignee, assigneeID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ProjectKanbanTask
-	for rows.Next() {
-		var i ProjectKanbanTask
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.StatusName,
-			&i.Title,
-			&i.Description,
-			&i.Position,
-			&i.Priority,
-			&i.DueAt,
-			&i.AssigneeID,
-			&i.ParentTaskID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -274,53 +321,278 @@ func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
 	return items, nil
 }
 
-const upsertProject = `-- name: UpsertProject :one
-INSERT INTO projects (id, name, description, owner_id, status_id, due_at, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-ON CONFLICT (id) DO UPDATE SET
-    name = EXCLUDED.name,
-    description = EXCLUDED.description,
-    owner_id = EXCLUDED.owner_id,
-    status_id = EXCLUDED.status_id,
-    due_at = EXCLUDED.due_at,
-    updated_at = EXCLUDED.updated_at
-RETURNING id, name, description, owner_id, status_id, due_at, created_at, updated_at
+const listTaskHistory = `-- name: ListTaskHistory :many
+SELECT id, task_id, action, performed_by_id, performed_at, details FROM task_history WHERE task_id = $1 ORDER BY performed_at DESC
 `
 
-type UpsertProjectParams struct {
-	ID          string             `json:"id"`
+func (q *Queries) ListTaskHistory(ctx context.Context, taskID string) ([]TaskHistory, error) {
+	rows, err := q.db.Query(ctx, listTaskHistory, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TaskHistory
+	for rows.Next() {
+		var i TaskHistory
+		if err := rows.Scan(
+			&i.ID,
+			&i.TaskID,
+			&i.Action,
+			&i.PerformedByID,
+			&i.PerformedAt,
+			&i.Details,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTaskStatuses = `-- name: ListTaskStatuses :many
+SELECT project_id, name, position, color, is_done_state FROM task_statuses WHERE project_id = $1
+`
+
+func (q *Queries) ListTaskStatuses(ctx context.Context, projectID string) ([]TaskStatus, error) {
+	rows, err := q.db.Query(ctx, listTaskStatuses, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TaskStatus
+	for rows.Next() {
+		var i TaskStatus
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.Name,
+			&i.Position,
+			&i.Color,
+			&i.IsDoneState,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasks = `-- name: ListTasks :many
+SELECT id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at FROM tasks WHERE project_id = $1 ORDER BY position ASC
+`
+
+func (q *Queries) ListTasks(ctx context.Context, projectID string) ([]Task, error) {
+	rows, err := q.db.Query(ctx, listTasks, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.StatusName,
+			&i.Title,
+			&i.Description,
+			&i.Position,
+			&i.Priority,
+			&i.DueAt,
+			&i.AssigneeID,
+			&i.ParentTaskID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksByAssignee = `-- name: ListTasksByAssignee :many
+SELECT id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at FROM tasks WHERE assignee_id = $1 ORDER BY position ASC
+`
+
+func (q *Queries) ListTasksByAssignee(ctx context.Context, assigneeID pgtype.Text) ([]Task, error) {
+	rows, err := q.db.Query(ctx, listTasksByAssignee, assigneeID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.StatusName,
+			&i.Title,
+			&i.Description,
+			&i.Position,
+			&i.Priority,
+			&i.DueAt,
+			&i.AssigneeID,
+			&i.ParentTaskID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksByProject = `-- name: ListTasksByProject :many
+SELECT id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at FROM tasks WHERE project_id = $1 ORDER BY position ASC
+`
+
+func (q *Queries) ListTasksByProject(ctx context.Context, projectID string) ([]Task, error) {
+	rows, err := q.db.Query(ctx, listTasksByProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Task
+	for rows.Next() {
+		var i Task
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.StatusName,
+			&i.Title,
+			&i.Description,
+			&i.Position,
+			&i.Priority,
+			&i.DueAt,
+			&i.AssigneeID,
+			&i.ParentTaskID,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const updateProject = `-- name: UpdateProject :exec
+UPDATE projects SET name = $1, description = $2, owner_id = $3, status_id = $4, due_at = $5, updated_at = $6
+WHERE id = $7
+`
+
+type UpdateProjectParams struct {
 	Name        string             `json:"name"`
 	Description string             `json:"description"`
 	OwnerID     pgtype.Text        `json:"owner_id"`
 	StatusID    int32              `json:"status_id"`
 	DueAt       pgtype.Timestamptz `json:"due_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	ID          string             `json:"id"`
 }
 
-func (q *Queries) UpsertProject(ctx context.Context, arg UpsertProjectParams) (Project, error) {
-	row := q.db.QueryRow(ctx, upsertProject,
-		arg.ID,
+func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) error {
+	_, err := q.db.Exec(ctx, updateProject,
 		arg.Name,
 		arg.Description,
 		arg.OwnerID,
 		arg.StatusID,
 		arg.DueAt,
-		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.ID,
 	)
-	var i Project
-	err := row.Scan(
-		&i.ID,
-		&i.Name,
-		&i.Description,
-		&i.OwnerID,
-		&i.StatusID,
-		&i.DueAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+	return err
+}
+
+const updateTask = `-- name: UpdateTask :exec
+UPDATE tasks SET status_name = $1, title = $2, description = $3, position = $4, priority = $5, due_at = $6, assignee_id = $7, parent_task_id = $8, updated_at = $9
+WHERE id = $10
+`
+
+type UpdateTaskParams struct {
+	StatusName   string             `json:"status_name"`
+	Title        string             `json:"title"`
+	Description  string             `json:"description"`
+	Position     int32              `json:"position"`
+	Priority     int32              `json:"priority"`
+	DueAt        pgtype.Timestamptz `json:"due_at"`
+	AssigneeID   pgtype.Text        `json:"assignee_id"`
+	ParentTaskID pgtype.Text        `json:"parent_task_id"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID           string             `json:"id"`
+}
+
+func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) error {
+	_, err := q.db.Exec(ctx, updateTask,
+		arg.StatusName,
+		arg.Title,
+		arg.Description,
+		arg.Position,
+		arg.Priority,
+		arg.DueAt,
+		arg.AssigneeID,
+		arg.ParentTaskID,
+		arg.UpdatedAt,
+		arg.ID,
 	)
-	return i, err
+	return err
+}
+
+const updateTaskPosition = `-- name: UpdateTaskPosition :exec
+UPDATE tasks SET position = $1, updated_at = $2
+WHERE id = $3
+`
+
+type UpdateTaskPositionParams struct {
+	Position  int32              `json:"position"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
+	ID        string             `json:"id"`
+}
+
+func (q *Queries) UpdateTaskPosition(ctx context.Context, arg UpdateTaskPositionParams) error {
+	_, err := q.db.Exec(ctx, updateTaskPosition, arg.Position, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const updateTaskStatus = `-- name: UpdateTaskStatus :exec
+UPDATE task_statuses SET position = $1, color = $2, is_done_state = $3
+WHERE project_id = $4 AND name = $5
+`
+
+type UpdateTaskStatusParams struct {
+	Position    int32  `json:"position"`
+	Color       string `json:"color"`
+	IsDoneState bool   `json:"is_done_state"`
+	ProjectID   string `json:"project_id"`
+	Name        string `json:"name"`
+}
+
+func (q *Queries) UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error {
+	_, err := q.db.Exec(ctx, updateTaskStatus,
+		arg.Position,
+		arg.Color,
+		arg.IsDoneState,
+		arg.ProjectID,
+		arg.Name,
+	)
+	return err
 }
 
 const upsertProjectStatus = `-- name: UpsertProjectStatus :one
@@ -350,70 +622,6 @@ func (q *Queries) UpsertProjectStatus(ctx context.Context, arg UpsertProjectStat
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return i, err
-}
-
-const upsertProjectTask = `-- name: UpsertProjectTask :one
-INSERT INTO project_kanban_tasks (id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-ON CONFLICT (id) DO UPDATE SET
-    status_name = EXCLUDED.status_name,
-    title = EXCLUDED.title,
-    description = EXCLUDED.description,
-    position = EXCLUDED.position,
-    priority = EXCLUDED.priority,
-    due_at = EXCLUDED.due_at,
-    assignee_id = EXCLUDED.assignee_id,
-    parent_task_id = EXCLUDED.parent_task_id,
-    updated_at = EXCLUDED.updated_at
-RETURNING id, project_id, status_name, title, description, position, priority, due_at, assignee_id, parent_task_id, created_at, updated_at
-`
-
-type UpsertProjectTaskParams struct {
-	ID           string             `json:"id"`
-	ProjectID    string             `json:"project_id"`
-	StatusName   string             `json:"status_name"`
-	Title        string             `json:"title"`
-	Description  string             `json:"description"`
-	Position     int32              `json:"position"`
-	Priority     int32              `json:"priority"`
-	DueAt        pgtype.Timestamptz `json:"due_at"`
-	AssigneeID   pgtype.Text        `json:"assignee_id"`
-	ParentTaskID pgtype.Text        `json:"parent_task_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) UpsertProjectTask(ctx context.Context, arg UpsertProjectTaskParams) (ProjectKanbanTask, error) {
-	row := q.db.QueryRow(ctx, upsertProjectTask,
-		arg.ID,
-		arg.ProjectID,
-		arg.StatusName,
-		arg.Title,
-		arg.Description,
-		arg.Position,
-		arg.Priority,
-		arg.DueAt,
-		arg.AssigneeID,
-		arg.ParentTaskID,
-		arg.CreatedAt,
-		arg.UpdatedAt,
-	)
-	var i ProjectKanbanTask
-	err := row.Scan(
-		&i.ID,
-		&i.ProjectID,
-		&i.StatusName,
-		&i.Title,
-		&i.Description,
-		&i.Position,
-		&i.Priority,
-		&i.DueAt,
-		&i.AssigneeID,
-		&i.ParentTaskID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)

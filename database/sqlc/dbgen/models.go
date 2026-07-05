@@ -131,37 +131,6 @@ type Project struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 }
 
-type ProjectKanbanStatus struct {
-	ProjectID string `json:"project_id"`
-	Name      string `json:"name"`
-	Position  int32  `json:"position"`
-	Color     string `json:"color"`
-}
-
-type ProjectKanbanTask struct {
-	ID           string             `json:"id"`
-	ProjectID    string             `json:"project_id"`
-	StatusName   string             `json:"status_name"`
-	Title        string             `json:"title"`
-	Description  string             `json:"description"`
-	Position     int32              `json:"position"`
-	Priority     int32              `json:"priority"`
-	DueAt        pgtype.Timestamptz `json:"due_at"`
-	AssigneeID   pgtype.Text        `json:"assignee_id"`
-	ParentTaskID pgtype.Text        `json:"parent_task_id"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
-}
-
-type ProjectKanbanTaskHistory struct {
-	ID            int64              `json:"id"`
-	TaskID        string             `json:"task_id"`
-	Action        string             `json:"action"`
-	PerformedByID pgtype.Text        `json:"performed_by_id"`
-	PerformedAt   pgtype.Timestamptz `json:"performed_at"`
-	Details       []byte             `json:"details"`
-}
-
 type ProjectStatus struct {
 	ID        int32              `json:"id"`
 	Name      string             `json:"name"`
@@ -238,6 +207,38 @@ type SosTicket struct {
 	MemberID    string             `json:"member_id"`
 	PayloadJson string             `json:"payload_json"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
+type Task struct {
+	ID           string             `json:"id"`
+	ProjectID    string             `json:"project_id"`
+	StatusName   string             `json:"status_name"`
+	Title        string             `json:"title"`
+	Description  string             `json:"description"`
+	Position     int32              `json:"position"`
+	Priority     int32              `json:"priority"`
+	DueAt        pgtype.Timestamptz `json:"due_at"`
+	AssigneeID   pgtype.Text        `json:"assignee_id"`
+	ParentTaskID pgtype.Text        `json:"parent_task_id"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TaskHistory struct {
+	ID            int64              `json:"id"`
+	TaskID        string             `json:"task_id"`
+	Action        string             `json:"action"`
+	PerformedByID pgtype.Text        `json:"performed_by_id"`
+	PerformedAt   pgtype.Timestamptz `json:"performed_at"`
+	Details       []byte             `json:"details"`
+}
+
+type TaskStatus struct {
+	ProjectID   string `json:"project_id"`
+	Name        string `json:"name"`
+	Position    int32  `json:"position"`
+	Color       string `json:"color"`
+	IsDoneState bool   `json:"is_done_state"`
 }
 
 type Token struct {

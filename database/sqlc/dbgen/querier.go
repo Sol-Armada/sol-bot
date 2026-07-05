@@ -22,25 +22,30 @@ type Querier interface {
 	DeleteAttendanceTag(ctx context.Context, tag string) error
 	DeleteMember(ctx context.Context, arg DeleteMemberParams) error
 	DeleteProject(ctx context.Context, id string) error
-	DeleteProjectTask(ctx context.Context, id string) error
 	DeleteRollEntriesByEvent(ctx context.Context, rollEventID string) error
 	DeleteRollEntry(ctx context.Context, arg DeleteRollEntryParams) error
 	DeleteRollEvent(ctx context.Context, id string) error
 	DeleteRollItemsByEvent(ctx context.Context, rollEventID string) error
+	DeleteTask(ctx context.Context, id string) error
+	DeleteTaskStatus(ctx context.Context, arg DeleteTaskStatusParams) error
 	GetAttendanceByID(ctx context.Context, id string) (Attendance, error)
 	GetMember(ctx context.Context, id string) (GetMemberRow, error)
 	GetMemberIDs(ctx context.Context) ([]string, error)
-	GetProjectByID(ctx context.Context, id string) (Project, error)
-	GetProjectTaskByID(ctx context.Context, id string) (ProjectKanbanTask, error)
+	GetProjectById(ctx context.Context, id string) (Project, error)
 	GetRollEventByID(ctx context.Context, id string) (RollEvent, error)
 	GetRsiInfoByHandle(ctx context.Context, handle string) (RsiInfo, error)
+	GetTaskById(ctx context.Context, id string) (Task, error)
+	GetTaskStatus(ctx context.Context, arg GetTaskStatusParams) (TaskStatus, error)
 	GetTokenBalances(ctx context.Context) ([]GetTokenBalancesRow, error)
 	GetTokenByID(ctx context.Context, id string) (Token, error)
 	GetWeeklyCommandCounts(ctx context.Context) ([]GetWeeklyCommandCountsRow, error)
 	InsertAttendanceName(ctx context.Context, name string) error
 	InsertAttendanceTag(ctx context.Context, tag string) error
 	InsertCommandLog(ctx context.Context, arg InsertCommandLogParams) error
-	InsertProjectTaskHistory(ctx context.Context, arg InsertProjectTaskHistoryParams) (ProjectKanbanTaskHistory, error)
+	InsertProject(ctx context.Context, arg InsertProjectParams) (string, error)
+	InsertTask(ctx context.Context, arg InsertTaskParams) (string, error)
+	InsertTaskHistory(ctx context.Context, arg InsertTaskHistoryParams) error
+	InsertTaskStatus(ctx context.Context, arg InsertTaskStatusParams) (TaskStatus, error)
 	InsertToken(ctx context.Context, arg InsertTokenParams) error
 	ListActiveAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
 	ListActiveRollEvents(ctx context.Context, limitRows int32) ([]RollEvent, error)
@@ -57,9 +62,6 @@ type Querier interface {
 	ListMembersByIDs(ctx context.Context, ids []string) ([]ListMembersByIDsRow, error)
 	ListMembersPage(ctx context.Context, arg ListMembersPageParams) ([]ListMembersPageRow, error)
 	ListProjectStatuses(ctx context.Context) ([]ProjectStatus, error)
-	ListProjectTaskHistory(ctx context.Context, taskID string) ([]ProjectKanbanTaskHistory, error)
-	ListProjectTasks(ctx context.Context, projectID string) ([]ProjectKanbanTask, error)
-	ListProjectTasksByAssignee(ctx context.Context, assigneeID pgtype.Text) ([]ProjectKanbanTask, error)
 	ListProjects(ctx context.Context) ([]Project, error)
 	ListPromotions(ctx context.Context) ([]ListPromotionsRow, error)
 	ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]ListRandomMembersByRankRow, error)
@@ -68,19 +70,26 @@ type Querier interface {
 	ListRollEntriesByItem(ctx context.Context, rollItemID string) ([]RollEntry, error)
 	ListRollItemsByEvent(ctx context.Context, rollEventID string) ([]RollItem, error)
 	ListRsiInfoByHandles(ctx context.Context, handles []string) ([]RsiInfo, error)
+	ListTaskHistory(ctx context.Context, taskID string) ([]TaskHistory, error)
+	ListTaskStatuses(ctx context.Context, projectID string) ([]TaskStatus, error)
+	ListTasks(ctx context.Context, projectID string) ([]Task, error)
+	ListTasksByAssignee(ctx context.Context, assigneeID pgtype.Text) ([]Task, error)
+	ListTasksByProject(ctx context.Context, projectID string) ([]Task, error)
 	ListTokensByAttendanceID(ctx context.Context, attendanceID pgtype.Text) ([]Token, error)
 	ListTokensByMemberAndAttendance(ctx context.Context, arg ListTokensByMemberAndAttendanceParams) ([]Token, error)
 	ListTokensSince(ctx context.Context, createdAfter pgtype.Timestamptz) ([]Token, error)
 	MarkRollEventEnded(ctx context.Context, arg MarkRollEventEndedParams) error
 	ReplaceMemberBlueprints(ctx context.Context, memberID string) error
+	UpdateProject(ctx context.Context, arg UpdateProjectParams) error
+	UpdateTask(ctx context.Context, arg UpdateTaskParams) error
+	UpdateTaskPosition(ctx context.Context, arg UpdateTaskPositionParams) error
+	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpsertAttendance(ctx context.Context, arg UpsertAttendanceParams) error
 	UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error
 	UpsertBlueprintDoc(ctx context.Context, arg UpsertBlueprintDocParams) error
 	UpsertKanbanCard(ctx context.Context, arg UpsertKanbanCardParams) error
 	UpsertMember(ctx context.Context, arg UpsertMemberParams) error
-	UpsertProject(ctx context.Context, arg UpsertProjectParams) (Project, error)
 	UpsertProjectStatus(ctx context.Context, arg UpsertProjectStatusParams) (ProjectStatus, error)
-	UpsertProjectTask(ctx context.Context, arg UpsertProjectTaskParams) (ProjectKanbanTask, error)
 	UpsertRollEntry(ctx context.Context, arg UpsertRollEntryParams) error
 	UpsertRollEvent(ctx context.Context, arg UpsertRollEventParams) error
 	UpsertRollItem(ctx context.Context, arg UpsertRollItemParams) error
