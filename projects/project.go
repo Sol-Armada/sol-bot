@@ -46,7 +46,7 @@ type Project struct {
 	CreatedAt   time.Time       `json:"createdAt"`
 	UpdatedAt   time.Time       `json:"updatedAt"`
 
-	Tasks []Task `json:"tasks"`
+	Tasks []*Task `json:"tasks"`
 }
 
 func New(name, description string, owner *members.Member, dueAt *time.Time) (*Project, error) {
@@ -66,6 +66,19 @@ func New(name, description string, owner *members.Member, dueAt *time.Time) (*Pr
 }
 
 func ListProjects(ctx context.Context) ([]*Project, error) {
+	projects, err := projectStore.List(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, project := range projects {
+		tasks, err := projectStore.ListTasks(ctx, project.Id)
+		if err != nil {
+			return nil, err
+		}
+		project.Tasks = tasks
+	}
+
 	return projectStore.List(ctx)
 }
 
@@ -120,7 +133,7 @@ func (p *Project) CompletedTasks() []*Task {
 	var completedTasks []*Task
 	for _, task := range p.Tasks {
 		if task.Status != nil && task.Status.IsDoneState {
-			completedTasks = append(completedTasks, &task)
+			completedTasks = append(completedTasks, task)
 		}
 	}
 

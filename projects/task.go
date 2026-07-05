@@ -144,7 +144,7 @@ func UpdateTask(ctx context.Context, before, after *Task, member *members.Member
 			"before": before.Description,
 			"after":  after.Description,
 		}
-		details["summary"] = fmt.Sprintf("%s updated the Description from '%s' to '%s'", member.Name, before.Description, after.Description)
+		details["summary"] = fmt.Sprintf("%s updated the Description", member.Name)
 	}
 
 	if before.Position != after.Position {
@@ -168,7 +168,17 @@ func UpdateTask(ctx context.Context, before, after *Task, member *members.Member
 			"before": before.DueAt,
 			"after":  after.DueAt,
 		}
-		details["summary"] = fmt.Sprintf("%s updated the Due Date from '%v' to '%v'", member.Name, before.DueAt, after.DueAt)
+		details["summary"] = fmt.Sprintf("%s updated the Due Date from '%v' to '%v'", member.Name, func() string {
+			if before.DueAt != nil && !before.DueAt.IsZero() {
+				return before.DueAt.Format(time.DateOnly)
+			}
+			return "No Due Date"
+		}(), func() string {
+			if after.DueAt != nil && !after.DueAt.IsZero() {
+				return after.DueAt.Format(time.DateOnly)
+			}
+			return "No Due Date"
+		}())
 	}
 
 	if (before.Assignee == nil && after.Assignee != nil) || (before.Assignee != nil && after.Assignee == nil) || (before.Assignee != nil && after.Assignee != nil && before.Assignee.Id != after.Assignee.Id) {
