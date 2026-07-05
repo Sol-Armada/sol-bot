@@ -34,29 +34,6 @@ func (q *Queries) UpsertBlueprintDoc(ctx context.Context, arg UpsertBlueprintDoc
 	return err
 }
 
-const upsertKanbanCard = `-- name: UpsertKanbanCard :exec
-INSERT INTO kanban_cards (id, payload_json, updated_at)
-VALUES (
-    $1,
-    $2,
-    $3
-)
-ON CONFLICT (id) DO UPDATE
-SET payload_json = EXCLUDED.payload_json,
-    updated_at = EXCLUDED.updated_at
-`
-
-type UpsertKanbanCardParams struct {
-	ID          string             `json:"id"`
-	PayloadJson string             `json:"payload_json"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
-func (q *Queries) UpsertKanbanCard(ctx context.Context, arg UpsertKanbanCardParams) error {
-	_, err := q.db.Exec(ctx, upsertKanbanCard, arg.ID, arg.PayloadJson, arg.UpdatedAt)
-	return err
-}
-
 const upsertSOSTicket = `-- name: UpsertSOSTicket :exec
 INSERT INTO sos_tickets (id, member_id, payload_json, updated_at)
 VALUES (

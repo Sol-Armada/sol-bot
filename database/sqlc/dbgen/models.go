@@ -92,12 +92,6 @@ type Giveaway struct {
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 }
 
-type KanbanCard struct {
-	ID          string             `json:"id"`
-	PayloadJson string             `json:"payload_json"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-}
-
 type Member struct {
 	ID          string             `json:"id"`
 	Name        string             `json:"name"`
@@ -139,7 +133,6 @@ type ProjectStatus struct {
 }
 
 type Raffle struct {
-	ID           string             `json:"id"`
 	Name         string             `json:"name"`
 	AttendanceID pgtype.Text        `json:"attendance_id"`
 	Prize        string             `json:"prize"`
@@ -152,6 +145,7 @@ type Raffle struct {
 	MessageID    string             `json:"message_id"`
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	ID           int32              `json:"id"`
 }
 
 type RollEntry struct {

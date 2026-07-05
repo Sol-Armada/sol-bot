@@ -116,9 +116,9 @@ func (r *Raffle) GetEmbed() (*discordgo.MessageEmbed, error) {
 		Fields: feilds,
 	}
 
-	if r.AttedanceId != "" {
+	if r.AttendanceId != "" {
 		embed.Footer = &discordgo.MessageEmbedFooter{
-			Text: "Attendance ID: " + r.AttedanceId,
+			Text: "Attendance ID: " + r.AttendanceId,
 		}
 	}
 

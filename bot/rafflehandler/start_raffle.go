@@ -2,6 +2,7 @@ package rafflehandler
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/sol-armada/sol-bot/attendance"
@@ -15,6 +16,8 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 
 	data := i.ApplicationCommandData()
 
+	name := data.GetOption("name").Value.(string)
+
 	attendanceRecordId := data.Options[0].Value.(string)
 	prize := data.Options[1].Value.(string)
 	test := false
@@ -22,7 +25,6 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		test = data.Options[2].Value.(bool)
 	}
 
-	name := attendanceRecordId
 	a, _ := attendance.Get(attendanceRecordId)
 	if a != nil {
 		name = a.Name
@@ -30,7 +32,10 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		attendanceRecordId = ""
 	}
 
-	raffle := raffles.New(name, attendanceRecordId, prize, test)
+	raffle, err := raffles.New(name, attendanceRecordId, prize, test)
+	if err != nil {
+		return err
+	}
 
 	embed, err := raffle.GetEmbed()
 	if err != nil {
@@ -43,27 +48,27 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 			discordgo.ActionsRow{
 				Components: []discordgo.MessageComponent{
 					discordgo.Button{
-						CustomID: "raffle:add_entries:" + raffle.Id,
-						Label:    "Add/Edit Entries",
+						CustomID: fmt.Sprintf("raffle:add_entries:%d", raffle.Id),
+						Label:    "Edit Entries",
 						Style:    discordgo.PrimaryButton,
 					},
 					discordgo.Button{
-						CustomID: "raffle:back_out:" + raffle.Id,
+						CustomID: fmt.Sprintf("raffle:back_out:%d", raffle.Id),
 						Label:    "Back Out",
 						Style:    discordgo.SecondaryButton,
 					},
 					discordgo.Button{
-						CustomID: "raffle:entries:" + raffle.Id,
+						CustomID: fmt.Sprintf("raffle:entries:%d", raffle.Id),
 						Label:    "Entries",
 						Style:    discordgo.SecondaryButton,
 					},
 					discordgo.Button{
-						CustomID: "raffle:end:" + raffle.Id,
+						CustomID: fmt.Sprintf("raffle:end:%d", raffle.Id),
 						Label:    "End",
 						Style:    discordgo.SecondaryButton,
 					},
 					discordgo.Button{
-						CustomID: "raffle:cancel:" + raffle.Id,
+						CustomID: fmt.Sprintf("raffle:cancel:%d", raffle.Id),
 						Label:    "Cancel",
 						Style:    discordgo.DangerButton,
 					},
@@ -75,16 +80,12 @@ func start(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCr
 		return err
 	}
 
-	if err := raffle.SetMessage(message).Save(); err != nil {
+	raffle.ChannelId = message.ChannelID
+	raffle.MessageId = message.ID
+
+	if err := raffle.Save(ctx); err != nil {
 		return err
 	}
 
-	if _, err := s.FollowupMessageCreate(i.Interaction, false, &discordgo.WebhookParams{
-		Content: "Raffle started!",
-		Flags:   discordgo.MessageFlagsEphemeral,
-	}); err != nil {
-		return err
-	}
-
-	return nil
+	return s.InteractionResponseDelete(i.Interaction)
 }

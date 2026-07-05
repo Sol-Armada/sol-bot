@@ -2,6 +2,7 @@ package rafflehandler
 
 import (
 	"context"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -15,9 +16,14 @@ func cancel(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionC
 
 	data := i.MessageComponentData()
 
-	raffleId := strings.Split(data.CustomID, ":")[2]
+	raffleIdStr := strings.Split(data.CustomID, ":")[2]
 
-	raffle, err := raffles.Get(raffleId)
+	raffleId, err := strconv.Atoi(raffleIdStr)
+	if err != nil {
+		return err
+	}
+
+	raffle, err := raffles.Get(int32(raffleId))
 	if err != nil {
 		return err
 	}
@@ -30,5 +36,5 @@ func cancel(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionC
 		return err
 	}
 
-	return nil
+	return s.InteractionResponseDelete(i.Interaction)
 }

@@ -140,6 +140,18 @@ func (r *RaffleCommand) OnAfter(ctx context.Context, s *discordgo.Session, i *di
 
 // OnBefore implements [command.ApplicationCommand].
 func (r *RaffleCommand) OnBefore(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCreate) error {
+	if i.Type == discordgo.InteractionApplicationCommandAutocomplete {
+		return nil
+	}
+
+	if i.Type == discordgo.InteractionMessageComponent && strings.Contains(i.MessageComponentData().CustomID, "add_entries") {
+		return nil
+	}
+
+	// if i.Type == discordgo.InteractionModalSubmit && strings.Contains(i.ModalSubmitData().CustomID, "add_entries") {
+	// 	return nil
+	// }
+
 	return s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
 		Type: discordgo.InteractionResponseDeferredChannelMessageWithSource,
 		Data: &discordgo.InteractionResponseData{

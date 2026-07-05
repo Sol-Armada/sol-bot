@@ -153,12 +153,6 @@ func main() {
 	}
 	log.Printf("sos tickets backfilled: %d", sosCount)
 
-	kanbanCount, err := backfillKanbanCards(ctx, mdb, queries, rep)
-	if err != nil {
-		log.Fatalf("backfill kanban cards: %v", err)
-	}
-	log.Printf("kanban cards backfilled: %d", kanbanCount)
-
 	blueprintsCount, err := backfillBlueprintDocs(ctx, mdb, queries, rep)
 	if err != nil {
 		log.Fatalf("backfill blueprint docs: %v", err)
@@ -521,49 +515,6 @@ func backfillSOSTickets(ctx context.Context, mdb *mongo.Database, q *dbgen.Queri
 		return count, err
 	}
 	rep.sosProcessed = count
-	return count, nil
-}
-
-func backfillKanbanCards(ctx context.Context, mdb *mongo.Database, q *dbgen.Queries, rep *MigrationReport) (int, error) {
-	cur, err := mdb.Collection("kanban").Find(ctx, bson.D{})
-	if err != nil {
-		return 0, err
-	}
-	defer cur.Close(ctx)
-
-	count := 0
-	for cur.Next(ctx) {
-		var doc bson.M
-		if err := cur.Decode(&doc); err != nil {
-			return count, err
-		}
-
-		id := idFromAny(doc["_id"])
-		if id == "" {
-			continue
-		}
-
-		payloadJSON, err := bsonDocToJSON(doc)
-		if err != nil {
-			return count, fmt.Errorf("marshal kanban card %s: %w", id, err)
-		}
-
-		err = q.UpsertKanbanCard(ctx, dbgen.UpsertKanbanCardParams{
-			ID:          id,
-			PayloadJson: payloadJSON,
-			UpdatedAt:   toPgTs(time.Now().UTC()),
-		})
-		if err != nil {
-			return count, fmt.Errorf("upsert kanban card %s: %w", id, err)
-		}
-
-		count++
-	}
-
-	if err := cur.Err(); err != nil {
-		return count, err
-	}
-	rep.kanbanProcessed = count
 	return count, nil
 }
 

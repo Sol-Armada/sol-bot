@@ -22,6 +22,7 @@ type Querier interface {
 	DeleteAttendanceTag(ctx context.Context, tag string) error
 	DeleteMember(ctx context.Context, arg DeleteMemberParams) error
 	DeleteProject(ctx context.Context, id string) error
+	DeleteRaffleById(ctx context.Context, id int32) error
 	DeleteRollEntriesByEvent(ctx context.Context, rollEventID string) error
 	DeleteRollEntry(ctx context.Context, arg DeleteRollEntryParams) error
 	DeleteRollEvent(ctx context.Context, id string) error
@@ -29,9 +30,11 @@ type Querier interface {
 	DeleteTask(ctx context.Context, id string) error
 	DeleteTaskStatus(ctx context.Context, arg DeleteTaskStatusParams) error
 	GetAttendanceByID(ctx context.Context, id string) (Attendance, error)
+	GetLatestRaffle(ctx context.Context) (Raffle, error)
 	GetMember(ctx context.Context, id string) (GetMemberRow, error)
 	GetMemberIDs(ctx context.Context) ([]string, error)
 	GetProjectById(ctx context.Context, id string) (Project, error)
+	GetRaffleById(ctx context.Context, id int32) (Raffle, error)
 	GetRollEventByID(ctx context.Context, id string) (RollEvent, error)
 	GetRsiInfoByHandle(ctx context.Context, handle string) (RsiInfo, error)
 	GetTaskById(ctx context.Context, id string) (Task, error)
@@ -43,6 +46,7 @@ type Querier interface {
 	InsertAttendanceTag(ctx context.Context, tag string) error
 	InsertCommandLog(ctx context.Context, arg InsertCommandLogParams) error
 	InsertProject(ctx context.Context, arg InsertProjectParams) (string, error)
+	InsertRaffle(ctx context.Context, arg InsertRaffleParams) (int32, error)
 	InsertTask(ctx context.Context, arg InsertTaskParams) (string, error)
 	InsertTaskHistory(ctx context.Context, arg InsertTaskHistoryParams) error
 	InsertTaskStatus(ctx context.Context, arg InsertTaskStatusParams) (TaskStatus, error)
@@ -64,6 +68,7 @@ type Querier interface {
 	ListProjectStatuses(ctx context.Context) ([]ProjectStatus, error)
 	ListProjects(ctx context.Context) ([]Project, error)
 	ListPromotions(ctx context.Context) ([]ListPromotionsRow, error)
+	ListRaffles(ctx context.Context) ([]Raffle, error)
 	ListRandomMembersByRank(ctx context.Context, arg ListRandomMembersByRankParams) ([]ListRandomMembersByRankRow, error)
 	ListRecordedAttendance(ctx context.Context, limitRows int32) ([]Attendance, error)
 	ListRollEntriesByEvent(ctx context.Context, rollEventID string) ([]RollEntry, error)
@@ -81,13 +86,13 @@ type Querier interface {
 	MarkRollEventEnded(ctx context.Context, arg MarkRollEventEndedParams) error
 	ReplaceMemberBlueprints(ctx context.Context, memberID string) error
 	UpdateProject(ctx context.Context, arg UpdateProjectParams) error
+	UpdateRaffle(ctx context.Context, arg UpdateRaffleParams) error
 	UpdateTask(ctx context.Context, arg UpdateTaskParams) error
 	UpdateTaskPosition(ctx context.Context, arg UpdateTaskPositionParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpsertAttendance(ctx context.Context, arg UpsertAttendanceParams) error
 	UpsertAttendanceParticipant(ctx context.Context, arg UpsertAttendanceParticipantParams) error
 	UpsertBlueprintDoc(ctx context.Context, arg UpsertBlueprintDocParams) error
-	UpsertKanbanCard(ctx context.Context, arg UpsertKanbanCardParams) error
 	UpsertMember(ctx context.Context, arg UpsertMemberParams) error
 	UpsertProjectStatus(ctx context.Context, arg UpsertProjectStatusParams) (ProjectStatus, error)
 	UpsertRollEntry(ctx context.Context, arg UpsertRollEntryParams) error

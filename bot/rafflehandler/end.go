@@ -3,6 +3,7 @@ package rafflehandler
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
@@ -26,18 +27,23 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 
 	data := i.MessageComponentData()
 
-	raffleId := strings.Split(data.CustomID, ":")[2]
+	raffleIdStr := strings.Split(data.CustomID, ":")[2]
 
-	raffle, err := raffles.Get(raffleId)
+	raffleId, err := strconv.Atoi(raffleIdStr)
 	if err != nil {
 		return err
 	}
 
-	winners, err := raffle.PickWinner()
+	raffle, err := raffles.Get(int32(raffleId))
+	if err != nil {
+		return err
+	}
+
+	winners, err := raffle.PickWinner(ctx)
 	if err != nil {
 		if err == raffles.ErrNoEntries {
 			raffle.Ended = true
-			if err := raffle.Save(); err != nil {
+			if err := raffle.Save(ctx); err != nil {
 				return err
 			}
 		}
@@ -58,13 +64,17 @@ func end(ctx context.Context, s *discordgo.Session, i *discordgo.InteractionCrea
 		}
 
 		if !raffle.Test {
-			if err := tokens.New(winner.Id, raffle.Tickets[winner.Id]*-1, tokens.ReasonWonRaffle, nil, &raffle.AttedanceId, nil).Save(); err != nil {
+			if err := tokens.New(winner.Id, raffle.Tickets[winner.Id]*-1, tokens.ReasonWonRaffle, nil, &raffle.AttendanceId, nil).Save(); err != nil {
 				return err
 			}
 		}
 	}
 
 	if _, err := s.ChannelMessageSend(i.Interaction.ChannelID, fmt.Sprintf("🎊 Congratulations to %s! They have won the raffle! 🎊", winnerNames.String())); err != nil {
+		return err
+	}
+
+	if err := s.InteractionResponseDelete(i.Interaction); err != nil {
 		return err
 	}
 
