@@ -254,13 +254,5 @@ func (t *Task) Equals(other *Task) bool {
 }
 
 func (t *Task) Delete(ctx context.Context, member *members.Member) error {
-	if err := projectStore.DeleteTask(ctx, t.Id); err != nil {
-		return err
-	}
-	return projectStore.InsertTaskHistoryEntry(ctx, &TaskHistoryEntry{
-		Task:        t,
-		Member:      member,
-		Action:      "delete",
-		PerformedAt: time.Now().UTC(),
-	})
+	return projectStore.DeleteTask(ctx, t.Id)
 }
