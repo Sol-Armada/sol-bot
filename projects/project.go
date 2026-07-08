@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -119,7 +120,7 @@ func DeleteProject(ctx context.Context, id uuid.UUID) error {
 }
 
 func (p *Project) AddTask(ctx context.Context, task *Task) error {
-	taskId := task.generateId(p.Name, p.TaskCount)
+	taskId := p.generateId(p.Name, p.TaskCount)
 	if taskId == "" {
 		return fmt.Errorf("failed to generate task ID")
 	}
@@ -127,7 +128,12 @@ func (p *Project) AddTask(ctx context.Context, task *Task) error {
 	task.Id = taskId
 
 	_, err := projectStore.InsertTask(ctx, task)
-	return err
+	if err != nil {
+		return err
+	}
+
+	p.TaskCount++
+	return projectStore.Update(ctx, p)
 }
 
 func (p *Project) DeleteTask(ctx context.Context, taskId string) error {
@@ -163,4 +169,23 @@ func (p *Project) Members() []*members.Member {
 	}
 
 	return members
+}
+
+func (p *Project) generateId(projectTitle string, taskCount int32) string {
+	projectNameSplit := strings.Split(projectTitle, " ")
+	if len(projectNameSplit) == 0 {
+		return ""
+	}
+
+	var projectNameInitials string
+	for _, word := range projectNameSplit {
+		if len(word) > 0 {
+			projectNameInitials += strings.ToUpper(string(word[0]))
+		}
+	}
+	if len(projectNameInitials) == 1 {
+		projectNameInitials = strings.ToUpper(string(projectNameSplit[0][0]) + string(projectNameSplit[0][1]))
+	}
+
+	return projectNameInitials + "-" + fmt.Sprintf("%d", taskCount+1)
 }

@@ -496,8 +496,15 @@ func (q *Queries) ListTasksByProject(ctx context.Context, projectID string) ([]T
 }
 
 const updateProject = `-- name: UpdateProject :exec
-UPDATE projects SET name = $1, description = $2, owner_id = $3, status_id = $4, due_at = $5, updated_at = $6
-WHERE id = $7
+UPDATE projects SET
+name = $1,
+description = $2,
+owner_id = $3,
+status_id = $4,
+due_at = $5,
+task_count = $6,
+updated_at = $7
+WHERE id = $8
 `
 
 type UpdateProjectParams struct {
@@ -506,6 +513,7 @@ type UpdateProjectParams struct {
 	OwnerID     pgtype.Text        `json:"owner_id"`
 	StatusID    int32              `json:"status_id"`
 	DueAt       pgtype.Timestamptz `json:"due_at"`
+	TaskCount   pgtype.Int4        `json:"task_count"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	ID          string             `json:"id"`
 }
@@ -517,6 +525,7 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) er
 		arg.OwnerID,
 		arg.StatusID,
 		arg.DueAt,
+		arg.TaskCount,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -524,7 +533,16 @@ func (q *Queries) UpdateProject(ctx context.Context, arg UpdateProjectParams) er
 }
 
 const updateTask = `-- name: UpdateTask :exec
-UPDATE tasks SET status_name = $1, title = $2, description = $3, position = $4, priority = $5, due_at = $6, assignee_id = $7, parent_task_id = $8, updated_at = $9
+UPDATE tasks SET
+status_name = $1,
+title = $2,
+description = $3,
+position = $4,
+priority = $5,
+due_at = $6,
+assignee_id = $7,
+parent_task_id = $8,
+updated_at = $9
 WHERE id = $10
 `
 

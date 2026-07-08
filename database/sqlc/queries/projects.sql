@@ -28,7 +28,14 @@ VALUES (
 RETURNING id;
 
 -- name: UpdateProject :exec
-UPDATE projects SET name = sqlc.arg(name), description = sqlc.arg(description), owner_id = sqlc.arg(owner_id), status_id = sqlc.arg(status_id), due_at = sqlc.arg(due_at), updated_at = sqlc.arg(updated_at)
+UPDATE projects SET
+name = sqlc.arg(name),
+description = sqlc.arg(description),
+owner_id = sqlc.arg(owner_id),
+status_id = sqlc.arg(status_id),
+due_at = sqlc.arg(due_at),
+task_count = sqlc.arg(task_count),
+updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id);
 
 -- name: DeleteProject :exec
@@ -82,7 +89,16 @@ VALUES (sqlc.arg(id), sqlc.arg(project_id), sqlc.arg(status_name), sqlc.arg(titl
 RETURNING id;
 
 -- name: UpdateTask :exec
-UPDATE tasks SET status_name = sqlc.arg(status_name), title = sqlc.arg(title), description = sqlc.arg(description), position = sqlc.arg(position), priority = sqlc.arg(priority), due_at = sqlc.arg(due_at), assignee_id = sqlc.arg(assignee_id), parent_task_id = sqlc.arg(parent_task_id), updated_at = sqlc.arg(updated_at)
+UPDATE tasks SET
+status_name = sqlc.arg(status_name),
+title = sqlc.arg(title),
+description = sqlc.arg(description),
+position = sqlc.arg(position),
+priority = sqlc.arg(priority),
+due_at = sqlc.arg(due_at),
+assignee_id = sqlc.arg(assignee_id),
+parent_task_id = sqlc.arg(parent_task_id),
+updated_at = sqlc.arg(updated_at)
 WHERE id = sqlc.arg(id);
 
 -- name: UpdateTaskPosition :exec

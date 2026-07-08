@@ -116,6 +116,8 @@ func (b *postgresProjectBackend) Update(ctx context.Context, p *Project) error {
 		Name:        p.Name,
 		Description: p.Description,
 		StatusID:    int32(p.Status),
+		TaskCount:   utils.ToPgInt4(p.TaskCount),
+		UpdatedAt:   utils.ToPgTimestamptz(cmp.Or(p.UpdatedAt, time.Now().UTC())),
 	}
 
 	if p.Owner != nil {

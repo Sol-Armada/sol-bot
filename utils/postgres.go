@@ -19,3 +19,10 @@ func ToPgTimestamptz(v time.Time) pgtype.Timestamptz {
 	}
 	return pgtype.Timestamptz{Time: v.UTC(), Valid: true}
 }
+
+func ToPgInt4(v int32) pgtype.Int4 {
+	if v == 0 {
+		return pgtype.Int4{}
+	}
+	return pgtype.Int4{Int32: v, Valid: true}
+}

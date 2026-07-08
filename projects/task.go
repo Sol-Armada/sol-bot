@@ -3,7 +3,6 @@ package projects
 import (
 	"context"
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -256,23 +255,4 @@ func (t *Task) Equals(other *Task) bool {
 
 func (t *Task) Delete(ctx context.Context, member *members.Member) error {
 	return projectStore.DeleteTask(ctx, t.Id)
-}
-
-func (t *Task) generateId(projectTitle string, taskCount int32) string {
-	projectNameSplit := strings.Split(projectTitle, " ")
-	if len(projectNameSplit) == 0 {
-		return ""
-	}
-
-	var projectNameInitials string
-	for _, word := range projectNameSplit {
-		if len(word) > 0 {
-			projectNameInitials += strings.ToUpper(string(word[0]))
-		}
-	}
-	if len(projectNameInitials) == 1 {
-		projectNameInitials += strings.ToUpper(strings.Join(projectNameSplit[:1], ""))
-	}
-
-	return projectNameInitials + "-" + fmt.Sprintf("%d", taskCount+1)
 }
