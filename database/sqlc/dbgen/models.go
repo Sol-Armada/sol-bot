@@ -123,6 +123,7 @@ type Project struct {
 	DueAt       pgtype.Timestamptz `json:"due_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	TaskCount   pgtype.Int4        `json:"task_count"`
 }
 
 type ProjectStatus struct {

@@ -16,6 +16,7 @@ import (
 // goverter:converter
 // goverter:output:file ./converters.gen.go
 // goverter:extend PgTypeTimestamptzToTime
+// goverter:extend PgTypeInt4ToInt32
 // goverter:extend stringToUUID
 type Converter interface {
 	// goverter:map ID Id
@@ -80,11 +81,7 @@ func toTask[T pgtype.Text | string](taskId T) *Task {
 		return nil
 	}
 
-	taskUuid, err := uuid.Parse(idString)
-	if err != nil {
-		return nil
-	}
-	task, err := projectStore.GetTask(context.Background(), taskUuid)
+	task, err := projectStore.GetTask(context.Background(), idString)
 	if err != nil {
 		return nil
 	}
@@ -124,4 +121,11 @@ func stringToUUID(s string) uuid.UUID {
 		return uuid.Nil
 	}
 	return u
+}
+
+func PgTypeInt4ToInt32(i pgtype.Int4) int32 {
+	if !i.Valid {
+		return 0
+	}
+	return i.Int32
 }

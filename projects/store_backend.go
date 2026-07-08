@@ -24,10 +24,10 @@ type projectBackend interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 
 	ListTasks(ctx context.Context, projectId uuid.UUID) ([]*Task, error)
-	GetTask(ctx context.Context, taskId uuid.UUID) (*Task, error)
+	GetTask(ctx context.Context, taskId string) (*Task, error)
 	InsertTask(ctx context.Context, task *Task) (*Task, error)
 	UpdateTask(ctx context.Context, task *Task) error
-	DeleteTask(ctx context.Context, taskId uuid.UUID) error
+	DeleteTask(ctx context.Context, taskId string) error
 
 	ListTaskStatuses(ctx context.Context, projectId uuid.UUID) ([]*TaskStatus, error)
 	GetTaskStatus(ctx context.Context, projectId uuid.UUID, statusName string) (*TaskStatus, error)
@@ -35,7 +35,7 @@ type projectBackend interface {
 	UpdateTaskStatus(ctx context.Context, status *TaskStatus) error
 	DeleteTaskStatus(ctx context.Context, projectId uuid.UUID, statusName string) error
 
-	ListTaskHistory(ctx context.Context, taskId uuid.UUID) ([]*TaskHistoryEntry, error)
+	ListTaskHistory(ctx context.Context, taskId string) ([]*TaskHistoryEntry, error)
 	InsertTaskHistoryEntry(ctx context.Context, entry *TaskHistoryEntry) error
 }
 
@@ -211,8 +211,8 @@ func (b *postgresProjectBackend) ListTasks(ctx context.Context, projectID uuid.U
 	return b.converter.FromDbTaskRows(rows), nil
 }
 
-func (b *postgresProjectBackend) GetTask(ctx context.Context, taskId uuid.UUID) (*Task, error) {
-	row, err := b.queries.GetTaskById(ctx, taskId.String())
+func (b *postgresProjectBackend) GetTask(ctx context.Context, taskId string) (*Task, error) {
+	row, err := b.queries.GetTaskById(ctx, taskId)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, ErrTaskNotFound
@@ -225,7 +225,7 @@ func (b *postgresProjectBackend) GetTask(ctx context.Context, taskId uuid.UUID) 
 
 func (b *postgresProjectBackend) InsertTask(ctx context.Context, task *Task) (*Task, error) {
 	params := dbgen.InsertTaskParams{
-		ID:          uuid.New().String(),
+		ID:          task.Id,
 		ProjectID:   task.ProjectId.String(),
 		StatusName:  task.Status.Name,
 		Title:       task.Title,
@@ -244,15 +244,10 @@ func (b *postgresProjectBackend) InsertTask(ctx context.Context, task *Task) (*T
 	}
 
 	if task.ParentTask != nil {
-		params.ParentTaskID = utils.ToPgText(task.ParentTask.Id.String())
+		params.ParentTaskID = utils.ToPgText(task.ParentTask.Id)
 	}
 
-	newTaskId, err := b.queries.InsertTask(ctx, params)
-	if err != nil {
-		return nil, err
-	}
-
-	task.Id, err = uuid.Parse(newTaskId)
+	_, err := b.queries.InsertTask(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -262,7 +257,7 @@ func (b *postgresProjectBackend) InsertTask(ctx context.Context, task *Task) (*T
 
 func (b *postgresProjectBackend) UpdateTask(ctx context.Context, task *Task) error {
 	params := dbgen.UpdateTaskParams{
-		ID:          task.Id.String(),
+		ID:          task.Id,
 		StatusName:  task.Status.Name,
 		Title:       task.Title,
 		Description: task.Description,
@@ -280,18 +275,18 @@ func (b *postgresProjectBackend) UpdateTask(ctx context.Context, task *Task) err
 	}
 
 	if task.ParentTask != nil {
-		params.ParentTaskID = utils.ToPgText(task.ParentTask.Id.String())
+		params.ParentTaskID = utils.ToPgText(task.ParentTask.Id)
 	}
 
 	return b.queries.UpdateTask(ctx, params)
 }
 
-func (b *postgresProjectBackend) DeleteTask(ctx context.Context, taskId uuid.UUID) error {
-	return b.queries.DeleteTask(ctx, taskId.String())
+func (b *postgresProjectBackend) DeleteTask(ctx context.Context, taskId string) error {
+	return b.queries.DeleteTask(ctx, taskId)
 }
 
-func (b *postgresProjectBackend) ListTaskHistory(ctx context.Context, taskID uuid.UUID) ([]*TaskHistoryEntry, error) {
-	rows, err := b.queries.ListTaskHistory(ctx, taskID.String())
+func (b *postgresProjectBackend) ListTaskHistory(ctx context.Context, taskID string) ([]*TaskHistoryEntry, error) {
+	rows, err := b.queries.ListTaskHistory(ctx, taskID)
 	if err != nil {
 		return nil, err
 	}
@@ -322,7 +317,7 @@ func (b *postgresProjectBackend) InsertTaskHistoryEntry(ctx context.Context, ent
 	}
 
 	params := dbgen.InsertTaskHistoryParams{
-		TaskID:        entry.Task.Id.String(),
+		TaskID:        entry.Task.Id,
 		Action:        entry.Action,
 		PerformedByID: utils.ToPgText(entry.Member.Id),
 		PerformedAt:   utils.ToPgTimestamptz(entry.PerformedAt),

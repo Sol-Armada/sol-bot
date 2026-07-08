@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -39,7 +40,7 @@ type TaskStatus struct {
 }
 
 type Task struct {
-	Id          uuid.UUID       `json:"id"`
+	Id          string          `json:"id"`
 	ProjectId   uuid.UUID       `json:"projectId"`
 	Title       string          `json:"title"`
 	Description string          `json:"description"`
@@ -120,7 +121,7 @@ func ListTasks(ctx context.Context, projectId uuid.UUID) ([]*Task, error) {
 	return projectStore.ListTasks(ctx, projectId)
 }
 
-func GetTask(ctx context.Context, taskId uuid.UUID) (*Task, error) {
+func GetTask(ctx context.Context, taskId string) (*Task, error) {
 	return projectStore.GetTask(ctx, taskId)
 }
 
@@ -231,7 +232,7 @@ func UpdateTask(ctx context.Context, before, after *Task, member *members.Member
 	})
 }
 
-func DeleteTask(ctx context.Context, taskId uuid.UUID) error {
+func DeleteTask(ctx context.Context, taskId string) error {
 	return projectStore.DeleteTask(ctx, taskId)
 }
 
@@ -255,4 +256,23 @@ func (t *Task) Equals(other *Task) bool {
 
 func (t *Task) Delete(ctx context.Context, member *members.Member) error {
 	return projectStore.DeleteTask(ctx, t.Id)
+}
+
+func (t *Task) generateId(projectTitle string, taskCount int32) string {
+	projectNameSplit := strings.Split(projectTitle, " ")
+	if len(projectNameSplit) == 0 {
+		return ""
+	}
+
+	var projectNameInitials string
+	for _, word := range projectNameSplit {
+		if len(word) > 0 {
+			projectNameInitials += strings.ToUpper(string(word[0]))
+		}
+	}
+	if len(projectNameInitials) == 1 {
+		projectNameInitials += strings.ToUpper(strings.Join(projectNameSplit[:1], ""))
+	}
+
+	return projectNameInitials + "-" + fmt.Sprintf("%d", taskCount+1)
 }

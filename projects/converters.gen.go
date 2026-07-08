@@ -19,6 +19,7 @@ func (c *ConverterImpl) FromDbProjectRow(source dbgen.Project) *Project {
 	projectsProject.Status = toStatus(source.StatusID)
 	projectsProject.Owner = toMember(source.OwnerID)
 	projectsProject.DueAt = c.pgtypeTimestamptzToPTimeTime(source.DueAt)
+	projectsProject.TaskCount = PgTypeInt4ToInt32(source.TaskCount)
 	projectsProject.CreatedAt = PgTypeTimestamptzToTime(source.CreatedAt)
 	projectsProject.UpdatedAt = PgTypeTimestamptzToTime(source.UpdatedAt)
 	return &projectsProject
@@ -55,7 +56,7 @@ func (c *ConverterImpl) FromDbTaskHistoryEntryRows(source []dbgen.TaskHistory) [
 }
 func (c *ConverterImpl) FromDbTaskRow(source dbgen.Task) *Task {
 	var projectsTask Task
-	projectsTask.Id = stringToUUID(source.ID)
+	projectsTask.Id = source.ID
 	projectsTask.ProjectId = stringToUUID(source.ProjectID)
 	projectsTask.Title = source.Title
 	projectsTask.Description = source.Description

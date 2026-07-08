@@ -44,7 +44,7 @@ func (q *Queries) DeleteTaskStatus(ctx context.Context, arg DeleteTaskStatusPara
 }
 
 const getProjectById = `-- name: GetProjectById :one
-SELECT id, name, description, owner_id, status_id, due_at, created_at, updated_at FROM projects WHERE id = $1
+SELECT id, name, description, owner_id, status_id, due_at, created_at, updated_at, task_count FROM projects WHERE id = $1
 `
 
 func (q *Queries) GetProjectById(ctx context.Context, id string) (Project, error) {
@@ -59,6 +59,7 @@ func (q *Queries) GetProjectById(ctx context.Context, id string) (Project, error
 		&i.DueAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TaskCount,
 	)
 	return i, err
 }
@@ -289,7 +290,7 @@ func (q *Queries) ListProjectStatuses(ctx context.Context) ([]ProjectStatus, err
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, name, description, owner_id, status_id, due_at, created_at, updated_at FROM projects ORDER BY created_at DESC
+SELECT id, name, description, owner_id, status_id, due_at, created_at, updated_at, task_count FROM projects ORDER BY created_at DESC
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
@@ -310,6 +311,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]Project, error) {
 			&i.DueAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TaskCount,
 		); err != nil {
 			return nil, err
 		}

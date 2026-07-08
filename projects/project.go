@@ -2,6 +2,7 @@ package projects
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -43,6 +44,7 @@ type Project struct {
 	Status      Status          `json:"status"`
 	Owner       *members.Member `json:"owner"`
 	DueAt       *time.Time      `json:"dueAt"`
+	TaskCount   int32           `json:"taskCount"`
 	CreatedAt   time.Time       `json:"createdAt"`
 	UpdatedAt   time.Time       `json:"updatedAt"`
 
@@ -117,11 +119,18 @@ func DeleteProject(ctx context.Context, id uuid.UUID) error {
 }
 
 func (p *Project) AddTask(ctx context.Context, task *Task) error {
+	taskId := task.generateId(p.Name, p.TaskCount)
+	if taskId == "" {
+		return fmt.Errorf("failed to generate task ID")
+	}
+
+	task.Id = taskId
+
 	_, err := projectStore.InsertTask(ctx, task)
 	return err
 }
 
-func (p *Project) DeleteTask(ctx context.Context, taskId uuid.UUID) error {
+func (p *Project) DeleteTask(ctx context.Context, taskId string) error {
 	return projectStore.DeleteTask(ctx, taskId)
 }
 
