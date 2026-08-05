@@ -104,7 +104,10 @@ func (b *Bot) handleAttendanceUpdate(event dbnotify.Event) error {
 }
 
 func (b *Bot) handleAttendanceDelete(event dbnotify.Event) error {
-	id := event.PrimaryKey["id"].(string)
+	id, ok := event.PrimaryKey["id"].(string)
+	if !ok {
+		return errors.New("attendance record missing primary key")
+	}
 	a, err := attendance.Get(id)
 	if err != nil {
 		return err
